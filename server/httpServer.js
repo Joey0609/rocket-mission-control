@@ -126,6 +126,101 @@ function normalizeObservations(items) {
   });
 }
 
+function clampPercent(value, fallback = -1) {
+  const v = toInt(value, fallback);
+  if (v < 0) {
+    return -1;
+  }
+  if (v > 100) {
+    return 100;
+  }
+  return v;
+}
+
+function normalizeFuelSpec(item) {
+  return {
+    phase: String(item?.phase || "液体"),
+    oxidizer: String(item?.oxidizer || ""),
+    fuel: String(item?.fuel || ""),
+  };
+}
+
+function normalizeRocketMeta(raw) {
+  const recoveryCapable = raw?.recovery_capable !== false;
+  const stageCount = Math.max(1, toInt(raw?.stage_count, 1));
+
+  const stageDefaults = Array.from({ length: stageCount }, (_, i) => ({
+    stage_index: i + 1,
+    fuels: [normalizeFuelSpec({ phase: "液体", oxidizer: "液氧", fuel: "煤油" })],
+  }));
+
+  const stages = Array.isArray(raw?.stages)
+    ? raw.stages.map((item, index) => ({
+      stage_index: Math.max(1, toInt(item?.stage_index, index + 1)),
+      fuels: Array.isArray(item?.fuels) && item.fuels.length > 0
+        ? item.fuels.map(normalizeFuelSpec)
+        : [normalizeFuelSpec({ phase: "液体", oxidizer: "液氧", fuel: "煤油" })],
+    }))
+    : stageDefaults;
+
+  return {
+    recovery_capable: recoveryCapable,
+    recovery_enabled: recoveryCapable ? raw?.recovery_enabled !== false : false,
+    stage_count: Math.max(stageCount, stages.length),
+    stages,
+    boosters: {
+      enabled: Boolean(raw?.boosters?.enabled),
+      count: Math.max(0, toInt(raw?.boosters?.count, 0)),
+      fuels: Array.isArray(raw?.boosters?.fuels)
+        ? raw.boosters.fuels.map(normalizeFuelSpec)
+        : [],
+    },
+  };
+}
+
+function normalizeFuelEditor(raw) {
+  const nodeValues = {};
+  const sourceNodeValues = raw?.node_values && typeof raw.node_values === "object" ? raw.node_values : {};
+  for (const [nodeKey, channelMap] of Object.entries(sourceNodeValues)) {
+    if (!channelMap || typeof channelMap !== "object") {
+      continue;
+    }
+    nodeValues[nodeKey] = {};
+    for (const [channelId, value] of Object.entries(channelMap)) {
+      nodeValues[nodeKey][channelId] = clampPercent(value, -1);
+    }
+  }
+
+  const curves = {};
+  const sourceCurves = raw?.curves && typeof raw.curves === "object" ? raw.curves : {};
+  for (const [channelId, points] of Object.entries(sourceCurves)) {
+    if (!Array.isArray(points)) {
+      continue;
+    }
+    curves[channelId] = points.map((p) => ({
+      time: toInt(p?.time, 0),
+      value: Math.max(0, Math.min(100, toInt(p?.value, 0))),
+    })).sort((a, b) => a.time - b.time);
+  }
+
+  return {
+    version: 1,
+    node_values: nodeValues,
+    curves,
+  };
+}
+
+function normalizeEngineLayout(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { version: 1, reserved: true };
+  }
+  return {
+    version: 1,
+    reserved: true,
+    ...raw,
+  };
+}
+
 function normalizeModel(raw) {
   const modelName = String(raw?.name || "未命名型号").trim() || "未命名型号";
   const stages = normalizeStages(raw?.stages || []);
@@ -137,6 +232,9 @@ function normalizeModel(raw) {
     stages,
     events,
     observation_points,
+    rocket_meta: normalizeRocketMeta(raw?.rocket_meta || {}),
+    fuel_editor: normalizeFuelEditor(raw?.fuel_editor || {}),
+    engine_layout: normalizeEngineLayout(raw?.engine_layout || {}),
   };
 }
 
@@ -426,12 +524,6 @@ class MissionEngine {
       this.launchEpoch = now - targetMissionTime * 1000;
     }
 
-    this.runtimeCountdowns.push({
-      id: newId("rt"),
-      name: point.name,
-      duration: Math.max(0, -targetMissionTime),
-      startedAt: now,
-    });
     this.observationLog.push({
       type: "observation",
       point: point.name,
@@ -522,6 +614,9 @@ class MissionEngine {
     for (const evt of model.events) {
       nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description });
     }
+    for (const obs of model.observation_points || []) {
+      nodes.push({ id: obs.id, kind: "observation", name: obs.name, time: toInt(obs.time, 0), description: obs.description || "" });
+    }
     nodes.sort((a, b) => a.time - b.time);
 
     const upcoming = nodes
@@ -597,21 +692,7 @@ class MissionEngine {
       ? (missionTime >= 0 ? this.fmtPlus(missionTime) : this.fmtMinus(Math.abs(missionTime)))
       : "T-00:00";
 
-    const activeCountdowns = this.runtimeCountdowns
-      .map((c) => {
-        const remainMs = Math.max(0, Math.floor(c.duration * 1000 - (now - c.startedAt)));
-        const remain = Math.floor(remainMs / 1000);
-        return {
-          id: c.id,
-          name: c.name,
-          remaining_ms: remainMs,
-          seconds: remain,
-          formatted: this.fmtMinus(remain),
-        };
-      })
-      .filter((c) => c.remaining_ms > 0);
-
-    this.runtimeCountdowns = this.runtimeCountdowns.filter((c) => (c.duration - (now - c.startedAt) / 1000) > 0);
+    const activeCountdowns = [];
 
     return {
       version: 2,
@@ -638,6 +719,7 @@ class MissionEngine {
       next_description: timeline.description,
       active_countdowns: activeCountdowns,
       observation_points: model?.observation_points || [],
+      rocket_meta: model?.rocket_meta || null,
       observation_log: this.observationLog.slice(-100),
       focus_nodes: timeline.focusNodes,
       timeline_nodes: timeline.timelineNodes || [],

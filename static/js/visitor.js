@@ -6,55 +6,84 @@ const nodes = {
   currentStage: document.getElementById("currentStage"),
   currentEvent: document.getElementById("currentEvent"),
   nextDescription: document.getElementById("nextDescription"),
-  runtimeCountdowns: document.getElementById("runtimeCountdowns"),
   focusNodes: document.getElementById("focusNodes"),
   missionCard: document.getElementById("missionCard"),
-  themeSelect: document.getElementById("visitorThemeSelect"),
+
+  openThemeModalBtn: document.getElementById("openThemeModalBtn"),
+  themeModal: document.getElementById("themeModal"),
+  themeBackdrop: document.getElementById("themeBackdrop"),
+  themeGrid: document.getElementById("themeGrid"),
+  applyThemeBtn: document.getElementById("applyThemeBtn"),
+  cancelThemeBtn: document.getElementById("cancelThemeBtn"),
 };
 
 const CLOCK_TICK_MS = 20;
 const AXIS_BEFORE_SEC = 120;
 const AXIS_AFTER_SEC = 240;
 const AXIS_STEP_SEC = 30;
+const TIME_JUMP_SMOOTH_MS = 1000;
 
-let missionAnchor = {
+let serverAnchor = {
   ms: 0,
   anchorPerf: performance.now(),
   running: false,
 };
 
+let displaySmooth = {
+  active: false,
+  offsetMs: 0,
+  startPerf: 0,
+};
+
 let timelineNodes = [];
+let timelineSignature = "";
 let axisNodeViews = [];
 let axisRefs = null;
-const runtimeAnchors = new Map();
+let axisGridBucket = null;
+
 let adminDefaultThemeId = window.MissionThemes.defaultId;
 let currentThemeId = adminDefaultThemeId;
+let themeModalDraftId = currentThemeId;
+let themeModalOriginId = currentThemeId;
+
+function toast(message, type = "info") {
+  if (typeof window.notify === "function") {
+    window.notify(message, type);
+  }
+}
 
 function queryParam(name) {
   const url = new URL(window.location.href);
   return url.searchParams.get(name);
 }
 
-function applyTheme(themeId, syncSelect = true) {
-  currentThemeId = window.MissionThemes.apply(themeId);
-  if (syncSelect && nodes.themeSelect) {
-    nodes.themeSelect.value = currentThemeId;
+function setTextIfChanged(element, text) {
+  if (!element) {
+    return;
+  }
+  if (element.dataset.lastText !== text) {
+    element.textContent = text;
+    element.dataset.lastText = text;
   }
 }
 
-function populateThemeSelector() {
-  if (!nodes.themeSelect) {
-    return;
-  }
-  nodes.themeSelect.innerHTML = window.MissionThemes
-    .list()
-    .map((item) => `<option value="${item.id}">${item.name}</option>`)
-    .join("");
+function applyTheme(themeId) {
+  currentThemeId = window.MissionThemes.apply(themeId);
+  const themeMeta = window.MissionThemes.get(currentThemeId);
+  setTextIfChanged(nodes.openThemeModalBtn, `主题: ${themeMeta.name}`);
+}
+
+function getThemePreviewColors(theme) {
+  const values = Object.values(theme?.vars || {});
+  const first = values[0] || theme?.vars?.["--bg-1"] || "#243141";
+  const second = values[1] || theme?.vars?.["--bg-2"] || first;
+  return [first, second];
 }
 
 async function loadDefaultTheme() {
   const themeFromQuery = queryParam("theme");
   if (themeFromQuery) {
+    adminDefaultThemeId = themeFromQuery;
     applyTheme(themeFromQuery);
     return;
   }
@@ -69,8 +98,58 @@ async function loadDefaultTheme() {
   applyTheme(adminDefaultThemeId);
 }
 
+function renderThemeCards() {
+  const items = window.MissionThemes.list();
+  nodes.themeGrid.innerHTML = "";
+
+  for (const item of items) {
+    const card = document.createElement("article");
+    card.className = "theme-card";
+    card.classList.toggle("active", item.id === themeModalDraftId);
+    card.dataset.themeId = item.id;
+
+    const title = document.createElement("span");
+    title.className = "name";
+    title.textContent = item.name;
+    card.appendChild(title);
+
+    const [c1, c2] = getThemePreviewColors(item);
+    const preview = document.createElement("div");
+    preview.className = "theme-preview-gradient";
+    preview.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+    card.appendChild(preview);
+
+    card.addEventListener("click", () => {
+      themeModalDraftId = item.id;
+      applyTheme(item.id);
+      renderThemeCards();
+    });
+
+    nodes.themeGrid.appendChild(card);
+  }
+}
+
+function openThemeModal() {
+  themeModalOriginId = currentThemeId;
+  themeModalDraftId = currentThemeId;
+  renderThemeCards();
+  nodes.themeModal.classList.remove("hidden");
+}
+
+function closeThemeModal(restoreOrigin, force = false) {
+  if (!force && themeModalDraftId !== themeModalOriginId) {
+    toast("还没保存", "error");
+    return false;
+  }
+  nodes.themeModal.classList.add("hidden");
+  if (restoreOrigin) {
+    applyTheme(themeModalOriginId);
+  }
+  return true;
+}
+
 function updateChannel(mode) {
-  nodes.channelMode.textContent = mode === "sse" ? "实时通道: SSE 推送" : "实时通道: 关键轮询兜底";
+  nodes.channelMode.textContent = mode === "sse" ? "实时通道: SSE 推送" : "实时通道: 重连中";
   nodes.channelMode.classList.toggle("poll", mode !== "sse");
 }
 
@@ -92,36 +171,56 @@ function formatSignedClock(msValue) {
   return `T${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
 }
 
-function formatCountdownClock(msValue) {
-  const absMs = Math.max(0, Math.trunc(msValue));
-  const totalSeconds = Math.floor(absMs / 1000);
-  const millis = absMs % 1000;
-
-  if (totalSeconds >= 3600) {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return `T-${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
-  }
-
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `T-${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
-}
-
-function setTextIfChanged(element, text) {
-  if (!element) {
-    return;
-  }
-  if (element.dataset.lastText !== text) {
-    element.textContent = text;
-    element.dataset.lastText = text;
-  }
-}
-
 function formatTimelineSec(secValue) {
   const sec = Math.trunc(secValue);
   return sec >= 0 ? `T+${sec}` : `T${sec}`;
+}
+
+function currentServerMissionMs(nowPerf) {
+  if (serverAnchor.running) {
+    return serverAnchor.ms + (nowPerf - serverAnchor.anchorPerf);
+  }
+  return serverAnchor.ms;
+}
+
+function getDisplayMissionMs(nowPerf) {
+  const target = currentServerMissionMs(nowPerf);
+
+  if (!displaySmooth.active) {
+    return target;
+  }
+
+  const elapsed = nowPerf - displaySmooth.startPerf;
+  if (elapsed >= TIME_JUMP_SMOOTH_MS) {
+    displaySmooth.active = false;
+    return target;
+  }
+
+  const remainRatio = 1 - (elapsed / TIME_JUMP_SMOOTH_MS);
+  return target - displaySmooth.offsetMs * remainRatio;
+}
+
+function maybeStartSmoothShift(previousDisplayMs, nextTargetMs, nowPerf) {
+  const delta = nextTargetMs - previousDisplayMs;
+  if (Math.abs(delta) < 800) {
+    displaySmooth.active = false;
+    return;
+  }
+
+  displaySmooth = {
+    active: true,
+    offsetMs: delta,
+    startPerf: nowPerf,
+  };
+}
+
+function timelineSig(nodesData) {
+  if (!Array.isArray(nodesData) || nodesData.length === 0) {
+    return "";
+  }
+  return nodesData
+    .map((item) => `${item.kind || "node"}|${item.id || ""}|${item.name || ""}|${Number(item.time || 0)}`)
+    .join(";");
 }
 
 function ensureAxisSkeleton() {
@@ -155,7 +254,8 @@ function rebuildAxisNodes() {
 
   timelineNodes.forEach((item) => {
     const marker = document.createElement("article");
-    marker.className = `axis-node ${item.kind === "stage" ? "stage" : "event"}`;
+    marker.className = `axis-node ${item.kind || "event"}`;
+    marker.style.transition = "left 60ms linear, opacity 220ms ease";
 
     const dot = document.createElement("span");
     dot.className = "dot";
@@ -172,7 +272,7 @@ function rebuildAxisNodes() {
     marker.appendChild(meta);
 
     refs.nodes.appendChild(marker);
-    axisNodeViews.push({ el: marker, time: Number(item.time || 0), label, meta });
+    axisNodeViews.push({ el: marker, time: Number(item.time || 0) });
   });
 }
 
@@ -189,7 +289,6 @@ function renderAxisGrid(missionSec) {
     if (percent < -2 || percent > 102) {
       continue;
     }
-
     const tick = document.createElement("div");
     tick.className = "axis-tick";
     tick.style.left = `${percent}%`;
@@ -198,109 +297,89 @@ function renderAxisGrid(missionSec) {
   }
 }
 
+function maybeRenderAxisGrid(missionSec) {
+  const bucket = Math.floor((missionSec - AXIS_BEFORE_SEC) / AXIS_STEP_SEC);
+  if (bucket === axisGridBucket) {
+    return;
+  }
+  axisGridBucket = bucket;
+  renderAxisGrid(missionSec);
+}
+
 function updateAxisPositions(missionSec) {
-  const refs = ensureAxisSkeleton();
+  if (!axisRefs || axisNodeViews.length === 0) {
+    return;
+  }
+
+  maybeRenderAxisGrid(missionSec);
+
   const start = missionSec - AXIS_BEFORE_SEC;
   const end = missionSec + AXIS_AFTER_SEC;
   const width = end - start;
-  refs.nowTag.textContent = `${formatTimelineSec(missionSec)} NOW`;
+  axisRefs.nowTag.textContent = `${formatTimelineSec(missionSec)} NOW`;
 
   axisNodeViews.forEach((item) => {
     const percent = ((item.time - start) / width) * 100;
-    const visible = percent >= -6 && percent <= 106;
+    const visible = percent >= -8 && percent <= 108;
     item.el.style.display = visible ? "grid" : "none";
     if (!visible) {
       return;
     }
-
     item.el.style.left = `${percent}%`;
     item.el.classList.toggle("past", item.time <= missionSec);
   });
 }
 
-function renderRuntimeCountdowns(items) {
-  const container = nodes.runtimeCountdowns;
-
-  if (!items || items.length === 0) {
-    runtimeAnchors.forEach((entry) => {
-      entry.card.remove();
-    });
-    runtimeAnchors.clear();
-    container.innerHTML = "<div class='runtime-card runtime-empty'><span class='name'>暂无触发</span><strong>等待观察点</strong></div>";
+function renderTimelineNodes(nodesData) {
+  const sig = timelineSig(nodesData);
+  if (sig === timelineSignature) {
     return;
   }
 
-  const empty = container.querySelector(".runtime-empty");
-  if (empty) {
-    empty.remove();
-  }
+  timelineSignature = sig;
+  timelineNodes = Array.isArray(nodesData)
+    ? nodesData
+      .slice()
+      .sort((a, b) => Number(a.time || 0) - Number(b.time || 0))
+      .map((item) => ({
+        id: item.id,
+        kind: item.kind || "event",
+        name: item.name || "未命名节点",
+        time: Number(item.time || 0),
+      }))
+    : [];
 
-  const nowPerf = performance.now();
-  const incoming = new Set();
-
-  items.forEach((item) => {
-    incoming.add(item.id);
-    let entry = runtimeAnchors.get(item.id);
-
-    if (!entry) {
-      const card = document.createElement("article");
-      card.className = "runtime-card";
-
-      const name = document.createElement("span");
-      name.className = "name";
-
-      const clock = document.createElement("strong");
-      clock.className = "clock";
-
-      card.appendChild(name);
-      card.appendChild(clock);
-      container.appendChild(card);
-
-      entry = { card, name, clock, ms: 0, anchorPerf: nowPerf };
-      runtimeAnchors.set(item.id, entry);
-    }
-
-    entry.name.textContent = item.name;
-    entry.ms = Number(item.remaining_ms ?? item.seconds * 1000 ?? 0);
-    entry.anchorPerf = nowPerf;
-    setTextIfChanged(entry.clock, formatCountdownClock(entry.ms));
-  });
-
-  runtimeAnchors.forEach((entry, id) => {
-    if (!incoming.has(id)) {
-      entry.card.remove();
-      runtimeAnchors.delete(id);
-    }
-  });
-}
-
-function renderFocusNodes(nodesData) {
-  timelineNodes = Array.isArray(nodesData) ? nodesData.slice().sort((a, b) => Number(a.time || 0) - Number(b.time || 0)) : [];
   if (timelineNodes.length === 0) {
     nodes.focusNodes.innerHTML = "<div class='focus-node'><div class='name'>当前型号无关键节点</div><div class='meta'>请在管理页配置阶段与事件</div></div>";
     axisRefs = null;
     axisNodeViews = [];
+    axisGridBucket = null;
     return;
   }
 
   ensureAxisSkeleton();
+  axisGridBucket = null;
   rebuildAxisNodes();
-  const missionSec = Math.trunc(missionAnchor.ms / 1000);
-  renderAxisGrid(missionSec);
-  updateAxisPositions(missionSec);
 }
 
 function renderState(state) {
   const model = state.current_model || "等待选择型号";
   nodes.modelName.textContent = model;
 
-  missionAnchor = {
+  const nowPerf = performance.now();
+  const previousDisplayMs = getDisplayMissionMs(nowPerf);
+
+  serverAnchor = {
     ms: Number(state.unified_countdown_ms ?? 0),
-    anchorPerf: performance.now(),
+    anchorPerf: nowPerf,
     running: Boolean(state.running) && !Boolean(state.is_hold),
   };
 
-  setTextIfChanged(nodes.missionClock, formatSignedClock(missionAnchor.ms));
+  const nextTargetMs = currentServerMissionMs(nowPerf);
+  maybeStartSmoothShift(previousDisplayMs, nextTargetMs, nowPerf);
+
+  const missionMs = getDisplayMissionMs(nowPerf);
+  setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
   nodes.currentStage.textContent = state.current_stage || "待命";
   nodes.currentEvent.textContent = state.current_event || "等待节点";
   nodes.nextDescription.textContent = state.next_description || "暂无说明";
@@ -316,41 +395,48 @@ function renderState(state) {
   nodes.statusLine.textContent = `${statusText} · ${state.now}`;
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
-  renderRuntimeCountdowns(state.active_countdowns || []);
-  renderFocusNodes(state.timeline_nodes || []);
+  renderTimelineNodes(state.timeline_nodes || []);
+  updateAxisPositions(missionMs / 1000);
 }
 
 function tickClocks() {
   const nowPerf = performance.now();
-  const missionMs = missionAnchor.running
-    ? missionAnchor.ms + (nowPerf - missionAnchor.anchorPerf)
-    : missionAnchor.ms;
+  const missionMs = getDisplayMissionMs(nowPerf);
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
+  updateAxisPositions(missionMs / 1000);
+}
 
-  const missionSec = missionMs / 1000;
-  if (axisNodeViews.length > 0 && axisRefs) {
-    updateAxisPositions(missionSec);
-  }
+function bindThemeModal() {
+  nodes.openThemeModalBtn.addEventListener("click", openThemeModal);
+  nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(true, false));
+  nodes.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, true));
+  nodes.applyThemeBtn.addEventListener("click", () => {
+    closeThemeModal(false, true);
+    toast("主题已应用（本次访问有效）", "success");
+  });
 
-  runtimeAnchors.forEach((entry) => {
-    const remainMs = Math.max(0, entry.ms - (nowPerf - entry.anchorPerf));
-    setTextIfChanged(entry.clock, formatCountdownClock(remainMs));
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+    if (nodes.themeModal.classList.contains("hidden")) {
+      return;
+    }
+    if (themeModalDraftId !== themeModalOriginId) {
+      toast("还没保存", "error");
+    }
+    if (closeThemeModal(true, true)) {
+      event.preventDefault();
+    }
   });
 }
 
 async function init() {
-  populateThemeSelector();
   await loadDefaultTheme();
-
-  if (nodes.themeSelect) {
-    nodes.themeSelect.addEventListener("change", () => {
-      applyTheme(nodes.themeSelect.value);
-    });
-  }
+  bindThemeModal();
 
   const channel = new LiveChannel({
     streamUrl: "/api/stream",
-    stateUrl: "/api/state",
     onState: renderState,
     onModeChange: updateChannel,
   });
@@ -359,4 +445,4 @@ async function init() {
   window.setInterval(tickClocks, CLOCK_TICK_MS);
 }
 
-init();
+init().catch((error) => toast(error.message, "error"));

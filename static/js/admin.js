@@ -7,24 +7,35 @@ const dom = {
   modelSelect: document.getElementById("modelSelect"),
   refreshModelsBtn: document.getElementById("refreshModelsBtn"),
   openConfigEditorBtn: document.getElementById("openConfigEditorBtn"),
+  openFuelEditorBtn: document.getElementById("openFuelEditorBtn"),
+  openEngineLayoutBtn: document.getElementById("openEngineLayoutBtn"),
   launchAt: document.getElementById("launchAt"),
   holdBtn: document.getElementById("holdBtn"),
   observationButtons: document.getElementById("observationButtons"),
-  focusNodes: document.getElementById("focusNodes"),
-  themeSelect: document.getElementById("themeSelect"),
+
+  openThemeModalBtn: document.getElementById("openThemeModalBtn"),
+  themeModal: document.getElementById("themeModal"),
+  themeBackdrop: document.getElementById("themeBackdrop"),
+  themeGrid: document.getElementById("themeGrid"),
+  applyThemeBtn: document.getElementById("applyThemeBtn"),
+  cancelThemeBtn: document.getElementById("cancelThemeBtn"),
   saveDefaultThemeBtn: document.getElementById("saveDefaultThemeBtn"),
+
   copyVisitorUrlBtn: document.getElementById("copyVisitorUrlBtn"),
   showVisitorQrBtn: document.getElementById("showVisitorQrBtn"),
   reloadPreviewBtn: document.getElementById("reloadPreviewBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
-  clearLogBtn: document.getElementById("clearLogBtn"),
-  runtimeLog: document.getElementById("runtimeLog"),
   previewFrame: document.querySelector(".preview-frame"),
+
   qrModal: document.getElementById("qrModal"),
   qrBackdrop: document.getElementById("qrBackdrop"),
   visitorQrImage: document.getElementById("visitorQrImage"),
   visitorQrText: document.getElementById("visitorQrText"),
   closeQrBtn: document.getElementById("closeQrBtn"),
+
+  recoverToggle: document.getElementById("recoverToggle"),
+  recoverSwitchWrap: document.getElementById("recoverSwitchWrap"),
+
   configModal: document.getElementById("configModal"),
   configBackdrop: document.getElementById("configBackdrop"),
   configModalTitle: document.getElementById("configModalTitle"),
@@ -38,28 +49,59 @@ const dom = {
   closeConfigModalBtn: document.getElementById("closeConfigModalBtn"),
   visualList: document.getElementById("visualList"),
   addVisualItemBtn: document.getElementById("addVisualItemBtn"),
+  recoverableConfigToggle: document.getElementById("recoverableConfigToggle"),
+  openPropellantProfileBtn: document.getElementById("openPropellantProfileBtn"),
+
+  propellantModal: document.getElementById("propellantModal"),
+  propellantBackdrop: document.getElementById("propellantBackdrop"),
+  rocketStageCountInput: document.getElementById("rocketStageCountInput"),
+  boosterEnabledInput: document.getElementById("boosterEnabledInput"),
+  boosterCountInput: document.getElementById("boosterCountInput"),
+  propellantStageList: document.getElementById("propellantStageList"),
+  closePropellantModalBtn: document.getElementById("closePropellantModalBtn"),
+  savePropellantModalBtn: document.getElementById("savePropellantModalBtn"),
+
+  fuelModal: document.getElementById("fuelModal"),
+  fuelBackdrop: document.getElementById("fuelBackdrop"),
+  fuelTabListBtn: document.getElementById("fuelTabListBtn"),
+  fuelTabCurveBtn: document.getElementById("fuelTabCurveBtn"),
+  fuelListPane: document.getElementById("fuelListPane"),
+  fuelCurvePane: document.getElementById("fuelCurvePane"),
+  fuelTable: document.getElementById("fuelTable"),
+  fuelCurveChannelSelect: document.getElementById("fuelCurveChannelSelect"),
+  fuelCurveCanvas: document.getElementById("fuelCurveCanvas"),
+  closeFuelModalBtn: document.getElementById("closeFuelModalBtn"),
+  saveFuelModalBtn: document.getElementById("saveFuelModalBtn"),
+
+  engineLayoutModal: document.getElementById("engineLayoutModal"),
+  engineLayoutBackdrop: document.getElementById("engineLayoutBackdrop"),
+  closeEngineLayoutBtn: document.getElementById("closeEngineLayoutBtn"),
 };
 
 const CLOCK_TICK_MS = 20;
 
 let modelsCache = {};
 let lastState = null;
-let uiLogs = [];
 let launchApplyTimer = null;
 let pendingModelName = "";
 let selectingModel = false;
 let launchInputDirtyUntil = 0;
+let observationButtonsSig = "";
 
-let currentThemeId = window.MissionThemes?.defaultId || "aurora";
+let currentThemeId = window.MissionThemes.defaultId;
 let defaultThemeId = currentThemeId;
+let themeModalDraftId = currentThemeId;
+let themeModalOriginId = currentThemeId;
 
 let configDraft = null;
 let configDraftValid = false;
+let configDraftDirty = false;
 let configTab = "visual";
-
 let visualRows = [];
 let visualUndoStack = [];
 let visualSortTimer = null;
+let updatingRecoverToggle = false;
+let propellantDirty = false;
 
 let missionAnchor = {
   ms: 0,
@@ -67,8 +109,39 @@ let missionAnchor = {
   running: false,
 };
 
-function notify(message) {
-  window.alert(message);
+let fuelEditDraft = null;
+let fuelEditSource = "";
+let fuelEditModelName = "";
+let fuelTab = "list";
+let fuelNodes = [];
+let fuelChannels = [];
+let curveDragState = null;
+let fuelDirty = false;
+
+function toast(message, type = "info") {
+  if (typeof window.notify === "function") {
+    window.notify(message, type);
+  }
+}
+
+function toInt(value, fallback = 0) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function clampPercent(value, fallback = -1) {
+  const parsed = toInt(value, fallback);
+  if (parsed < 0) {
+    return -1;
+  }
+  if (parsed > 100) {
+    return 100;
+  }
+  return parsed;
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function redirectToLogin() {
@@ -82,13 +155,6 @@ async function adminFetch(url, options = {}) {
     throw new Error("未登录或会话已过期");
   }
   return response;
-}
-
-function appendLog(message) {
-  const line = `${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · ${message}`;
-  uiLogs.unshift(line);
-  uiLogs = uiLogs.slice(0, 150);
-  dom.runtimeLog.innerHTML = uiLogs.map((item) => `<li>${item}</li>`).join("");
 }
 
 function setTextIfChanged(element, text) {
@@ -112,15 +178,6 @@ function launchAtToDate() {
   }
   const d = new Date(dom.launchAt.value);
   return Number.isFinite(d.getTime()) ? d : null;
-}
-
-function toInt(value, fallback = 0) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function newRowKey() {
-  return `row_${Math.random().toString(16).slice(2, 10)}_${Date.now()}`;
 }
 
 function formatSignedClock(msValue) {
@@ -148,21 +205,66 @@ function tickMissionClock() {
 }
 
 function setChannelMode(mode) {
-  dom.channelMode.textContent = mode === "sse" ? "实时通道: SSE 推送" : "实时通道: 关键轮询兜底";
+  dom.channelMode.textContent = mode === "sse" ? "实时通道: SSE 推送" : "实时通道: 重连中";
   dom.channelMode.classList.toggle("poll", mode !== "sse");
 }
 
-function populateThemeSelector() {
-  const items = window.MissionThemes.list();
-  dom.themeSelect.innerHTML = items.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+function getThemePreviewColors(theme) {
+  const values = Object.values(theme?.vars || {});
+  const first = values[0] || theme?.vars?.["--bg-1"] || "#243141";
+  const second = values[1] || theme?.vars?.["--bg-2"] || first;
+  return [first, second];
 }
 
-function applyTheme(themeId, syncSelector = true) {
-  currentThemeId = window.MissionThemes.apply(themeId);
-  if (syncSelector) {
-    dom.themeSelect.value = currentThemeId;
+function isModalVisible(element) {
+  return Boolean(element) && !element.classList.contains("hidden");
+}
+
+function isThemeUnsaved() {
+  return themeModalDraftId !== themeModalOriginId;
+}
+
+function handleEscapeClose() {
+  if (isModalVisible(dom.engineLayoutModal)) {
+    closeEngineLayoutModal();
+    return true;
   }
-  if (dom.previewFrame) {
+  if (isModalVisible(dom.fuelModal)) {
+    if (fuelDirty) {
+      toast("还没保存", "error");
+    }
+    return closeFuelModal(true);
+  }
+  if (isModalVisible(dom.propellantModal)) {
+    if (propellantDirty) {
+      toast("还没保存", "error");
+    }
+    return closePropellantModal(true);
+  }
+  if (isModalVisible(dom.configModal)) {
+    if (configDraftDirty) {
+      toast("还没保存", "error");
+    }
+    return closeConfigModal(true);
+  }
+  if (isModalVisible(dom.themeModal)) {
+    if (isThemeUnsaved()) {
+      toast("还没保存", "error");
+    }
+    return closeThemeModal(true, true);
+  }
+  if (isModalVisible(dom.qrModal)) {
+    closeQrModal();
+    return true;
+  }
+  return false;
+}
+
+function applyTheme(themeId, refreshPreview = true) {
+  currentThemeId = window.MissionThemes.apply(themeId);
+  const themeMeta = window.MissionThemes.get(currentThemeId);
+  setTextIfChanged(dom.openThemeModalBtn, `主题: ${themeMeta.name}`);
+  if (refreshPreview && dom.previewFrame) {
     dom.previewFrame.src = `/visitor?embed=1&theme=${encodeURIComponent(currentThemeId)}&t=${Date.now()}`;
   }
 }
@@ -177,20 +279,69 @@ async function loadAdminSettings() {
   applyTheme(defaultThemeId);
 }
 
+function renderThemeCards() {
+  const items = window.MissionThemes.list();
+  dom.themeGrid.innerHTML = "";
+
+  for (const item of items) {
+    const card = document.createElement("article");
+    card.className = "theme-card";
+    card.classList.toggle("active", item.id === themeModalDraftId);
+    card.dataset.themeId = item.id;
+
+    const title = document.createElement("span");
+    title.className = "name";
+    title.textContent = item.name;
+    card.appendChild(title);
+
+    const [c1, c2] = getThemePreviewColors(item);
+    const preview = document.createElement("div");
+    preview.className = "theme-preview-gradient";
+    preview.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+    card.appendChild(preview);
+
+    card.addEventListener("click", () => {
+      themeModalDraftId = item.id;
+      applyTheme(item.id, true);
+      renderThemeCards();
+    });
+
+    dom.themeGrid.appendChild(card);
+  }
+}
+
+function openThemeModal() {
+  themeModalOriginId = currentThemeId;
+  themeModalDraftId = currentThemeId;
+  renderThemeCards();
+  dom.themeModal.classList.remove("hidden");
+}
+
+function closeThemeModal(restoreOrigin, force = false) {
+  if (!force && isThemeUnsaved()) {
+    toast("还没保存", "error");
+    return false;
+  }
+  dom.themeModal.classList.add("hidden");
+  if (restoreOrigin) {
+    applyTheme(themeModalOriginId, true);
+  }
+  return true;
+}
+
 async function saveDefaultTheme() {
-  const themeId = String(dom.themeSelect.value || currentThemeId || window.MissionThemes.defaultId);
   const res = await adminFetch("/api/admin/settings/theme", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ theme_id: themeId }),
+    body: JSON.stringify({ theme_id: currentThemeId }),
   });
   const data = await res.json();
   if (!data.success) {
-    notify(data.message || "保存默认主题失败");
+    toast(data.message || "保存默认主题失败", "error");
     return;
   }
-  defaultThemeId = data.settings?.default_theme || themeId;
-  appendLog(`默认主题已更新: ${defaultThemeId}`);
+  defaultThemeId = data.settings?.default_theme || currentThemeId;
+  toast("默认主题已保存", "success");
 }
 
 async function getVisitorUrl() {
@@ -215,6 +366,14 @@ async function openQrModal() {
 
 function closeQrModal() {
   dom.qrModal.classList.add("hidden");
+}
+
+function normalizeFuelSpec(item) {
+  return {
+    phase: String(item?.phase || "液体"),
+    oxidizer: String(item?.oxidizer || ""),
+    fuel: String(item?.fuel || ""),
+  };
 }
 
 function normalizeDraft(payload, selectedModelName) {
@@ -252,12 +411,60 @@ function normalizeDraft(payload, selectedModelName) {
     })
     : [];
 
+  const rocketMeta = payload?.rocket_meta && typeof payload.rocket_meta === "object"
+    ? {
+      recovery_capable: payload.rocket_meta.recovery_capable !== false,
+      recovery_enabled: payload.rocket_meta.recovery_capable === false ? false : payload.rocket_meta.recovery_enabled !== false,
+      stage_count: Math.max(1, toInt(payload.rocket_meta.stage_count, 1)),
+      stages: Array.isArray(payload.rocket_meta.stages)
+        ? payload.rocket_meta.stages.map((stage, idx) => ({
+          stage_index: Math.max(1, toInt(stage.stage_index, idx + 1)),
+          fuels: Array.isArray(stage.fuels) && stage.fuels.length > 0
+            ? stage.fuels.map(normalizeFuelSpec)
+            : [normalizeFuelSpec({})],
+        }))
+        : [{ stage_index: 1, fuels: [normalizeFuelSpec({})] }],
+      boosters: {
+        enabled: Boolean(payload.rocket_meta.boosters?.enabled),
+        count: Math.max(0, toInt(payload.rocket_meta.boosters?.count, 0)),
+        fuels: Array.isArray(payload.rocket_meta.boosters?.fuels)
+          ? payload.rocket_meta.boosters.fuels.map(normalizeFuelSpec)
+          : [],
+      },
+    }
+    : {
+      recovery_capable: true,
+      recovery_enabled: true,
+      stage_count: 1,
+      stages: [{ stage_index: 1, fuels: [normalizeFuelSpec({})] }],
+      boosters: { enabled: false, count: 0, fuels: [] },
+    };
+
+  if (!rocketMeta.recovery_capable) {
+    rocketMeta.recovery_enabled = false;
+  }
+
+  const fuelEditor = {
+    version: 1,
+    node_values: payload?.fuel_editor?.node_values && typeof payload.fuel_editor.node_values === "object"
+      ? deepClone(payload.fuel_editor.node_values)
+      : {},
+    curves: payload?.fuel_editor?.curves && typeof payload.fuel_editor.curves === "object"
+      ? deepClone(payload.fuel_editor.curves)
+      : {},
+  };
+
   return {
     version: 2,
     name: String(payload?.name || selectedModelName || "未命名型号").trim() || "未命名型号",
     stages: normalizedStages,
     events: normalizedEvents,
     observation_points: normalizedObs,
+    rocket_meta: rocketMeta,
+    fuel_editor: fuelEditor,
+    engine_layout: payload?.engine_layout && typeof payload.engine_layout === "object"
+      ? deepClone(payload.engine_layout)
+      : { version: 1, reserved: true },
   };
 }
 
@@ -321,20 +528,29 @@ async function applySelectedModel(name) {
 
   if (!data.success) {
     selectingModel = false;
-    notify(data.message || "型号切换失败");
-    appendLog(`型号切换失败: ${data.message || "unknown"}`);
+    toast(data.message || "型号切换失败", "error");
     if (lastState?.current_model && modelsCache[lastState.current_model]) {
       dom.modelSelect.value = lastState.current_model;
     }
     return;
   }
 
-  appendLog(`已切换型号: ${modelName}`);
+  toast(`已切换型号: ${modelName}`, "success");
   selectingModel = false;
+}
+
+function observationSignature(points) {
+  return (points || []).map((p) => `${p.id}|${p.name}|${p.time}`).join(";");
 }
 
 function renderObservationButtons(state) {
   const points = state.observation_points || [];
+  const sig = observationSignature(points);
+  if (sig === observationButtonsSig) {
+    return;
+  }
+  observationButtonsSig = sig;
+
   if (points.length === 0) {
     dom.observationButtons.innerHTML = '<button class="btn" disabled>当前型号无观察点</button>';
     return;
@@ -345,8 +561,8 @@ function renderObservationButtons(state) {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = point.name;
-    const timeText = `T${Number(point.time) >= 0 ? "+" : ""}${Number(point.time)}`;
-    btn.title = `${point.description || ""} / 对齐到 ${timeText}`;
+    const t = toInt(point.time, 0);
+    btn.title = `${point.description || ""} / 对齐 T${t >= 0 ? "+" : ""}${t}`;
     btn.addEventListener("click", async () => {
       const res = await adminFetch("/api/observation", {
         method: "POST",
@@ -355,25 +571,13 @@ function renderObservationButtons(state) {
       });
       const data = await res.json();
       if (!data.success) {
-        notify(data.message || "触发失败");
+        toast(data.message || "触发失败", "error");
         return;
       }
-      appendLog(data.message || `触发观察点: ${point.name}`);
+      toast(data.message || `已触发 ${point.name}`, "success");
     });
     dom.observationButtons.appendChild(btn);
   });
-}
-
-function renderFocusNodes(state) {
-  const nodes = state.focus_nodes || [];
-  if (nodes.length === 0) {
-    dom.focusNodes.innerHTML = "<li>当前窗口无即将到来的节点</li>";
-    return;
-  }
-
-  dom.focusNodes.innerHTML = nodes
-    .map((n) => `<li>${n.name} (${n.seconds_to}s 后, T${n.time >= 0 ? "+" : ""}${n.time})</li>`)
-    .join("");
 }
 
 function syncLaunchInputFromState(state) {
@@ -392,21 +596,31 @@ function syncLaunchInputFromState(state) {
   dom.launchAt.value = dateToInputValue(launchDate);
 }
 
-function renderHoldState(state) {
-  const isHold = Boolean(state.is_hold);
-  dom.holdBtn.classList.toggle("active", isHold);
-  dom.holdBtn.textContent = isHold ? "RESUME" : "HOLD";
+function renderRocketConfigCard(state) {
+  const meta = state.rocket_meta || null;
+  if (!meta) {
+    updatingRecoverToggle = true;
+    dom.recoverToggle.checked = false;
+    dom.recoverToggle.disabled = true;
+    updatingRecoverToggle = false;
+    dom.recoverSwitchWrap.classList.add("dim");
+    return;
+  }
+
+  const capable = meta.recovery_capable !== false;
+  const enabled = capable ? meta.recovery_enabled !== false : false;
+  updatingRecoverToggle = true;
+  dom.recoverToggle.checked = enabled;
+  dom.recoverToggle.disabled = !capable;
+  updatingRecoverToggle = false;
+  dom.recoverSwitchWrap.classList.toggle("dim", !capable);
 }
 
 function renderState(state) {
   lastState = state;
 
-  if (state.default_theme && !defaultThemeId) {
-    defaultThemeId = state.default_theme;
-  }
-
   dom.currentModel.textContent = state.current_model || "-";
-  dom.currentStatus.textContent = state.status === "flight" ? "positive" : state.status;
+  dom.currentStatus.textContent = state.status;
 
   missionAnchor = {
     ms: Number(state.unified_countdown_ms ?? 0),
@@ -414,7 +628,11 @@ function renderState(state) {
     running: Boolean(state.running) && !Boolean(state.is_hold),
   };
   setTextIfChanged(dom.missionClock, formatSignedClock(missionAnchor.ms));
-  dom.activeCount.textContent = String((state.active_countdowns || []).length);
+
+  const obsCount = Array.isArray(state.observation_log)
+    ? state.observation_log.filter((item) => item.type === "observation").length
+    : 0;
+  dom.activeCount.textContent = String(obsCount);
 
   if (state.current_model && modelsCache[state.current_model]) {
     if (!selectingModel || state.current_model === pendingModelName) {
@@ -423,35 +641,12 @@ function renderState(state) {
     }
   }
 
-  renderHoldState(state);
-  renderObservationButtons(state);
-  renderFocusNodes(state);
-  syncLaunchInputFromState(state);
+  dom.holdBtn.classList.toggle("active", Boolean(state.is_hold));
+  dom.holdBtn.textContent = state.is_hold ? "RESUME" : "HOLD";
 
-  if (Array.isArray(state.observation_log)) {
-    const recent = state.observation_log.slice(-5).map((item) => {
-      if (item.type === "ignition") {
-        return `${item.timestamp} 手动点火确认`;
-      }
-      if (item.type === "auto_ignition") {
-        return `${item.timestamp} 自动切换正计时`;
-      }
-      if (item.type === "hold") {
-        return `${item.timestamp} HOLD`;
-      }
-      if (item.type === "resume") {
-        return `${item.timestamp} HOLD 解除`;
-      }
-      if (item.type === "observation") {
-        const t = Number(item.target_time);
-        return `${item.timestamp} 触发观察点 ${item.point || "-"}，对齐 T${t >= 0 ? "+" : ""}${t}`;
-      }
-      return `${item.timestamp} ${item.type || "状态更新"}`;
-    });
-    if (recent.length > 0) {
-      dom.runtimeLog.innerHTML = recent.reverse().map((line) => `<li>${line}</li>`).join("");
-    }
-  }
+  renderObservationButtons(state);
+  renderRocketConfigCard(state);
+  syncLaunchInputFromState(state);
 }
 
 async function launchByInput() {
@@ -466,11 +661,10 @@ async function launchByInput() {
   });
   const data = await res.json();
   if (!data.success) {
-    notify(data.message || "设置失败");
-    appendLog(`设置发射时间失败: ${data.message || "unknown"}`);
+    toast(data.message || "设置失败", "error");
     return;
   }
-  appendLog(`发射时间已自动应用: ${launchAt}`);
+  toast("发射时间已更新", "success");
 }
 
 function scheduleApplyLaunch() {
@@ -479,7 +673,7 @@ function scheduleApplyLaunch() {
     clearTimeout(launchApplyTimer);
   }
   launchApplyTimer = setTimeout(() => {
-    launchByInput().catch((error) => notify(error.message));
+    launchByInput().catch((error) => toast(error.message, "error"));
   }, 120);
 }
 
@@ -497,7 +691,6 @@ function quickLaunch(seconds) {
   const next = new Date(Date.now() + Number(seconds) * 1000);
   dom.launchAt.value = dateToInputValue(next);
   scheduleApplyLaunch();
-  appendLog(`快捷发射倒计时: ${seconds}s`);
 }
 
 function showConfigValidation(message, isError) {
@@ -554,7 +747,7 @@ function draftToVisualRows(draft) {
 
   for (const stg of draft.stages || []) {
     rows.push({
-      rowKey: newRowKey(),
+      rowKey: `${stg.id}_${Date.now()}`,
       kind: "stage",
       id: stg.id,
       name: stg.name,
@@ -567,7 +760,7 @@ function draftToVisualRows(draft) {
 
   for (const evt of draft.events || []) {
     rows.push({
-      rowKey: newRowKey(),
+      rowKey: `${evt.id}_${Date.now()}`,
       kind: "event",
       id: evt.id,
       name: evt.name,
@@ -580,7 +773,7 @@ function draftToVisualRows(draft) {
 
   for (const obs of draft.observation_points || []) {
     rows.push({
-      rowKey: newRowKey(),
+      rowKey: `${obs.id}_${Date.now()}`,
       kind: "observation",
       id: obs.id,
       name: obs.name,
@@ -603,6 +796,9 @@ function visualRowsToDraft() {
     stages: [],
     events: [],
     observation_points: [],
+    rocket_meta: deepClone(configDraft.rocket_meta || {}),
+    fuel_editor: deepClone(configDraft.fuel_editor || { version: 1, node_values: {}, curves: {} }),
+    engine_layout: deepClone(configDraft.engine_layout || { version: 1, reserved: true }),
   };
 
   for (const row of visualRows) {
@@ -610,7 +806,7 @@ function visualRowsToDraft() {
       const start = toInt(row.start_time, 0);
       const end = Math.max(start, toInt(row.end_time, start));
       draft.stages.push({
-        id: String(row.id || "").trim() || newRowKey(),
+        id: String(row.id || "").trim() || `stg_${Date.now()}`,
         name: String(row.name || "未命名阶段"),
         start_time: start,
         end_time: end,
@@ -621,7 +817,7 @@ function visualRowsToDraft() {
 
     if (row.kind === "event") {
       draft.events.push({
-        id: String(row.id || "").trim() || newRowKey(),
+        id: String(row.id || "").trim() || `evt_${Date.now()}`,
         name: String(row.name || "未命名事件"),
         time: toInt(row.time, 0),
         description: String(row.description || ""),
@@ -631,7 +827,7 @@ function visualRowsToDraft() {
 
     const time = toInt(row.time, 0);
     draft.observation_points.push({
-      id: String(row.id || "").trim() || newRowKey(),
+      id: String(row.id || "").trim() || `obs_${Date.now()}`,
       name: String(row.name || "未命名观察点"),
       time,
       new_countdown: Math.max(0, -time),
@@ -649,6 +845,9 @@ function visualRowsToDraft() {
 function syncRawFromVisual() {
   configDraft = visualRowsToDraft();
   configDraftValid = true;
+  if (isModalVisible(dom.configModal)) {
+    configDraftDirty = true;
+  }
   dom.saveConfigModalBtn.disabled = false;
   dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
   showConfigValidation("可视化编辑已同步，可直接保存。", false);
@@ -670,9 +869,9 @@ function undoVisualChange() {
     visualRows = JSON.parse(raw);
     syncRawFromVisual();
     renderVisualEditor();
-    appendLog("已撤回一次可视化编辑修改");
+    toast("已撤回一次修改", "info");
   } catch {
-    // ignore broken undo state
+    // ignore
   }
 }
 
@@ -682,7 +881,7 @@ function scheduleVisualSortRerender() {
   }
   visualSortTimer = setTimeout(() => {
     renderVisualEditor();
-  }, 180);
+  }, 160);
 }
 
 function makeTypeButton(currentRow, kind, label) {
@@ -690,7 +889,6 @@ function makeTypeButton(currentRow, kind, label) {
   btn.type = "button";
   btn.className = "type-btn";
   btn.textContent = label;
-  btn.title = kind === "stage" ? "阶段" : kind === "event" ? "事件" : "观察点";
   btn.classList.toggle("active", currentRow.kind === kind);
   btn.addEventListener("click", () => {
     if (currentRow.kind === kind) {
@@ -837,7 +1035,7 @@ function renderVisualEditor() {
 
 function setConfigTab(tab) {
   if (tab === "visual" && !validateRawDraft()) {
-    notify("请先修复 JSON，再切换到可视化编辑。");
+    toast("请先修复 JSON，再切换到可视化编辑。", "error");
     return;
   }
 
@@ -857,27 +1055,33 @@ function setConfigTab(tab) {
 function openConfigModal() {
   const modelName = dom.modelSelect.value;
   if (!modelName || !modelsCache[modelName]) {
-    notify("请先选择型号");
+    toast("请先选择型号", "error");
     return;
   }
 
-  const source = modelsCache[modelName];
-  configDraft = normalizeDraft(source, modelName);
+  configDraft = normalizeDraft(modelsCache[modelName], modelName);
   visualUndoStack = [];
   dom.configModalTitle.textContent = `型号配置编辑 · ${modelName}`;
   dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
+  dom.recoverableConfigToggle.checked = configDraft.rocket_meta.recovery_capable !== false;
   validateRawDraft();
   setConfigTab("visual");
   dom.configModal.classList.remove("hidden");
+  configDraftDirty = false;
 }
 
-function closeConfigModal() {
+function closeConfigModal(force = false) {
+  if (!force && configDraftDirty) {
+    toast("还没保存", "error");
+    return false;
+  }
   dom.configModal.classList.add("hidden");
+  return true;
 }
 
 async function saveConfigModal() {
   if (configTab === "raw" && !validateRawDraft()) {
-    notify("JSON 无效，无法保存。");
+    toast("JSON 无效，无法保存。", "error");
     return;
   }
 
@@ -896,13 +1100,15 @@ async function saveConfigModal() {
   });
   const data = await res.json();
   if (!data.success) {
-    notify(data.message || "保存失败");
+    toast(data.message || "保存失败", "error");
     return;
   }
 
-  appendLog(`配置已保存: ${payload.name}`);
+  modelsCache[payload.name] = payload;
+  toast(`配置已保存: ${payload.name}`, "success");
   await fetchModels();
-  closeConfigModal();
+  configDraftDirty = false;
+  closeConfigModal(true);
 }
 
 function addVisualItem() {
@@ -911,7 +1117,7 @@ function addVisualItem() {
   }
   pushVisualUndo();
   visualRows.push({
-    rowKey: newRowKey(),
+    rowKey: `row_${Date.now()}`,
     kind: "stage",
     id: `item_${Date.now()}`,
     name: "新条目",
@@ -924,41 +1130,779 @@ function addVisualItem() {
   renderVisualEditor();
 }
 
+function openPropellantModal() {
+  if (!configDraft) {
+    return;
+  }
+  renderPropellantFields();
+  dom.propellantModal.classList.remove("hidden");
+  propellantDirty = false;
+}
+
+function closePropellantModal(force = false) {
+  if (!force && propellantDirty) {
+    toast("还没保存", "error");
+    return false;
+  }
+  dom.propellantModal.classList.add("hidden");
+  return true;
+}
+
+function ensureRocketMeta() {
+  if (!configDraft.rocket_meta) {
+    configDraft.rocket_meta = normalizeDraft({}, configDraft.name).rocket_meta;
+  }
+}
+
+function renderPropellantFields() {
+  ensureRocketMeta();
+
+  const meta = configDraft.rocket_meta;
+  const stageCount = Math.max(1, toInt(meta.stage_count, 1));
+  dom.rocketStageCountInput.value = String(stageCount);
+  dom.boosterEnabledInput.checked = Boolean(meta.boosters?.enabled);
+  dom.boosterCountInput.value = String(Math.max(0, toInt(meta.boosters?.count, 0)));
+
+  while ((meta.stages || []).length < stageCount) {
+    meta.stages.push({
+      stage_index: meta.stages.length + 1,
+      fuels: [normalizeFuelSpec({})],
+    });
+  }
+  meta.stages = meta.stages.slice(0, stageCount);
+
+  dom.propellantStageList.innerHTML = "";
+
+  meta.stages.forEach((stage, index) => {
+    const card = document.createElement("div");
+    card.className = "propellant-stage-item";
+
+    const title = document.createElement("strong");
+    title.textContent = `第 ${index + 1} 级`;
+    card.appendChild(title);
+
+    const fuel = Array.isArray(stage.fuels) && stage.fuels.length > 0 ? stage.fuels[0] : normalizeFuelSpec({});
+
+    const grid = document.createElement("div");
+    grid.className = "propellant-stage-grid";
+
+    const phaseSelect = document.createElement("select");
+    ["液体", "固体"].forEach((phase) => {
+      const opt = document.createElement("option");
+      opt.value = phase;
+      opt.textContent = phase;
+      if (fuel.phase === phase) {
+        opt.selected = true;
+      }
+      phaseSelect.appendChild(opt);
+    });
+
+    const oxidizerInput = document.createElement("input");
+    oxidizerInput.value = fuel.oxidizer || "";
+    oxidizerInput.placeholder = "氧化剂";
+
+    const fuelInput = document.createElement("input");
+    fuelInput.value = fuel.fuel || "";
+    fuelInput.placeholder = "燃料";
+
+    const hint = document.createElement("span");
+    hint.className = "hint";
+    hint.textContent = "每一级配置一个主燃料组合";
+
+    grid.appendChild(phaseSelect);
+    grid.appendChild(oxidizerInput);
+    grid.appendChild(fuelInput);
+    grid.appendChild(hint);
+    card.appendChild(grid);
+
+    phaseSelect.addEventListener("change", () => {
+      propellantDirty = true;
+      fuel.phase = phaseSelect.value;
+      stage.fuels = [fuel];
+    });
+    oxidizerInput.addEventListener("input", () => {
+      propellantDirty = true;
+      fuel.oxidizer = oxidizerInput.value;
+      stage.fuels = [fuel];
+    });
+    fuelInput.addEventListener("input", () => {
+      propellantDirty = true;
+      fuel.fuel = fuelInput.value;
+      stage.fuels = [fuel];
+    });
+
+    dom.propellantStageList.appendChild(card);
+  });
+
+  if (meta.boosters?.enabled) {
+    const boosterCard = document.createElement("div");
+    boosterCard.className = "propellant-stage-item";
+    boosterCard.innerHTML = "<strong>助推器</strong>";
+
+    const boosterFuel = Array.isArray(meta.boosters.fuels) && meta.boosters.fuels.length > 0
+      ? meta.boosters.fuels[0]
+      : normalizeFuelSpec({});
+
+    const grid = document.createElement("div");
+    grid.className = "propellant-stage-grid";
+
+    const phaseSelect = document.createElement("select");
+    ["液体", "固体"].forEach((phase) => {
+      const opt = document.createElement("option");
+      opt.value = phase;
+      opt.textContent = phase;
+      if (boosterFuel.phase === phase) {
+        opt.selected = true;
+      }
+      phaseSelect.appendChild(opt);
+    });
+
+    const oxidizerInput = document.createElement("input");
+    oxidizerInput.value = boosterFuel.oxidizer || "";
+    oxidizerInput.placeholder = "氧化剂";
+
+    const fuelInput = document.createElement("input");
+    fuelInput.value = boosterFuel.fuel || "";
+    fuelInput.placeholder = "燃料";
+
+    const hint = document.createElement("span");
+    hint.className = "hint";
+    hint.textContent = `当前数量: ${toInt(meta.boosters.count, 0)} 个`;
+
+    grid.appendChild(phaseSelect);
+    grid.appendChild(oxidizerInput);
+    grid.appendChild(fuelInput);
+    grid.appendChild(hint);
+    boosterCard.appendChild(grid);
+
+    phaseSelect.addEventListener("change", () => {
+      propellantDirty = true;
+      boosterFuel.phase = phaseSelect.value;
+      meta.boosters.fuels = [boosterFuel];
+    });
+    oxidizerInput.addEventListener("input", () => {
+      propellantDirty = true;
+      boosterFuel.oxidizer = oxidizerInput.value;
+      meta.boosters.fuels = [boosterFuel];
+    });
+    fuelInput.addEventListener("input", () => {
+      propellantDirty = true;
+      boosterFuel.fuel = fuelInput.value;
+      meta.boosters.fuels = [boosterFuel];
+    });
+
+    dom.propellantStageList.appendChild(boosterCard);
+  }
+}
+
+function savePropellantModal() {
+  ensureRocketMeta();
+  const meta = configDraft.rocket_meta;
+
+  const stageCount = Math.max(1, toInt(dom.rocketStageCountInput.value, 1));
+  meta.stage_count = stageCount;
+  meta.stages = (meta.stages || []).slice(0, stageCount);
+
+  while (meta.stages.length < stageCount) {
+    meta.stages.push({
+      stage_index: meta.stages.length + 1,
+      fuels: [normalizeFuelSpec({})],
+    });
+  }
+
+  meta.stages = meta.stages.map((stage, index) => ({
+    stage_index: index + 1,
+    fuels: Array.isArray(stage.fuels) && stage.fuels.length > 0
+      ? [normalizeFuelSpec(stage.fuels[0])]
+      : [normalizeFuelSpec({})],
+  }));
+
+  meta.boosters = {
+    enabled: Boolean(dom.boosterEnabledInput.checked),
+    count: Math.max(0, toInt(dom.boosterCountInput.value, 0)),
+    fuels: meta.boosters?.enabled && Array.isArray(meta.boosters.fuels) && meta.boosters.fuels.length > 0
+      ? [normalizeFuelSpec(meta.boosters.fuels[0])]
+      : (Boolean(dom.boosterEnabledInput.checked) ? [normalizeFuelSpec({})] : []),
+  };
+
+  syncRawFromVisual();
+  propellantDirty = false;
+  closePropellantModal(true);
+  toast("加注参数已更新", "success");
+}
+
+function deriveFuelChannels(rocketMeta) {
+  const channels = [];
+  const stageList = Array.isArray(rocketMeta?.stages) ? rocketMeta.stages : [];
+
+  stageList.forEach((stage) => {
+    const fuels = Array.isArray(stage.fuels) ? stage.fuels : [];
+    fuels.forEach((fuel, index) => {
+      const id = `stage${stage.stage_index}_${index}`;
+      const label = `第${stage.stage_index}级 ${fuel.phase} ${fuel.oxidizer}/${fuel.fuel}`;
+      channels.push({ id, label });
+    });
+  });
+
+  if (rocketMeta?.boosters?.enabled) {
+    const fuels = Array.isArray(rocketMeta.boosters.fuels) ? rocketMeta.boosters.fuels : [];
+    fuels.forEach((fuel, index) => {
+      const id = `booster_${index}`;
+      const label = `助推器 ${fuel.phase} ${fuel.oxidizer}/${fuel.fuel}`;
+      channels.push({ id, label });
+    });
+  }
+
+  if (channels.length === 0) {
+    channels.push({ id: "default", label: "主推进剂" });
+  }
+
+  return channels;
+}
+
+function buildFuelNodes(draft) {
+  const nodes = [];
+
+  for (const stage of draft.stages || []) {
+    nodes.push({ key: `stage:${stage.id}:start`, time: toInt(stage.start_time, 0), name: `${stage.name} 开始` });
+    nodes.push({ key: `stage:${stage.id}:end`, time: toInt(stage.end_time, 0), name: `${stage.name} 结束` });
+  }
+
+  for (const event of draft.events || []) {
+    nodes.push({ key: `event:${event.id}`, time: toInt(event.time, 0), name: event.name });
+  }
+
+  for (const obs of draft.observation_points || []) {
+    nodes.push({ key: `observation:${obs.id}`, time: toInt(obs.time, 0), name: `${obs.name} (观察点)` });
+  }
+
+  nodes.sort((a, b) => (a.time - b.time) || a.name.localeCompare(b.name, "zh-CN"));
+  return nodes;
+}
+
+function ensureFuelStructure(draft) {
+  if (!draft.fuel_editor || typeof draft.fuel_editor !== "object") {
+    draft.fuel_editor = { version: 1, node_values: {}, curves: {} };
+  }
+  if (!draft.fuel_editor.node_values || typeof draft.fuel_editor.node_values !== "object") {
+    draft.fuel_editor.node_values = {};
+  }
+  if (!draft.fuel_editor.curves || typeof draft.fuel_editor.curves !== "object") {
+    draft.fuel_editor.curves = {};
+  }
+
+  fuelNodes = buildFuelNodes(draft);
+  fuelChannels = deriveFuelChannels(draft.rocket_meta || {});
+
+  for (const node of fuelNodes) {
+    if (!draft.fuel_editor.node_values[node.key] || typeof draft.fuel_editor.node_values[node.key] !== "object") {
+      draft.fuel_editor.node_values[node.key] = {};
+    }
+    for (const channel of fuelChannels) {
+      if (!Object.prototype.hasOwnProperty.call(draft.fuel_editor.node_values[node.key], channel.id)) {
+        draft.fuel_editor.node_values[node.key][channel.id] = -1;
+      }
+      draft.fuel_editor.node_values[node.key][channel.id] = clampPercent(draft.fuel_editor.node_values[node.key][channel.id], -1);
+    }
+  }
+
+  for (const channel of fuelChannels) {
+    if (!Array.isArray(draft.fuel_editor.curves[channel.id])) {
+      draft.fuel_editor.curves[channel.id] = [];
+    }
+  }
+}
+
+function interpolate(points, time) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return 0;
+  }
+  if (time <= points[0].time) {
+    return points[0].value;
+  }
+  if (time >= points[points.length - 1].time) {
+    return points[points.length - 1].value;
+  }
+
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (a.time <= time && time <= b.time) {
+      const total = b.time - a.time || 1;
+      const ratio = (time - a.time) / total;
+      return a.value + (b.value - a.value) * ratio;
+    }
+  }
+  return points[points.length - 1].value;
+}
+
+function resolveChannelPoints(draft, channelId) {
+  const entries = [];
+  for (const node of fuelNodes) {
+    const raw = clampPercent(draft.fuel_editor.node_values[node.key]?.[channelId], -1);
+    if (raw >= 0) {
+      entries.push({ time: node.time, value: raw });
+    }
+  }
+
+  const unique = new Map();
+  for (const p of entries) {
+    unique.set(p.time, p.value);
+  }
+
+  const points = Array.from(unique.entries()).map(([time, value]) => ({ time: Number(time), value: Number(value) }));
+
+  if (points.length === 0) {
+    points.push({ time: -10800, value: 0 });
+    points.push({ time: -600, value: 100 });
+    points.push({ time: 0, value: 100 });
+  }
+
+  const hasT0 = points.some((p) => p.time === 0);
+  if (!hasT0) {
+    points.push({ time: 0, value: 100 });
+  }
+
+  const minNodeTime = fuelNodes.length > 0 ? fuelNodes[0].time : -10800;
+  if (!points.some((p) => p.time <= minNodeTime)) {
+    points.push({ time: minNodeTime, value: 0 });
+  }
+
+  points.sort((a, b) => a.time - b.time);
+  return points;
+}
+
+function resolveChannelAtNodes(draft, channelId) {
+  const explicitPoints = resolveChannelPoints(draft, channelId);
+  const resolved = {};
+
+  for (const node of fuelNodes) {
+    const raw = clampPercent(draft.fuel_editor.node_values[node.key]?.[channelId], -1);
+    if (raw >= 0) {
+      resolved[node.key] = raw;
+    } else {
+      resolved[node.key] = Math.max(0, Math.min(100, Math.round(interpolate(explicitPoints, node.time))));
+    }
+  }
+
+  return resolved;
+}
+
+function syncCurvesFromNodeValues(draft) {
+  for (const channel of fuelChannels) {
+    const points = resolveChannelPoints(draft, channel.id);
+    draft.fuel_editor.curves[channel.id] = points;
+  }
+}
+
+function renderFuelTable() {
+  ensureFuelStructure(fuelEditDraft);
+
+  const table = dom.fuelTable;
+  table.innerHTML = "";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+
+  const headNode = document.createElement("th");
+  headNode.textContent = "节点";
+  headRow.appendChild(headNode);
+
+  const headTime = document.createElement("th");
+  headTime.textContent = "时间(s)";
+  headRow.appendChild(headTime);
+
+  for (const channel of fuelChannels) {
+    const th = document.createElement("th");
+    th.textContent = channel.label;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+
+  for (const node of fuelNodes) {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.textContent = node.name;
+    tr.appendChild(tdName);
+
+    const tdTime = document.createElement("td");
+    tdTime.textContent = `T${node.time >= 0 ? "+" : ""}${node.time}`;
+    tr.appendChild(tdTime);
+
+    for (const channel of fuelChannels) {
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "-1";
+      input.max = "100";
+      const raw = clampPercent(fuelEditDraft.fuel_editor.node_values[node.key]?.[channel.id], -1);
+      input.value = String(raw);
+      input.title = "-1 表示自动插值";
+      input.addEventListener("input", () => {
+        fuelDirty = true;
+        fuelEditDraft.fuel_editor.node_values[node.key][channel.id] = clampPercent(input.value, -1);
+        syncCurvesFromNodeValues(fuelEditDraft);
+        renderFuelCurve();
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+}
+
+function curveCanvasMetrics() {
+  const canvas = dom.fuelCurveCanvas;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width > 10) {
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(rect.width * ratio);
+    canvas.height = Math.round(360 * ratio);
+  }
+
+  const ctx = canvas.getContext("2d");
+  const ratio = window.devicePixelRatio || 1;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+  const width = canvas.width / ratio;
+  const height = canvas.height / ratio;
+
+  return {
+    ctx,
+    width,
+    height,
+    padLeft: 58,
+    padRight: 28,
+    padTop: 24,
+    padBottom: 34,
+  };
+}
+
+function timeDomain() {
+  const times = fuelNodes.map((n) => n.time);
+  let minTime = times.length > 0 ? Math.min(...times) : -10800;
+  let maxTime = times.length > 0 ? Math.max(...times) : 0;
+  if (minTime === maxTime) {
+    maxTime = minTime + 60;
+  }
+  return { minTime, maxTime };
+}
+
+function getCurrentCurveChannelId() {
+  return String(dom.fuelCurveChannelSelect.value || (fuelChannels[0] ? fuelChannels[0].id : ""));
+}
+
+function renderFuelCurve() {
+  ensureFuelStructure(fuelEditDraft);
+
+  const channelId = getCurrentCurveChannelId();
+  const points = Array.isArray(fuelEditDraft.fuel_editor.curves[channelId])
+    ? fuelEditDraft.fuel_editor.curves[channelId]
+    : [];
+
+  const m = curveCanvasMetrics();
+  const { ctx, width, height, padLeft, padRight, padTop, padBottom } = m;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const { minTime, maxTime } = timeDomain();
+
+  const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
+  const toY = (value) => padTop + ((100 - value) / 100) * plotH;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i += 1) {
+    const y = padTop + (i / 10) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(width - padRight, y);
+    ctx.stroke();
+  }
+
+  for (let i = 0; i <= 8; i += 1) {
+    const x = padLeft + (i / 8) * plotW;
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, height - padBottom);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.45)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padLeft, padTop);
+  ctx.lineTo(padLeft, height - padBottom);
+  ctx.lineTo(width - padRight, height - padBottom);
+  ctx.stroke();
+
+  if (points.length > 0) {
+    ctx.strokeStyle = "#4fd2ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    points.forEach((p, index) => {
+      const x = toX(p.time);
+      const y = toY(p.value);
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.stroke();
+
+    points.forEach((p, index) => {
+      const x = toX(p.time);
+      const y = toY(p.value);
+      ctx.beginPath();
+      ctx.fillStyle = curveDragState && curveDragState.index === index && curveDragState.channelId === channelId ? "#ffd16e" : "#4fd2ff";
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = '12px "Manrope"';
+  ctx.fillText("0", padLeft - 18, height - padBottom + 4);
+  ctx.fillText("100", padLeft - 26, padTop + 4);
+  ctx.fillText(`T${minTime >= 0 ? "+" : ""}${minTime}`, padLeft, height - 8);
+  ctx.fillText(`T${maxTime >= 0 ? "+" : ""}${maxTime}`, width - padRight - 80, height - 8);
+}
+
+function findCurvePointAtPosition(x, y) {
+  const channelId = getCurrentCurveChannelId();
+  const points = fuelEditDraft.fuel_editor.curves[channelId] || [];
+  const m = curveCanvasMetrics();
+  const { width, height, padLeft, padRight, padTop, padBottom } = m;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const { minTime, maxTime } = timeDomain();
+
+  const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
+  const toY = (value) => padTop + ((100 - value) / 100) * plotH;
+
+  for (let i = 0; i < points.length; i += 1) {
+    const px = toX(points[i].time);
+    const py = toY(points[i].value);
+    const dx = px - x;
+    const dy = py - y;
+    if ((dx * dx + dy * dy) <= 64) {
+      return { index: i, channelId };
+    }
+  }
+  return null;
+}
+
+function updateCurvePointByPointer(clientX, clientY) {
+  if (!curveDragState) {
+    return;
+  }
+  const channelId = curveDragState.channelId;
+  const points = fuelEditDraft.fuel_editor.curves[channelId] || [];
+  const point = points[curveDragState.index];
+  if (!point) {
+    return;
+  }
+
+  const rect = dom.fuelCurveCanvas.getBoundingClientRect();
+  const m = curveCanvasMetrics();
+  const { width, height, padTop, padBottom } = m;
+  const localY = (clientY - rect.top) * (height / rect.height);
+
+  const plotH = height - padTop - padBottom;
+  const y = Math.max(padTop, Math.min(height - padBottom, localY));
+  const value = Math.max(0, Math.min(100, Math.round(100 - ((y - padTop) / plotH) * 100)));
+
+  point.value = value;
+  fuelDirty = true;
+
+  for (const node of fuelNodes) {
+    const v = Math.round(interpolate(points, node.time));
+    fuelEditDraft.fuel_editor.node_values[node.key][channelId] = Math.max(0, Math.min(100, v));
+  }
+
+  renderFuelTable();
+  renderFuelCurve();
+}
+
+function setFuelTab(tab) {
+  fuelTab = tab === "curve" ? "curve" : "list";
+  dom.fuelListPane.classList.toggle("hidden", fuelTab !== "list");
+  dom.fuelCurvePane.classList.toggle("hidden", fuelTab !== "curve");
+  dom.fuelTabListBtn.classList.toggle("active", fuelTab === "list");
+  dom.fuelTabCurveBtn.classList.toggle("active", fuelTab === "curve");
+  if (fuelTab === "curve") {
+    renderFuelCurve();
+  }
+}
+
+function getDraftFromModel(modelName) {
+  if (!modelName || !modelsCache[modelName]) {
+    return null;
+  }
+  return normalizeDraft(modelsCache[modelName], modelName);
+}
+
+function openFuelModal(source) {
+  const modelName = dom.modelSelect.value;
+  if (!modelName) {
+    toast("请先选择型号", "error");
+    return;
+  }
+
+  if (source === "config" && configDraft) {
+    fuelEditDraft = deepClone(configDraft);
+    fuelEditSource = "config";
+  } else {
+    const fromModel = getDraftFromModel(modelName);
+    if (!fromModel) {
+      toast("当前型号配置不存在", "error");
+      return;
+    }
+    fuelEditDraft = fromModel;
+    fuelEditSource = "model";
+  }
+  fuelEditModelName = modelName;
+
+  ensureFuelStructure(fuelEditDraft);
+  syncCurvesFromNodeValues(fuelEditDraft);
+
+  dom.fuelCurveChannelSelect.innerHTML = fuelChannels
+    .map((item) => `<option value="${item.id}">${item.label}</option>`)
+    .join("");
+
+  renderFuelTable();
+  setFuelTab("list");
+  dom.fuelModal.classList.remove("hidden");
+  fuelDirty = false;
+}
+
+function closeFuelModal(force = false) {
+  if (!force && fuelDirty) {
+    toast("还没保存", "error");
+    return false;
+  }
+  dom.fuelModal.classList.add("hidden");
+  curveDragState = null;
+  return true;
+}
+
+async function saveFuelModal() {
+  if (!fuelEditDraft) {
+    return;
+  }
+
+  if (fuelEditSource === "config" && configDraft) {
+    configDraft.fuel_editor = deepClone(fuelEditDraft.fuel_editor);
+    dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
+    toast("燃料配置已写入当前型号草稿", "success");
+    fuelDirty = false;
+    closeFuelModal(true);
+    return;
+  }
+
+  const payload = normalizeDraft(fuelEditDraft, fuelEditModelName);
+  payload.name = fuelEditModelName;
+
+  const res = await adminFetch("/api/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.success) {
+    toast(data.message || "保存燃料配置失败", "error");
+    return;
+  }
+
+  modelsCache[payload.name] = payload;
+  toast("燃料配置已保存", "success");
+  fuelDirty = false;
+  closeFuelModal(true);
+}
+
+function openEngineLayoutModal() {
+  dom.engineLayoutModal.classList.remove("hidden");
+}
+
+function closeEngineLayoutModal() {
+  dom.engineLayoutModal.classList.add("hidden");
+}
+
+async function updateRecoveryToggle(enabled) {
+  const modelName = dom.modelSelect.value;
+  if (!modelName || !modelsCache[modelName]) {
+    return;
+  }
+
+  const draft = normalizeDraft(modelsCache[modelName], modelName);
+  draft.rocket_meta.recovery_enabled = enabled;
+  if (draft.rocket_meta.recovery_capable === false) {
+    draft.rocket_meta.recovery_enabled = false;
+  }
+
+  const res = await adminFetch("/api/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  const data = await res.json();
+  if (!data.success) {
+    toast(data.message || "更新回收配置失败", "error");
+    return;
+  }
+
+  modelsCache[modelName] = draft;
+  toast(draft.rocket_meta.recovery_enabled ? "已开启回收" : "已关闭回收", "success");
+}
+
 function bindEvents() {
   dom.refreshModelsBtn.addEventListener("click", () => {
-    fetchModels().catch((error) => notify(error.message));
+    fetchModels().catch((error) => toast(error.message, "error"));
   });
 
   dom.modelSelect.addEventListener("change", () => {
-    applySelectedModel(dom.modelSelect.value).catch((error) => notify(error.message));
+    applySelectedModel(dom.modelSelect.value).catch((error) => toast(error.message, "error"));
   });
 
-  dom.themeSelect.addEventListener("change", () => {
-    applyTheme(dom.themeSelect.value);
+  dom.openThemeModalBtn.addEventListener("click", openThemeModal);
+  dom.themeBackdrop.addEventListener("click", () => closeThemeModal(true, false));
+  dom.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, true));
+  dom.applyThemeBtn.addEventListener("click", () => {
+    closeThemeModal(false, true);
+    toast("主题已应用", "success");
   });
-
   dom.saveDefaultThemeBtn.addEventListener("click", () => {
-    saveDefaultTheme().catch((error) => notify(error.message));
+    saveDefaultTheme().catch((error) => toast(error.message, "error"));
   });
 
   dom.copyVisitorUrlBtn.addEventListener("click", async () => {
     const url = await getVisitorUrl();
     try {
       await navigator.clipboard.writeText(url);
-      appendLog(`已复制游客地址: ${url}`);
+      toast("游客地址已复制", "success");
     } catch {
-      notify("复制失败，请手动复制地址。");
+      toast("复制失败，请手动复制", "error");
     }
   });
 
   dom.showVisitorQrBtn.addEventListener("click", () => {
-    openQrModal().catch((error) => notify(error.message));
+    openQrModal().catch((error) => toast(error.message, "error"));
   });
   dom.closeQrBtn.addEventListener("click", closeQrModal);
   dom.qrBackdrop.addEventListener("click", closeQrModal);
 
   dom.reloadPreviewBtn.addEventListener("click", () => {
-    applyTheme(currentThemeId);
+    applyTheme(currentThemeId, true);
   });
 
   dom.logoutBtn.addEventListener("click", async () => {
@@ -984,10 +1928,10 @@ function bindEvents() {
     });
     const data = await res.json();
     if (!data.success) {
-      notify(data.message || "HOLD 操作失败");
+      toast(data.message || "HOLD 操作失败", "error");
       return;
     }
-    appendLog(data.message || (nextHold ? "已进入 HOLD" : "已恢复倒计时"));
+    toast(data.message || (nextHold ? "已进入 HOLD" : "已恢复倒计时"), "success");
   });
 
   document.querySelectorAll("button[data-adjust-seconds]").forEach((btn) => {
@@ -1003,12 +1947,13 @@ function bindEvents() {
   });
 
   dom.openConfigEditorBtn.addEventListener("click", openConfigModal);
-  dom.closeConfigModalBtn.addEventListener("click", closeConfigModal);
-  dom.configBackdrop.addEventListener("click", closeConfigModal);
+  dom.closeConfigModalBtn.addEventListener("click", () => closeConfigModal(false));
+  dom.configBackdrop.addEventListener("click", () => closeConfigModal(false));
   dom.configTabRawBtn.addEventListener("click", () => setConfigTab("raw"));
   dom.configTabVisualBtn.addEventListener("click", () => setConfigTab("visual"));
 
   dom.configRawEditor.addEventListener("input", () => {
+    configDraftDirty = true;
     const isValid = validateRawDraft();
     if (isValid && configTab === "visual") {
       draftToVisualRows(configDraft);
@@ -1018,16 +1963,91 @@ function bindEvents() {
 
   dom.addVisualItemBtn.addEventListener("click", addVisualItem);
 
-  dom.saveConfigModalBtn.addEventListener("click", () => {
-    saveConfigModal().catch((error) => notify(error.message));
+  dom.recoverableConfigToggle.addEventListener("change", () => {
+    if (!configDraft) {
+      return;
+    }
+    configDraft.rocket_meta.recovery_capable = Boolean(dom.recoverableConfigToggle.checked);
+    if (!configDraft.rocket_meta.recovery_capable) {
+      configDraft.rocket_meta.recovery_enabled = false;
+    }
+    syncRawFromVisual();
   });
 
-  dom.clearLogBtn.addEventListener("click", () => {
-    uiLogs = [];
-    dom.runtimeLog.innerHTML = "";
+  dom.openPropellantProfileBtn.addEventListener("click", openPropellantModal);
+  dom.propellantBackdrop.addEventListener("click", () => closePropellantModal(false));
+  dom.closePropellantModalBtn.addEventListener("click", () => closePropellantModal(false));
+  dom.savePropellantModalBtn.addEventListener("click", savePropellantModal);
+
+  dom.rocketStageCountInput.addEventListener("input", () => {
+    propellantDirty = true;
+    renderPropellantFields();
+  });
+  dom.boosterEnabledInput.addEventListener("change", () => {
+    propellantDirty = true;
+    renderPropellantFields();
+  });
+  dom.boosterCountInput.addEventListener("input", () => {
+    propellantDirty = true;
+    renderPropellantFields();
+  });
+
+  dom.saveConfigModalBtn.addEventListener("click", () => {
+    saveConfigModal().catch((error) => toast(error.message, "error"));
+  });
+
+  dom.openFuelEditorBtn.addEventListener("click", () => openFuelModal("model"));
+  dom.fuelBackdrop.addEventListener("click", () => closeFuelModal(false));
+  dom.closeFuelModalBtn.addEventListener("click", () => closeFuelModal(false));
+  dom.saveFuelModalBtn.addEventListener("click", () => {
+    saveFuelModal().catch((error) => toast(error.message, "error"));
+  });
+
+  dom.fuelTabListBtn.addEventListener("click", () => setFuelTab("list"));
+  dom.fuelTabCurveBtn.addEventListener("click", () => setFuelTab("curve"));
+  dom.fuelCurveChannelSelect.addEventListener("change", renderFuelCurve);
+
+  dom.fuelCurveCanvas.addEventListener("mousedown", (event) => {
+    const rect = dom.fuelCurveCanvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const hit = findCurvePointAtPosition(x, y);
+    if (!hit) {
+      return;
+    }
+    curveDragState = hit;
+  });
+
+  window.addEventListener("mousemove", (event) => {
+    if (!curveDragState) {
+      return;
+    }
+    updateCurvePointByPointer(event.clientX, event.clientY);
+  });
+
+  window.addEventListener("mouseup", () => {
+    curveDragState = null;
+  });
+
+  dom.openEngineLayoutBtn.addEventListener("click", openEngineLayoutModal);
+  dom.engineLayoutBackdrop.addEventListener("click", closeEngineLayoutModal);
+  dom.closeEngineLayoutBtn.addEventListener("click", closeEngineLayoutModal);
+
+  dom.recoverToggle.addEventListener("change", () => {
+    if (updatingRecoverToggle) {
+      return;
+    }
+    updateRecoveryToggle(Boolean(dom.recoverToggle.checked)).catch((error) => toast(error.message, "error"));
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (handleEscapeClose()) {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (dom.configModal.classList.contains("hidden")) {
       return;
     }
@@ -1043,19 +2063,24 @@ function bindEvents() {
     event.preventDefault();
     undoVisualChange();
   });
+
+  window.addEventListener("resize", () => {
+    if (!dom.fuelModal.classList.contains("hidden") && fuelTab === "curve") {
+      renderFuelCurve();
+    }
+  });
 }
 
 async function init() {
-  populateThemeSelector();
   await loadAdminSettings();
   await fetchModels();
 
   dom.launchAt.value = dateToInputValue(new Date(Date.now() + 600000));
+
   bindEvents();
 
   const channel = new LiveChannel({
     streamUrl: "/api/stream",
-    stateUrl: "/api/state",
     onState: renderState,
     onModeChange: setChannelMode,
   });
@@ -1064,4 +2089,4 @@ async function init() {
   window.setInterval(tickMissionClock, CLOCK_TICK_MS);
 }
 
-init().catch((error) => notify(error.message));
+init().catch((error) => toast(error.message, "error"));

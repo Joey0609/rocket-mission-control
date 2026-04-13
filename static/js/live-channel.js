@@ -1,15 +1,14 @@
 class LiveChannel {
   constructor(options) {
     this.streamUrl = options.streamUrl;
-    this.stateUrl = options.stateUrl;
     this.onState = options.onState;
     this.onModeChange = options.onModeChange || (() => {});
 
     this.eventSource = null;
-    this.pollTimer = null;
-    this.lastHint = 5000;
-    this.mode = "init";
     this.closed = false;
+    this.retryTimer = null;
+    this.retryMs = 1000;
+    this.mode = "init";
   }
 
   start() {
@@ -19,7 +18,10 @@ class LiveChannel {
 
   stop() {
     this.closed = true;
-    this.#stopPolling();
+    if (this.retryTimer) {
+      window.clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -38,14 +40,18 @@ class LiveChannel {
       return;
     }
 
-    this.#setMode("sse");
-    this.#stopPolling();
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
 
     this.eventSource = new EventSource(this.streamUrl);
+    this.#setMode("sse");
+
     this.eventSource.addEventListener("state", (event) => {
       try {
         const payload = JSON.parse(event.data);
-        this.lastHint = this.#sanitizeHint(payload.next_poll_hint_ms);
+        this.retryMs = 1000;
         this.onState(payload);
       } catch (error) {
         console.error("SSE 解析失败", error);
@@ -57,57 +63,23 @@ class LiveChannel {
         this.eventSource.close();
         this.eventSource = null;
       }
-      this.#fallbackToPolling();
+      this.#setMode("reconnect");
+      this.#scheduleReconnect();
     };
   }
 
-  #fallbackToPolling() {
-    if (this.closed) {
+  #scheduleReconnect() {
+    if (this.closed || this.retryTimer) {
       return;
     }
 
-    this.#setMode("poll");
-    this.#pollOnce();
-  }
+    const wait = this.retryMs;
+    this.retryMs = Math.min(12000, this.retryMs + 1000);
 
-  #pollOnce() {
-    if (this.closed) {
-      return;
-    }
-
-    fetch(this.stateUrl, { cache: "no-store" })
-      .then((res) => res.json())
-      .then((payload) => {
-        this.lastHint = this.#sanitizeHint(payload.next_poll_hint_ms);
-        this.onState(payload);
-        this.#schedulePoll(this.lastHint);
-      })
-      .catch((error) => {
-        console.error("轮询失败", error);
-        this.#schedulePoll(3000);
-      });
-  }
-
-  #schedulePoll(ms) {
-    this.#stopPolling();
-    this.pollTimer = window.setTimeout(() => {
-      this.#pollOnce();
-    }, ms);
-  }
-
-  #stopPolling() {
-    if (this.pollTimer) {
-      window.clearTimeout(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  #sanitizeHint(hint) {
-    const fallback = 5000;
-    if (typeof hint !== "number" || Number.isNaN(hint)) {
-      return fallback;
-    }
-    return Math.min(15000, Math.max(1000, Math.floor(hint)));
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = null;
+      this.#connectSSE();
+    }, wait);
   }
 }
 

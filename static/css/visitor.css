@@ -10,39 +10,50 @@ body {
 }
 
 .nebula {
-  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 30%),
-    radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--warn) 24%, transparent), transparent 28%),
-    radial-gradient(circle at 60% 80%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 30%);
-  animation: nebulaFloat 12s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 30%),
+    radial-gradient(circle at 82% 14%, color-mix(in srgb, var(--warn) 24%, transparent), transparent 30%),
+    radial-gradient(circle at 52% 82%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 34%);
+  animation: nebulaFloat 16s ease-in-out infinite alternate;
 }
 
 .grid-overlay {
-  background-image: linear-gradient(color-mix(in srgb, var(--line) 58%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--line) 58%, transparent) 1px, transparent 1px);
+  background-image: linear-gradient(color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 1px, transparent 1px);
   background-size: 40px 40px;
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .visitor-shell {
-  max-width: 1280px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 24px;
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
 
 .hero {
-  padding: 26px;
+  padding: 24px;
   border-radius: 20px;
   background: var(--surface-hero);
   border: 1px solid var(--line);
-  transform: translateY(0);
-  animation: liftIn 0.75s ease;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--glow) 25%, transparent);
+}
+
+.hero-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .hero .tag {
   font-size: 12px;
   letter-spacing: 0.24em;
+  color: var(--muted);
+}
+
+.copyright {
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -63,34 +74,24 @@ body {
   gap: 10px;
 }
 
-.theme-picker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.theme-picker select {
-  min-width: 130px;
+.theme-btn,
+.btn {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--surface-input);
+  padding: 8px 12px;
+  background: var(--surface-button);
   color: var(--ink);
-  padding: 8px 10px;
+  cursor: pointer;
   font-family: "Manrope", sans-serif;
+}
+
+.btn.accent {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 56%, #1f6f5d), color-mix(in srgb, var(--accent) 66%, #2a866f));
 }
 
 .clock-board {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-
-#missionCard {
-  max-width: none;
-  justify-self: center;
-  width: 100%;
 }
 
 .clock-card {
@@ -109,28 +110,24 @@ body {
 }
 
 .clock-card .clock {
-  font-size: clamp(48px, 8.2vw, 118px);
+  font-size: clamp(48px, 8.5vw, 122px);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
 }
 
-.clock-card.flight {
-  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
-}
-
 .pulse-card {
-  animation: pulseGlow 1.4s infinite;
+  animation: pulseGlow 1.6s infinite;
 }
 
 .timeline-info {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .timeline-info .panel {
-  padding: 18px;
+  padding: 16px;
 }
 
 .timeline-info h2 {
@@ -144,44 +141,15 @@ body {
   font-weight: 700;
 }
 
-.countdown-list-wrap,
 .focus-nodes-wrap {
-  padding: 18px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--surface-2);
 }
 
-.runtime-countdowns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.runtime-card {
-  min-width: 180px;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
-  background: var(--surface-1);
-  animation: cardIn 0.45s ease;
-}
-
-.runtime-card .name {
-  display: block;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.focus-list {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 8px;
-}
-
-.focus-list li {
-  color: var(--ink);
+.focus-nodes-wrap h2 {
+  margin: 0 0 10px;
 }
 
 .focus-timeline {
@@ -210,7 +178,7 @@ body {
 
 .axis-shell {
   position: relative;
-  height: 220px;
+  height: 240px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-axis);
@@ -223,7 +191,7 @@ body {
   right: 0;
   top: 50%;
   height: 2px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 70%, transparent), color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--warn) 70%, transparent));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 72%, transparent), color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--warn) 72%, transparent));
   transform: translateY(-1px);
 }
 
@@ -234,7 +202,7 @@ body {
   left: 33.333%;
   width: 2px;
   background: var(--warn);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--warn) 52%, transparent);
 }
 
 .axis-now-tag {
@@ -248,7 +216,7 @@ body {
   background: var(--surface-axis-tag);
   border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
   border-radius: 999px;
-  padding: 4px 9px;
+  padding: 4px 10px;
 }
 
 .axis-grid,
@@ -262,7 +230,7 @@ body {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--line) 68%, transparent);
 }
 
 .axis-tick span {
@@ -301,11 +269,16 @@ body {
   box-shadow: 0 0 10px rgba(255, 191, 93, 0.48);
 }
 
+.axis-node.observation .dot {
+  background: #f06fa8;
+  box-shadow: 0 0 10px rgba(240, 111, 168, 0.48);
+}
+
 .axis-node .label {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
-  max-width: 160px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -316,7 +289,70 @@ body {
 }
 
 .axis-node.past {
-  opacity: 0.55;
+  opacity: 0.56;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.theme-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+}
+
+.theme-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 8, 18, 0.62);
+}
+
+.theme-panel {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 94vw);
+  max-height: 86vh;
+  overflow: auto;
+}
+
+.theme-grid {
+  margin: 10px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.theme-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.theme-card.active {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent) inset;
+}
+
+.theme-card .name {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.theme-preview-gradient {
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
 }
 
 @keyframes pulseGlow {
@@ -324,7 +360,7 @@ body {
     box-shadow: 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
   }
   50% {
-    box-shadow: 0 0 25px color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 34%, transparent);
   }
   100% {
     box-shadow: 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
@@ -336,34 +372,11 @@ body {
     transform: translate(-1%, -1%) scale(1);
   }
   to {
-    transform: translate(1.5%, 1%) scale(1.05);
-  }
-}
-
-@keyframes liftIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translate(1.4%, 1%) scale(1.05);
   }
 }
 
 @media (max-width: 980px) {
-  .clock-board,
   .timeline-info {
     grid-template-columns: 1fr;
   }
@@ -372,6 +385,7 @@ body {
     padding: 14px;
   }
 
+  .hero-meta-row,
   .hero-tools {
     flex-direction: column;
     align-items: flex-start;

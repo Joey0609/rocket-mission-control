@@ -1,0 +1,38 @@
+.notify-root {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: grid;
+  gap: 10px;
+  width: min(360px, 92vw);
+}
+
+.notify-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 10px 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  transform: translateY(6px);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.notify-item.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.notify-item.info {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.notify-item.success {
+  border-color: color-mix(in srgb, #39c277 55%, var(--line));
+}
+
+.notify-item.error {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
+}

@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/admin.css">
+  <link rel="stylesheet" href="/static/css/notification.css">
 </head>
 <body>
   <div class="admin-bg"></div>
@@ -20,43 +21,52 @@
         <div class="head-top">
           <h1>管理员控制台</h1>
           <div class="head-actions">
-            <select id="themeSelect" class="theme-select"></select>
-            <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
+            <button class="btn" id="openThemeModalBtn">主题</button>
             <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
             <button class="btn" id="showVisitorQrBtn">游客二维码</button>
             <button class="btn" id="reloadPreviewBtn">刷新预览</button>
             <button class="btn warning" id="logoutBtn">退出登录</button>
           </div>
         </div>
-        <p>Web 管理端与游客端由同一 Node.js 服务提供。</p>
         <div class="signal" id="channelMode">实时通道: 连接中</div>
       </header>
 
       <section class="panel">
         <h2>任务状态</h2>
         <div class="status-grid">
-          <div class="status-item"><span>型号</span><strong id="currentModel">-</strong></div>
+          <div class="status-item status-main"><span>型号</span><strong id="currentModel">-</strong></div>
           <div class="status-item"><span>状态</span><strong id="currentStatus">idle</strong></div>
-          <div class="status-item"><span>任务计时</span><strong id="missionClock">T-00:00.000</strong></div>
-          <div class="status-item"><span>活跃子倒计时</span><strong id="activeCount">0</strong></div>
+          <div class="status-item status-main"><span>任务计时</span><strong id="missionClock">T-00:00.000</strong></div>
+          <div class="status-item"><span>观察点事件数</span><strong id="activeCount">0</strong></div>
+
+          <div class="status-item rocket-card">
+            <div class="rocket-card-head">
+              <span>火箭回收</span>
+              <label class="switch-wrap slider" id="recoverSwitchWrap">
+                <input type="checkbox" id="recoverToggle">
+                <span>回收</span>
+              </label>
+            </div>
+          </div>
         </div>
       </section>
 
       <section class="panel">
         <h2>型号管理</h2>
-        <div class="row">
+        <div class="row model-actions-row">
           <select id="modelSelect"></select>
           <button class="btn" id="refreshModelsBtn">刷新</button>
-          <button class="btn accent" id="openConfigEditorBtn">编辑配置</button>
+          <button class="btn" id="openConfigEditorBtn">编辑配置</button>
+          <button class="btn" id="openFuelEditorBtn">编辑燃料</button>
+          <button class="btn" id="openEngineLayoutBtn">编辑发动机布局</button>
         </div>
-        <p class="hint">切换下拉框会自动应用型号。</p>
       </section>
 
       <section class="panel">
         <h2>发射控制</h2>
         <div class="row launch-main-row">
-          <input type="datetime-local" id="launchAt" step="1">
           <button class="btn warning" id="holdBtn">HOLD</button>
+          <input type="datetime-local" id="launchAt" step="1">
         </div>
         <div class="row compact wrap launch-adjust-row">
           <button class="btn" data-adjust-seconds="-3600">-1h</button>
@@ -76,7 +86,6 @@
           <button class="btn" data-adjust-seconds="5">+5s</button>
           <button class="btn" data-adjust-seconds="1">+1s</button>
         </div>
-        <p class="hint">时间变更后会自动应用倒计时，无需再点击启动。</p>
       </section>
 
       <section class="panel">
@@ -93,23 +102,8 @@
       </section>
 
       <section class="panel">
-        <h2>观察点触发</h2>
-        <p class="hint">触发后主倒计时会对齐到该观察点对应的任务时间。</p>
+        <h2>观察点事件</h2>
         <div class="obs-grid" id="observationButtons"></div>
-      </section>
-
-      <section class="panel">
-        <h2>关键节点窗口</h2>
-        <p class="hint">只显示接下来 2 个节点 + 30 秒内全部节点。</p>
-        <ul id="focusNodes" class="focus-list"></ul>
-      </section>
-
-      <section class="panel">
-        <h2>运行日志</h2>
-        <div class="row">
-          <button class="btn" id="clearLogBtn">清空展示日志</button>
-        </div>
-        <ul class="runtime-log" id="runtimeLog"></ul>
       </section>
     </aside>
 
@@ -121,6 +115,19 @@
       <iframe class="preview-frame" src="/visitor?embed=1" title="游客页预览"></iframe>
     </section>
   </main>
+
+  <div class="theme-modal hidden" id="themeModal" role="dialog" aria-modal="true" aria-label="主题选择">
+    <div class="theme-backdrop" id="themeBackdrop"></div>
+    <div class="theme-panel panel">
+      <h3>选择主题</h3>
+      <div class="theme-grid" id="themeGrid"></div>
+      <div class="row">
+        <button class="btn" id="cancelThemeBtn">取消</button>
+        <button class="btn" id="applyThemeBtn">应用</button>
+        <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
+      </div>
+    </div>
+  </div>
 
   <div class="qr-modal hidden" id="qrModal" role="dialog" aria-modal="true" aria-label="游客二维码">
     <div class="qr-backdrop" id="qrBackdrop"></div>
@@ -152,7 +159,11 @@
       <div class="config-body" id="configVisualPane">
         <div class="row visual-tools">
           <button class="btn" id="addVisualItemBtn">新增条目</button>
-          <p class="hint">删除不确认，按 Ctrl+Z 可撤回修改。</p>
+          <label class="switch-wrap">
+            <input type="checkbox" id="recoverableConfigToggle">
+            <span>可回收</span>
+          </label>
+          <button class="btn" id="openPropellantProfileBtn">编辑加注</button>
         </div>
         <div class="visual-table">
           <div class="visual-head">
@@ -175,6 +186,77 @@
     </div>
   </div>
 
+  <div class="propellant-modal hidden" id="propellantModal" role="dialog" aria-modal="true" aria-label="加注参数编辑">
+    <div class="config-backdrop" id="propellantBackdrop"></div>
+    <div class="propellant-panel panel">
+      <h3>加注参数编辑</h3>
+      <div class="propellant-base">
+        <label>火箭级数 <input id="rocketStageCountInput" type="number" min="1" max="6" value="1"></label>
+        <label class="switch-wrap">
+          <input id="boosterEnabledInput" type="checkbox">
+          <span>有助推器</span>
+        </label>
+        <label>助推器数量 <input id="boosterCountInput" type="number" min="0" max="12" value="0"></label>
+      </div>
+      <div id="propellantStageList" class="propellant-stage-list"></div>
+      <div class="row">
+        <button class="btn" id="closePropellantModalBtn">关闭</button>
+        <button class="btn accent" id="savePropellantModalBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fuel-modal hidden" id="fuelModal" role="dialog" aria-modal="true" aria-label="燃料编辑">
+    <div class="config-backdrop" id="fuelBackdrop"></div>
+    <div class="fuel-panel panel">
+      <div class="config-head">
+        <h3>燃料编辑</h3>
+        <div class="row">
+          <button class="btn active" id="fuelTabListBtn">列表编辑</button>
+          <button class="btn" id="fuelTabCurveBtn">曲线编辑</button>
+        </div>
+      </div>
+
+      <div class="fuel-body" id="fuelListPane">
+        <div class="fuel-table-wrap">
+          <table class="fuel-table" id="fuelTable"></table>
+        </div>
+      </div>
+
+      <div class="fuel-body hidden" id="fuelCurvePane">
+        <div class="row curve-toolbar">
+          <label>数据通道
+            <select id="fuelCurveChannelSelect"></select>
+          </label>
+          <span class="hint">拖拽数据点实时编辑，范围 0~100%</span>
+        </div>
+        <div class="curve-shell">
+          <canvas id="fuelCurveCanvas" width="1000" height="360"></canvas>
+          <div class="curve-y-left">速度 (m/s)</div>
+          <div class="curve-y-right">高度 (m)</div>
+        </div>
+      </div>
+
+      <div class="config-foot">
+        <p class="hint">-1 代表自动插值；T0 默认 100%，最早时刻默认 0%。</p>
+        <button class="btn" id="closeFuelModalBtn">关闭</button>
+        <button class="btn accent" id="saveFuelModalBtn">保存燃料配置</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="engine-modal hidden" id="engineLayoutModal" role="dialog" aria-modal="true" aria-label="发动机布局编辑">
+    <div class="config-backdrop" id="engineLayoutBackdrop"></div>
+    <div class="engine-panel panel">
+      <h3>编辑发动机布局</h3>
+      <p>该功能预留，后续可在此扩展发动机布局可视化编辑。</p>
+      <div class="row">
+        <button class="btn" id="closeEngineLayoutBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/notification.js"></script>
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
   <script src="/static/js/admin.js"></script>

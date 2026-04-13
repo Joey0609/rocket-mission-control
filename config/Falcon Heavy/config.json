@@ -4,7 +4,7 @@
   "stages": [
     {
       "id": "stg_fh_fuel",
-      "name": "燃料 加注",
+      "name": "燃料加注",
       "start_time": -3600,
       "end_time": -60,
       "description": "27台发动机燃料准备"
@@ -70,16 +70,49 @@
   ],
   "observation_points": [
     {
-      "id": "obs_fh_arm",
-      "name": "摆杆摆开",
-      "new_countdown": 95,
-      "description": "观察到摆杆已打开"
-    },
-    {
       "id": "obs_fh_side_sep",
       "name": "侧助推器分离",
+      "time": -160,
       "new_countdown": 160,
       "description": "观察到侧助推器分离"
+    },
+    {
+      "id": "obs_fh_arm",
+      "name": "摆杆摆开",
+      "time": -95,
+      "new_countdown": 95,
+      "description": "观察到摆杆已打开"
     }
-  ]
+  ],
+  "rocket_meta": {
+    "recovery_capable": true,
+    "recovery_enabled": false,
+    "stage_count": 1,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": false,
+      "count": 0,
+      "fuels": []
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "engine_layout": {
+    "version": 1,
+    "reserved": true
+  }
 }

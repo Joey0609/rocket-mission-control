@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/visitor.css">
+  <link rel="stylesheet" href="/static/css/notification.css">
 </head>
 <body>
   <div class="nebula"></div>
@@ -16,15 +17,15 @@
 
   <main class="visitor-shell" id="visitorShell">
     <header class="hero">
-      <div class="tag">PUBLIC VIEW</div>
+      <div class="hero-meta-row">
+        <div class="tag">PUBLIC VIEW</div>
+        <div class="copyright">Copyright 北斗-玉衡，Joey0609</div>
+      </div>
       <h1 id="modelName">等待选择型号</h1>
       <p id="statusLine">等待任务初始化</p>
       <div class="hero-tools">
         <div class="signal" id="channelMode">实时通道: 连接中</div>
-        <div class="theme-picker">
-          <label for="visitorThemeSelect">主题</label>
-          <select id="visitorThemeSelect"></select>
-        </div>
+        <button class="theme-btn" id="openThemeModalBtn">主题</button>
       </div>
     </header>
 
@@ -50,17 +51,25 @@
       </div>
     </section>
 
-    <section class="countdown-list-wrap">
-      <h2>观察点触发倒计时</h2>
-      <div id="runtimeCountdowns" class="runtime-countdowns"></div>
-    </section>
-
     <section class="focus-nodes-wrap">
       <h2>关键节点时间轴</h2>
       <div id="focusNodes" class="focus-timeline"></div>
     </section>
   </main>
 
+  <div class="theme-modal hidden" id="themeModal" role="dialog" aria-modal="true" aria-label="主题选择">
+    <div class="theme-backdrop" id="themeBackdrop"></div>
+    <div class="theme-panel panel">
+      <h3>选择主题</h3>
+      <div class="theme-grid" id="themeGrid"></div>
+      <div class="row">
+        <button class="btn" id="cancelThemeBtn">取消</button>
+        <button class="btn accent" id="applyThemeBtn">确认主题</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/notification.js"></script>
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
   <script src="/static/js/visitor.js"></script>
