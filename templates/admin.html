@@ -20,7 +20,8 @@
         <div class="head-top">
           <h1>管理员控制台</h1>
           <div class="head-actions">
-            <button class="btn" id="themeToggleBtn">切换浅色模式</button>
+            <select id="themeSelect" class="theme-select"></select>
+            <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
             <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
             <button class="btn" id="showVisitorQrBtn">游客二维码</button>
             <button class="btn" id="reloadPreviewBtn">刷新预览</button>
@@ -53,8 +54,9 @@
 
       <section class="panel">
         <h2>发射控制</h2>
-        <div class="row">
+        <div class="row launch-main-row">
           <input type="datetime-local" id="launchAt" step="1">
+          <button class="btn warning" id="holdBtn">HOLD</button>
         </div>
         <div class="row compact wrap launch-adjust-row">
           <button class="btn" data-adjust-seconds="-3600">-1h</button>
@@ -92,6 +94,7 @@
 
       <section class="panel">
         <h2>观察点触发</h2>
+        <p class="hint">触发后主倒计时会对齐到该观察点对应的任务时间。</p>
         <div class="obs-grid" id="observationButtons"></div>
       </section>
 
@@ -137,32 +140,30 @@
       <div class="config-head">
         <h3 id="configModalTitle">型号配置编辑</h3>
         <div class="row">
-          <button class="btn active" id="configTabRawBtn">源码编辑</button>
-          <button class="btn" id="configTabVisualBtn">可视化编辑</button>
+          <button class="btn" id="configTabRawBtn">源码编辑</button>
+          <button class="btn active" id="configTabVisualBtn">可视化编辑</button>
         </div>
       </div>
 
-      <div class="config-body" id="configRawPane">
+      <div class="config-body hidden" id="configRawPane">
         <textarea id="configRawEditor" spellcheck="false"></textarea>
       </div>
 
-      <div class="config-body hidden" id="configVisualPane">
-        <div class="visual-card">
-          <h4>阶段 (stages)</h4>
-          <div class="visual-list" id="visualStages"></div>
-          <div class="row"><button class="btn" id="addStageBtn">添加阶段</button></div>
+      <div class="config-body" id="configVisualPane">
+        <div class="row visual-tools">
+          <button class="btn" id="addVisualItemBtn">新增条目</button>
+          <p class="hint">删除不确认，按 Ctrl+Z 可撤回修改。</p>
         </div>
-
-        <div class="visual-card">
-          <h4>事件 (events)</h4>
-          <div class="visual-list" id="visualEvents"></div>
-          <div class="row"><button class="btn" id="addEventBtn">添加事件</button></div>
-        </div>
-
-        <div class="visual-card">
-          <h4>观察点 (observation_points)</h4>
-          <div class="visual-list" id="visualObs"></div>
-          <div class="row"><button class="btn" id="addObsBtn">添加观察点</button></div>
+        <div class="visual-table">
+          <div class="visual-head">
+            <span>类型</span>
+            <span>ID</span>
+            <span>名称</span>
+            <span>时间</span>
+            <span>介绍</span>
+            <span>操作</span>
+          </div>
+          <div class="visual-list" id="visualList"></div>
         </div>
       </div>
 
@@ -174,6 +175,7 @@
     </div>
   </div>
 
+  <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
   <script src="/static/js/admin.js"></script>
 </body>

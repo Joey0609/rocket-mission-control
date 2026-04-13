@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const crypto = require("crypto");
 const QRCode = require("qrcode");
 
 function toInt(value, fallback = 0) {
@@ -12,37 +11,6 @@ function toInt(value, fallback = 0) {
 
 function newId(prefix) {
   return `${prefix}_${Math.random().toString(16).slice(2, 10)}`;
-}
-
-function parseCookies(cookieHeader) {
-  const pairs = String(cookieHeader || "").split(";");
-  const result = {};
-  for (const raw of pairs) {
-    const idx = raw.indexOf("=");
-    if (idx <= 0) {
-      continue;
-    }
-    const key = raw.slice(0, idx).trim();
-    const value = raw.slice(idx + 1).trim();
-    if (!key) {
-      continue;
-    }
-    try {
-      result[key] = decodeURIComponent(value);
-    } catch {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-function safeEqual(a, b) {
-  const av = Buffer.from(String(a));
-  const bv = Buffer.from(String(b));
-  if (av.length !== bv.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(av, bv);
 }
 
 function normalizeStages(stages) {
@@ -109,21 +77,12 @@ function normalizeObservations(items) {
   if (!Array.isArray(items)) {
     return [];
   }
-  return items.map((p) => {
-    const id = String(p.id || newId("obs"));
-    const name = String(p.name || "未命名观察点");
-    const fallbackCountdown = Math.max(0, toInt(p.new_countdown, 0));
-    const hasTime = Object.prototype.hasOwnProperty.call(p, "time");
-    const time = hasTime ? toInt(p.time, -fallbackCountdown) : -fallbackCountdown;
-    const newCountdown = Math.max(0, toInt(p.new_countdown, Math.max(0, -time)));
-    return {
-      id,
-      name,
-      time,
-      new_countdown: newCountdown,
-      description: String(p.description || ""),
-    };
-  });
+  return items.map((p) => ({
+    id: String(p.id || newId("obs")),
+    name: String(p.name || "未命名观察点"),
+    new_countdown: Math.max(0, toInt(p.new_countdown, 0)),
+    description: String(p.description || ""),
+  }));
 }
 
 function normalizeModel(raw) {
@@ -137,14 +96,6 @@ function normalizeModel(raw) {
     stages,
     events,
     observation_points,
-  };
-}
-
-function normalizeAppSettings(raw) {
-  const theme = String(raw?.default_theme || "aurora").trim() || "aurora";
-  return {
-    version: 1,
-    default_theme: theme,
   };
 }
 
@@ -212,49 +163,6 @@ class ModelStore {
   }
 }
 
-class AppSettingsStore {
-  constructor(filePath) {
-    this.filePath = filePath;
-    this.settings = normalizeAppSettings({});
-    this.reload();
-  }
-
-  reload() {
-    const dir = path.dirname(this.filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    if (!fs.existsSync(this.filePath)) {
-      this.settings = normalizeAppSettings({});
-      this.save();
-      return;
-    }
-
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
-      this.settings = normalizeAppSettings(raw);
-    } catch {
-      this.settings = normalizeAppSettings({});
-      this.save();
-    }
-  }
-
-  save() {
-    fs.writeFileSync(this.filePath, JSON.stringify(this.settings, null, 2), "utf-8");
-  }
-
-  get() {
-    return { ...this.settings };
-  }
-
-  setDefaultTheme(themeId) {
-    this.settings.default_theme = String(themeId || "aurora").trim() || "aurora";
-    this.save();
-    return this.get();
-  }
-}
-
 class MissionEngine {
   constructor(store) {
     this.store = store;
@@ -265,9 +173,6 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.lastMutation = Date.now();
-    this.holdActive = false;
-    this.holdStartedAt = null;
-    this.holdAccumulatedMs = 0;
   }
 
   markDirty() {
@@ -279,59 +184,6 @@ class MissionEngine {
       return null;
     }
     return this.store.get(this.currentModelName);
-  }
-
-  clearHold() {
-    this.holdActive = false;
-    this.holdStartedAt = null;
-    this.holdAccumulatedMs = 0;
-  }
-
-  holdElapsedMs(now) {
-    if (!this.running || !this.launchEpoch) {
-      return 0;
-    }
-    const ongoing = this.holdActive && this.holdStartedAt ? Math.max(0, now - this.holdStartedAt) : 0;
-    return Math.max(0, this.holdAccumulatedMs + ongoing);
-  }
-
-  setHold(nextHold) {
-    if (!this.running || !this.launchEpoch || this.ignitionEpoch) {
-      return [false, "当前状态不可 HOLD"];
-    }
-
-    const target = Boolean(nextHold);
-    if (target === this.holdActive) {
-      return [true, target ? "已处于 HOLD" : "已恢复计时"];
-    }
-
-    const now = Date.now();
-    if (target) {
-      this.holdActive = true;
-      this.holdStartedAt = now;
-      this.observationLog.push({
-        type: "hold",
-        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-      });
-      this.markDirty();
-      return [true, "已进入 HOLD"];
-    }
-
-    if (this.holdStartedAt) {
-      this.holdAccumulatedMs += Math.max(0, now - this.holdStartedAt);
-    }
-    this.holdActive = false;
-    this.holdStartedAt = null;
-    this.observationLog.push({
-      type: "resume",
-      timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-    });
-    this.markDirty();
-    return [true, "已恢复倒计时"];
-  }
-
-  toggleHold() {
-    return this.setHold(!this.holdActive);
   }
 
   selectModel(name) {
@@ -352,7 +204,6 @@ class MissionEngine {
     this.running = true;
     this.runtimeCountdowns = [];
     this.observationLog = [];
-    this.clearHold();
     this.markDirty();
   }
 
@@ -366,7 +217,6 @@ class MissionEngine {
     this.running = true;
     this.runtimeCountdowns = [];
     this.observationLog = [];
-    this.clearHold();
     this.markDirty();
     return true;
   }
@@ -377,7 +227,6 @@ class MissionEngine {
     this.ignitionEpoch = null;
     this.runtimeCountdowns = [];
     this.observationLog = [];
-    this.clearHold();
     this.markDirty();
   }
 
@@ -385,8 +234,7 @@ class MissionEngine {
     if (!this.running || !this.launchEpoch) {
       return false;
     }
-    this.ignitionEpoch = Date.now() - this.holdElapsedMs(Date.now());
-    this.clearHold();
+    this.ignitionEpoch = Date.now();
     this.observationLog.push({
       type: "ignition",
       timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
@@ -396,6 +244,9 @@ class MissionEngine {
   }
 
   triggerObservation(pointId, pointIndex) {
+    if (!this.running) {
+      return [false, "倒计时尚未启动"];
+    }
     const model = this.model;
     if (!model) {
       return [false, "请先选择型号"];
@@ -413,34 +264,20 @@ class MissionEngine {
       return [false, "观察点不存在"];
     }
 
-    const now = Date.now();
-    const targetMissionTime = toInt(point.time, -Math.max(0, toInt(point.new_countdown, 0)));
-    this.running = true;
-    this.clearHold();
-
-    if (targetMissionTime >= 0) {
-      this.ignitionEpoch = now - targetMissionTime * 1000;
-      this.launchEpoch = this.ignitionEpoch;
-    } else {
-      this.ignitionEpoch = null;
-      this.launchEpoch = now - targetMissionTime * 1000;
-    }
-
     this.runtimeCountdowns.push({
       id: newId("rt"),
       name: point.name,
-      duration: Math.max(0, -targetMissionTime),
-      startedAt: now,
+      duration: point.new_countdown,
+      startedAt: Date.now(),
     });
     this.observationLog.push({
       type: "observation",
       point: point.name,
-      target_time: targetMissionTime,
+      duration: point.new_countdown,
       timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
     });
     this.markDirty();
-
-    return [true, `已触发 ${point.name}，任务计时重置为 T${targetMissionTime >= 0 ? "+" : ""}${targetMissionTime}`];
+    return [true, `已触发 ${point.name}`];
   }
 
   fmtMinus(seconds) {
@@ -484,7 +321,7 @@ class MissionEngine {
     if (!this.running || !this.launchEpoch) {
       return 0;
     }
-    return now - this.launchEpoch - this.holdElapsedMs(now);
+    return now - this.launchEpoch;
   }
 
   timelineSummary(missionTime) {
@@ -559,13 +396,13 @@ class MissionEngine {
     };
   }
 
-  snapshot(extra = {}) {
+  snapshot() {
     const now = Date.now();
     const model = this.model;
 
-    if (this.running && this.launchEpoch && !this.ignitionEpoch && !this.holdActive && now >= this.launchEpoch) {
+    // 到达发射时刻后自动切换为正计时，避免停留在 T-00:00。
+    if (this.running && this.launchEpoch && !this.ignitionEpoch && now >= this.launchEpoch) {
       this.ignitionEpoch = this.launchEpoch;
-      this.clearHold();
       this.observationLog.push({
         type: "auto_ignition",
         timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
@@ -581,12 +418,9 @@ class MissionEngine {
       if (this.ignitionEpoch) {
         status = "flight";
         flightSec = Math.max(0, Math.floor((now - this.ignitionEpoch) / 1000));
-      } else if (this.holdActive) {
-        status = "hold";
-        mainSec = Math.max(0, Math.round(-this.missionTimeMs(now) / 1000));
       } else {
         status = "countdown";
-        mainSec = Math.max(0, Math.round(-this.missionTimeMs(now) / 1000));
+        mainSec = Math.max(0, Math.round((this.launchEpoch - now) / 1000));
       }
     }
 
@@ -619,8 +453,6 @@ class MissionEngine {
       status,
       running: this.running,
       is_flying: Boolean(this.ignitionEpoch),
-      is_hold: this.holdActive,
-      hold_elapsed_ms: this.holdElapsedMs(now),
       current_model: model?.name || null,
       main_countdown_seconds: mainSec,
       main_countdown_formatted: this.fmtMinus(mainSec),
@@ -643,33 +475,24 @@ class MissionEngine {
       timeline_nodes: timeline.timelineNodes || [],
       next_poll_hint_ms: timeline.nextPollHintMs,
       change_token: this.lastMutation,
-      ...extra,
     };
   }
 }
 
 function startServer(options = {}) {
-  const rootDir = options.rootDir || path.resolve(__dirname, "..");
+  const rootDir = options.rootDir || path.resolve(__dirname, "..", "..");
   const host = options.host || "0.0.0.0";
   const port = options.port || 5000;
-  const sessionCookieName = "mc_admin_session";
-  const sessionSecret = String(options.sessionSecret || process.env.SESSION_SECRET || "mission-control-secret");
-  const adminUsername = String(options.adminUsername || process.env.ADMIN_USERNAME || "admin");
-  const adminPassword = String(options.adminPassword || process.env.ADMIN_PASSWORD || "admin123");
-  const sessionTtlSeconds = Math.max(60, toInt(options.sessionTtlSeconds || process.env.SESSION_TTL_SECONDS, 8 * 60 * 60));
-  const sessionTtlMs = sessionTtlSeconds * 1000;
-  const sessions = new Map();
 
   const app = express();
   const store = new ModelStore(path.join(rootDir, "config"));
-  const appSettings = new AppSettingsStore(path.join(rootDir, "config", "app-settings.json"));
   const engine = new MissionEngine(store);
 
   const modelNames = Object.keys(store.all());
   if (modelNames.length > 0) {
     engine.selectModel(modelNames[0]);
   }
-  engine.launchIn(600);
+  engine.launchIn(180);
 
   function getLanIPv4() {
     const all = os.networkInterfaces();
@@ -702,89 +525,6 @@ function startServer(options = {}) {
     return `${proto}://${hostHeader}/`;
   }
 
-  function newSessionToken() {
-    const sessionId = crypto.randomBytes(18).toString("hex");
-    const sign = crypto.createHmac("sha256", sessionSecret).update(sessionId).digest("hex");
-    return `${sessionId}.${sign}`;
-  }
-
-  function verifySessionToken(token) {
-    const raw = String(token || "");
-    const parts = raw.split(".");
-    if (parts.length !== 2) {
-      return null;
-    }
-    const [sessionId, sign] = parts;
-    const expected = crypto.createHmac("sha256", sessionSecret).update(sessionId).digest("hex");
-    if (!safeEqual(sign, expected)) {
-      return null;
-    }
-    return sessionId;
-  }
-
-  function setSessionCookie(res, token, maxAgeMs) {
-    res.cookie(sessionCookieName, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      path: "/",
-      maxAge: maxAgeMs,
-    });
-  }
-
-  function clearSessionCookie(res) {
-    res.clearCookie(sessionCookieName, { path: "/" });
-  }
-
-  function getSessionId(req) {
-    const cookies = parseCookies(req.headers.cookie || "");
-    return verifySessionToken(cookies[sessionCookieName]);
-  }
-
-  function isAuthed(req) {
-    const sessionId = getSessionId(req);
-    if (!sessionId) {
-      return false;
-    }
-    const session = sessions.get(sessionId);
-    if (!session) {
-      return false;
-    }
-    if (session.expiresAt <= Date.now()) {
-      sessions.delete(sessionId);
-      return false;
-    }
-    return true;
-  }
-
-  function requireAdminApi(req, res, next) {
-    if (!isAuthed(req)) {
-      res.status(401).json({ success: false, message: "未登录或会话已过期" });
-      return;
-    }
-    next();
-  }
-
-  function requireAdminPage(req, res, next) {
-    if (!isAuthed(req)) {
-      res.redirect("/admin/login");
-      return;
-    }
-    next();
-  }
-
-  const gcTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [sessionId, session] of sessions.entries()) {
-      if (!session || session.expiresAt <= now) {
-        sessions.delete(sessionId);
-      }
-    }
-  }, 60 * 1000);
-  if (typeof gcTimer.unref === "function") {
-    gcTimer.unref();
-  }
-
   app.use(express.json({ limit: "2mb" }));
   app.use("/static", express.static(path.join(rootDir, "static")));
 
@@ -792,76 +532,19 @@ function startServer(options = {}) {
     res.sendFile(path.join(rootDir, "templates", "visitor.html"));
   });
 
-  app.get("/admin/login", (req, res) => {
-    if (isAuthed(req)) {
-      res.redirect("/admin");
-      return;
-    }
-    res.sendFile(path.join(rootDir, "templates", "admin-login.html"));
-  });
-
-  app.get("/admin", requireAdminPage, (req, res) => {
+  app.get("/admin", (req, res) => {
     res.sendFile(path.join(rootDir, "templates", "admin.html"));
   });
 
-  app.get("/api/admin/session", (req, res) => {
-    res.json({ success: true, authenticated: isAuthed(req), username: adminUsername });
-  });
-
-  app.get("/api/public_config", (req, res) => {
-    res.json(appSettings.get());
-  });
-
-  app.get("/api/admin/settings", requireAdminApi, (req, res) => {
-    res.json({ success: true, settings: appSettings.get() });
-  });
-
-  app.post("/api/admin/settings/theme", requireAdminApi, (req, res) => {
-    const themeId = String(req.body?.theme_id || "").trim();
-    if (!themeId) {
-      res.status(400).json({ success: false, message: "theme_id 不能为空" });
-      return;
-    }
-    const settings = appSettings.setDefaultTheme(themeId);
-    res.json({ success: true, settings });
-  });
-
-  app.post("/api/admin/login", (req, res) => {
-    const username = String(req.body?.username || "");
-    const password = String(req.body?.password || "");
-    if (!safeEqual(username, adminUsername) || !safeEqual(password, adminPassword)) {
-      res.status(401).json({ success: false, message: "账号或密码错误" });
-      return;
-    }
-
-    const token = newSessionToken();
-    const sessionId = token.split(".")[0];
-    sessions.set(sessionId, {
-      username,
-      expiresAt: Date.now() + sessionTtlMs,
-    });
-    setSessionCookie(res, token, sessionTtlMs);
-    res.json({ success: true });
-  });
-
-  app.post("/api/admin/logout", (req, res) => {
-    const sessionId = getSessionId(req);
-    if (sessionId) {
-      sessions.delete(sessionId);
-    }
-    clearSessionCookie(res);
-    res.json({ success: true });
-  });
-
   app.get("/api/state", (req, res) => {
-    res.json(engine.snapshot({ default_theme: appSettings.get().default_theme }));
+    res.json(engine.snapshot());
   });
 
-  app.get("/api/visitor_url", requireAdminApi, (req, res) => {
+  app.get("/api/visitor_url", (req, res) => {
     res.json({ url: buildVisitorUrl(req) });
   });
 
-  app.get("/api/visitor_qr", requireAdminApi, async (req, res) => {
+  app.get("/api/visitor_qr", async (req, res) => {
     try {
       const fallbackUrl = buildVisitorUrl(req);
       const raw = String(req.query.url || fallbackUrl);
@@ -889,7 +572,7 @@ function startServer(options = {}) {
 
     let lastPayload = "";
     const send = () => {
-      const payload = JSON.stringify(engine.snapshot({ default_theme: appSettings.get().default_theme }));
+      const payload = JSON.stringify(engine.snapshot());
       if (payload !== lastPayload) {
         lastPayload = payload;
         res.write(`event: state\ndata: ${payload}\n\n`);
@@ -904,11 +587,11 @@ function startServer(options = {}) {
     });
   });
 
-  app.get("/api/models", requireAdminApi, (req, res) => {
+  app.get("/api/models", (req, res) => {
     res.json(store.all());
   });
 
-  app.post("/api/select_model", requireAdminApi, (req, res) => {
+  app.post("/api/select_model", (req, res) => {
     const model = String(req.body?.model || "").trim();
     if (!model) {
       res.status(400).json({ success: false, message: "型号不能为空" });
@@ -922,7 +605,7 @@ function startServer(options = {}) {
     res.json({ success: true, message: `已选择 ${model}` });
   });
 
-  app.post("/api/launch", requireAdminApi, (req, res) => {
+  app.post("/api/launch", (req, res) => {
     const launchIn = req.body?.launch_in_seconds;
     const launchAt = req.body?.launch_at;
 
@@ -945,19 +628,7 @@ function startServer(options = {}) {
     res.status(400).json({ success: false, message: "请提供 launch_in_seconds 或 launch_at" });
   });
 
-  app.post("/api/hold", requireAdminApi, (req, res) => {
-    const payloadHold = req.body?.hold;
-    const [ok, message] = typeof payloadHold === "boolean"
-      ? engine.setHold(payloadHold)
-      : engine.toggleHold();
-    if (!ok) {
-      res.status(400).json({ success: false, message });
-      return;
-    }
-    res.json({ success: true, message, hold: engine.holdActive });
-  });
-
-  app.post("/api/observation", requireAdminApi, (req, res) => {
+  app.post("/api/observation", (req, res) => {
     const pointId = req.body?.point_id ? String(req.body.point_id) : null;
     const pointIndex = req.body?.point_index === undefined ? null : toInt(req.body.point_index, -1);
     const [ok, message] = engine.triggerObservation(pointId, pointIndex);
@@ -968,7 +639,7 @@ function startServer(options = {}) {
     res.json({ success: true, message });
   });
 
-  app.post("/api/ignition", requireAdminApi, (req, res) => {
+  app.post("/api/ignition", (req, res) => {
     const ok = engine.ignition();
     if (!ok) {
       res.status(400).json({ success: false, message: "当前状态不可点火" });
@@ -977,12 +648,12 @@ function startServer(options = {}) {
     res.json({ success: true, message: "点火确认" });
   });
 
-  app.post("/api/reset", requireAdminApi, (req, res) => {
+  app.post("/api/reset", (req, res) => {
     engine.reset();
     res.json({ success: true });
   });
 
-  app.post("/api/models", requireAdminApi, (req, res) => {
+  app.post("/api/models", (req, res) => {
     const name = String(req.body?.name || "").trim();
     if (!name) {
       res.status(400).json({ success: false, message: "name 不能为空" });
@@ -992,7 +663,7 @@ function startServer(options = {}) {
     res.json({ success: true, model: model.name });
   });
 
-  app.delete("/api/models/:name", requireAdminApi, (req, res) => {
+  app.delete("/api/models/:name", (req, res) => {
     const name = decodeURIComponent(req.params.name);
     const ok = store.delete(name);
     if (!ok) {
@@ -1012,10 +683,7 @@ function startServer(options = {}) {
 
   return {
     url: `http://${host}:${port}`,
-    stop: () => new Promise((resolve) => {
-      clearInterval(gcTimer);
-      server.close(() => resolve());
-    }),
+    stop: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }
 

@@ -21,7 +21,10 @@
       <p id="statusLine">等待任务初始化</p>
       <div class="hero-tools">
         <div class="signal" id="channelMode">实时通道: 连接中</div>
-        <button class="theme-btn" id="visitorThemeToggle">浅色模式</button>
+        <div class="theme-picker">
+          <label for="visitorThemeSelect">主题</label>
+          <select id="visitorThemeSelect"></select>
+        </div>
       </div>
     </header>
 
@@ -58,6 +61,7 @@
     </section>
   </main>
 
+  <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
   <script src="/static/js/visitor.js"></script>
 </body>

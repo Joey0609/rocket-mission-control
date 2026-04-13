@@ -6,6 +6,16 @@ const nodes = {
   errorMessage: document.getElementById("errorMessage"),
 };
 
+async function applyDefaultTheme() {
+  try {
+    const res = await fetch("/api/public_config", { cache: "no-store" });
+    const data = await res.json();
+    window.MissionThemes.apply(data.default_theme || window.MissionThemes.defaultId);
+  } catch {
+    window.MissionThemes.apply(window.MissionThemes.defaultId);
+  }
+}
+
 function setError(message) {
   nodes.errorMessage.textContent = message || "";
 }
@@ -43,3 +53,4 @@ async function submitLogin(event) {
 }
 
 nodes.form.addEventListener("submit", submitLogin);
+applyDefaultTheme();

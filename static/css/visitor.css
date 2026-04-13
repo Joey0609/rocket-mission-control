@@ -10,15 +10,15 @@ body {
 }
 
 .nebula {
-  background: radial-gradient(circle at 20% 20%, rgba(43, 177, 222, 0.2), transparent 30%),
-    radial-gradient(circle at 85% 18%, rgba(255, 159, 67, 0.2), transparent 28%),
-    radial-gradient(circle at 60% 80%, rgba(51, 240, 176, 0.2), transparent 30%);
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 30%),
+    radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--warn) 24%, transparent), transparent 28%),
+    radial-gradient(circle at 60% 80%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 30%);
   animation: nebulaFloat 12s ease-in-out infinite alternate;
 }
 
 .grid-overlay {
-  background-image: linear-gradient(rgba(157, 195, 217, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(157, 195, 217, 0.08) 1px, transparent 1px);
+  background-image: linear-gradient(color-mix(in srgb, var(--line) 58%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 58%, transparent) 1px, transparent 1px);
   background-size: 40px 40px;
   opacity: 0.35;
 }
@@ -34,7 +34,7 @@ body {
 .hero {
   padding: 26px;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(18, 42, 65, 0.9), rgba(10, 84, 112, 0.65));
+  background: var(--surface-hero);
   border: 1px solid var(--line);
   transform: translateY(0);
   animation: liftIn 0.75s ease;
@@ -63,13 +63,22 @@ body {
   gap: 10px;
 }
 
-.theme-btn {
+.theme-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-picker select {
+  min-width: 130px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 12px;
-  background: rgba(8, 20, 37, 0.5);
+  background: var(--surface-input);
   color: var(--ink);
-  cursor: pointer;
+  padding: 8px 10px;
+  font-family: "Manrope", sans-serif;
 }
 
 .clock-board {
@@ -88,7 +97,7 @@ body {
   padding: 20px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: rgba(8, 20, 37, 0.72);
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -107,7 +116,7 @@ body {
 }
 
 .clock-card.flight {
-  border-color: rgba(255, 93, 108, 0.4);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
 }
 
 .pulse-card {
@@ -140,7 +149,7 @@ body {
   padding: 18px;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(8, 20, 37, 0.6);
+  background: var(--surface-2);
 }
 
 .runtime-countdowns {
@@ -153,28 +162,9 @@ body {
   min-width: 180px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(51, 240, 176, 0.35);
-  background: rgba(8, 20, 37, 0.8);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: var(--surface-1);
   animation: cardIn 0.45s ease;
-}
-
-body[data-theme="light"] .hero {
-  background: linear-gradient(135deg, rgba(220, 238, 255, 0.92), rgba(192, 224, 252, 0.8));
-}
-
-body[data-theme="light"] .theme-btn {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-body[data-theme="light"] .clock-card,
-body[data-theme="light"] .countdown-list-wrap,
-body[data-theme="light"] .focus-nodes-wrap {
-  background: rgba(255, 255, 255, 0.78);
-}
-
-body[data-theme="light"] .runtime-card {
-  border-color: rgba(13, 143, 115, 0.35);
-  background: rgba(255, 255, 255, 0.92);
 }
 
 .runtime-card .name {
@@ -205,7 +195,7 @@ body[data-theme="light"] .runtime-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px;
-  background: rgba(8, 20, 37, 0.72);
+  background: var(--surface-1);
 }
 
 .focus-node .name {
@@ -218,16 +208,12 @@ body[data-theme="light"] .runtime-card {
   font-size: 12px;
 }
 
-body[data-theme="light"] .focus-node {
-  background: rgba(255, 255, 255, 0.82);
-}
-
 .axis-shell {
   position: relative;
   height: 220px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(8, 20, 37, 0.72), rgba(8, 20, 37, 0.48));
+  background: var(--surface-axis);
   overflow: hidden;
 }
 
@@ -237,7 +223,7 @@ body[data-theme="light"] .focus-node {
   right: 0;
   top: 50%;
   height: 2px;
-  background: linear-gradient(90deg, rgba(255, 159, 67, 0.7), rgba(51, 240, 176, 0.9), rgba(255, 159, 67, 0.7));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 70%, transparent), color-mix(in srgb, var(--accent) 80%, transparent), color-mix(in srgb, var(--warn) 70%, transparent));
   transform: translateY(-1px);
 }
 
@@ -247,8 +233,8 @@ body[data-theme="light"] .focus-node {
   bottom: 10px;
   left: 33.333%;
   width: 2px;
-  background: rgba(255, 159, 67, 0.95);
-  box-shadow: 0 0 14px rgba(255, 159, 67, 0.45);
+  background: var(--warn);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--warn) 55%, transparent);
 }
 
 .axis-now-tag {
@@ -259,8 +245,8 @@ body[data-theme="light"] .focus-node {
   font-size: 12px;
   font-weight: 700;
   color: var(--warn);
-  background: rgba(8, 20, 37, 0.9);
-  border: 1px solid rgba(255, 159, 67, 0.4);
+  background: var(--surface-axis-tag);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
   border-radius: 999px;
   padding: 4px 9px;
 }
@@ -276,7 +262,7 @@ body[data-theme="light"] .focus-node {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(157, 195, 217, 0.2);
+  background: color-mix(in srgb, var(--line) 70%, transparent);
 }
 
 .axis-tick span {
@@ -302,7 +288,7 @@ body[data-theme="light"] .focus-node {
   height: 12px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(51, 240, 176, 0.5);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .axis-node.stage .dot {
@@ -333,23 +319,15 @@ body[data-theme="light"] .focus-node {
   opacity: 0.55;
 }
 
-body[data-theme="light"] .axis-shell {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.74));
-}
-
-body[data-theme="light"] .axis-now-tag {
-  background: rgba(255, 255, 255, 0.95);
-}
-
 @keyframes pulseGlow {
   0% {
-    box-shadow: 0 0 0 rgba(51, 240, 176, 0);
+    box-shadow: 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
   }
   50% {
-    box-shadow: 0 0 25px rgba(51, 240, 176, 0.28);
+    box-shadow: 0 0 25px color-mix(in srgb, var(--accent) 35%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 rgba(51, 240, 176, 0);
+    box-shadow: 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
   }
 }
 
@@ -392,5 +370,10 @@ body[data-theme="light"] .axis-now-tag {
 
   .visitor-shell {
     padding: 14px;
+  }
+
+  .hero-tools {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

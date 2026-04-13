@@ -11,21 +11,15 @@
   --panel: rgba(8, 20, 37, 0.68);
   --line: rgba(157, 195, 217, 0.24);
   --glow: rgba(51, 240, 176, 0.45);
-}
-
-body[data-theme="light"] {
-  --bg-1: #f3f8ff;
-  --bg-2: #ddeeff;
-  --bg-3: #c8e2ff;
-  --bg-4: #8bb8de;
-  --ink: #102947;
-  --muted: #4b6785;
-  --accent: #0d8f73;
-  --warn: #bb7a1f;
-  --danger: #bf3f54;
-  --panel: rgba(255, 255, 255, 0.9);
-  --line: rgba(16, 41, 71, 0.16);
-  --glow: rgba(13, 143, 115, 0.28);
+  --surface-1: rgba(4, 10, 20, 0.42);
+  --surface-2: rgba(8, 20, 37, 0.76);
+  --surface-3: #020914;
+  --surface-input: rgba(4, 10, 20, 0.6);
+  --surface-button: rgba(13, 35, 56, 0.9);
+  --surface-hero: linear-gradient(135deg, rgba(18, 42, 65, 0.9), rgba(10, 84, 112, 0.65));
+  --surface-axis: linear-gradient(180deg, rgba(8, 20, 37, 0.72), rgba(8, 20, 37, 0.48));
+  --surface-axis-tag: rgba(8, 20, 37, 0.9);
+  --link: #40f0b8;
 }
 
 * {

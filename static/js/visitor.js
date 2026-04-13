@@ -9,10 +9,9 @@ const nodes = {
   runtimeCountdowns: document.getElementById("runtimeCountdowns"),
   focusNodes: document.getElementById("focusNodes"),
   missionCard: document.getElementById("missionCard"),
-  themeToggle: document.getElementById("visitorThemeToggle"),
+  themeSelect: document.getElementById("visitorThemeSelect"),
 };
 
-const VISITOR_THEME_KEY = "mission-visitor-theme";
 const CLOCK_TICK_MS = 20;
 const AXIS_BEFORE_SEC = 120;
 const AXIS_AFTER_SEC = 240;
@@ -28,33 +27,46 @@ let timelineNodes = [];
 let axisNodeViews = [];
 let axisRefs = null;
 const runtimeAnchors = new Map();
+let adminDefaultThemeId = window.MissionThemes.defaultId;
+let currentThemeId = adminDefaultThemeId;
 
 function queryParam(name) {
   const url = new URL(window.location.href);
   return url.searchParams.get(name);
 }
 
-function getTheme() {
-  const byQuery = queryParam("theme");
-  if (byQuery === "light" || byQuery === "dark") {
-    return byQuery;
-  }
-  const local = localStorage.getItem(VISITOR_THEME_KEY);
-  return local === "light" ? "light" : "dark";
-}
-
-function setTheme(mode) {
-  const theme = mode === "light" ? "light" : "dark";
-  document.body.dataset.theme = theme;
-  localStorage.setItem(VISITOR_THEME_KEY, theme);
-  if (nodes.themeToggle) {
-    nodes.themeToggle.textContent = theme === "light" ? "夜间模式" : "浅色模式";
+function applyTheme(themeId, syncSelect = true) {
+  currentThemeId = window.MissionThemes.apply(themeId);
+  if (syncSelect && nodes.themeSelect) {
+    nodes.themeSelect.value = currentThemeId;
   }
 }
 
-function toggleTheme() {
-  const next = document.body.dataset.theme === "light" ? "dark" : "light";
-  setTheme(next);
+function populateThemeSelector() {
+  if (!nodes.themeSelect) {
+    return;
+  }
+  nodes.themeSelect.innerHTML = window.MissionThemes
+    .list()
+    .map((item) => `<option value="${item.id}">${item.name}</option>`)
+    .join("");
+}
+
+async function loadDefaultTheme() {
+  const themeFromQuery = queryParam("theme");
+  if (themeFromQuery) {
+    applyTheme(themeFromQuery);
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/public_config", { cache: "no-store" });
+    const data = await res.json();
+    adminDefaultThemeId = data.default_theme || window.MissionThemes.defaultId;
+  } catch {
+    adminDefaultThemeId = window.MissionThemes.defaultId;
+  }
+  applyTheme(adminDefaultThemeId);
 }
 
 function updateChannel(mode) {
@@ -105,11 +117,6 @@ function setTextIfChanged(element, text) {
     element.textContent = text;
     element.dataset.lastText = text;
   }
-}
-
-function formatNode(node) {
-  const t = node.time >= 0 ? `T+${node.time}s` : `T${node.time}s`;
-  return `${node.name} (${t}, ${node.seconds_to}s 后)`;
 }
 
 function formatTimelineSec(secValue) {
@@ -286,17 +293,26 @@ function renderFocusNodes(nodesData) {
 function renderState(state) {
   const model = state.current_model || "等待选择型号";
   nodes.modelName.textContent = model;
+
   missionAnchor = {
     ms: Number(state.unified_countdown_ms ?? 0),
     anchorPerf: performance.now(),
-    running: Boolean(state.running),
+    running: Boolean(state.running) && !Boolean(state.is_hold),
   };
+
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionAnchor.ms));
   nodes.currentStage.textContent = state.current_stage || "待命";
   nodes.currentEvent.textContent = state.current_event || "等待节点";
   nodes.nextDescription.textContent = state.next_description || "暂无说明";
 
-  const statusText = state.status === "countdown" ? "倒计时运行中" : state.status === "flight" ? "正计时运行中" : "等待任务启动";
+  const statusText = state.status === "countdown"
+    ? "倒计时运行中"
+    : state.status === "flight"
+      ? "正计时运行中"
+      : state.status === "hold"
+        ? "倒计时 HOLD"
+        : "等待任务启动";
+
   nodes.statusLine.textContent = `${statusText} · ${state.now}`;
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
@@ -322,17 +338,25 @@ function tickClocks() {
   });
 }
 
-const channel = new LiveChannel({
-  streamUrl: "/api/stream",
-  stateUrl: "/api/state",
-  onState: renderState,
-  onModeChange: updateChannel,
-});
+async function init() {
+  populateThemeSelector();
+  await loadDefaultTheme();
 
-setTheme(getTheme());
-if (nodes.themeToggle) {
-  nodes.themeToggle.addEventListener("click", toggleTheme);
+  if (nodes.themeSelect) {
+    nodes.themeSelect.addEventListener("change", () => {
+      applyTheme(nodes.themeSelect.value);
+    });
+  }
+
+  const channel = new LiveChannel({
+    streamUrl: "/api/stream",
+    stateUrl: "/api/state",
+    onState: renderState,
+    onModeChange: updateChannel,
+  });
+
+  channel.start();
+  window.setInterval(tickClocks, CLOCK_TICK_MS);
 }
 
-channel.start();
-window.setInterval(tickClocks, CLOCK_TICK_MS);
+init();
