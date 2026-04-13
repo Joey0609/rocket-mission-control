@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body>
+  <div class="login-bg"></div>
+  <main class="login-shell">
+    <section class="panel login-card">
+      <p class="tag">ADMIN ACCESS</p>
+      <h1>管理员登录</h1>
+      <p class="hint">请输入管理员账号与密码后进入控制台。</p>
+
+      <form id="loginForm" autocomplete="off">
+        <label for="username">账号</label>
+        <input id="username" name="username" type="text" required placeholder="admin">
+
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" required placeholder="请输入密码">
+
+        <button class="btn accent" type="submit" id="submitBtn">登录</button>
+      </form>
+
+      <p class="error" id="errorMessage" aria-live="polite"></p>
+      <p class="hint foot-note">游客页无需登录，可直接访问首页。</p>
+    </section>
+  </main>
+
+  <script src="/static/js/admin-login.js"></script>
+</body>
+</html>

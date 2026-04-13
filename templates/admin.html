@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>任务控制台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+  <div class="admin-bg"></div>
+  <div class="mesh"></div>
+
+  <main class="admin-shell">
+    <aside class="control-col">
+      <header class="panel head-panel">
+        <div class="head-top">
+          <h1>管理员控制台</h1>
+          <div class="head-actions">
+            <button class="btn" id="themeToggleBtn">切换浅色模式</button>
+            <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
+            <button class="btn" id="showVisitorQrBtn">游客二维码</button>
+            <button class="btn" id="reloadPreviewBtn">刷新预览</button>
+            <button class="btn warning" id="logoutBtn">退出登录</button>
+          </div>
+        </div>
+        <p>Web 管理端与游客端由同一 Node.js 服务提供。</p>
+        <div class="signal" id="channelMode">实时通道: 连接中</div>
+      </header>
+
+      <section class="panel">
+        <h2>任务状态</h2>
+        <div class="status-grid">
+          <div class="status-item"><span>型号</span><strong id="currentModel">-</strong></div>
+          <div class="status-item"><span>状态</span><strong id="currentStatus">idle</strong></div>
+          <div class="status-item"><span>任务计时</span><strong id="missionClock">T-00:00.000</strong></div>
+          <div class="status-item"><span>活跃子倒计时</span><strong id="activeCount">0</strong></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>型号管理</h2>
+        <div class="row">
+          <select id="modelSelect"></select>
+          <button class="btn" id="refreshModelsBtn">刷新</button>
+          <button class="btn accent" id="openConfigEditorBtn">编辑配置</button>
+        </div>
+        <p class="hint">切换下拉框会自动应用型号。</p>
+      </section>
+
+      <section class="panel">
+        <h2>发射控制</h2>
+        <div class="row">
+          <input type="datetime-local" id="launchAt" step="1">
+        </div>
+        <div class="row compact wrap launch-adjust-row">
+          <button class="btn" data-adjust-seconds="-3600">-1h</button>
+          <button class="btn" data-adjust-seconds="-900">-15min</button>
+          <button class="btn" data-adjust-seconds="-300">-5min</button>
+          <button class="btn" data-adjust-seconds="-60">-1min</button>
+          <button class="btn" data-adjust-seconds="-30">-30s</button>
+          <button class="btn" data-adjust-seconds="-5">-5s</button>
+          <button class="btn" data-adjust-seconds="-1">-1s</button>
+        </div>
+        <div class="row compact wrap launch-adjust-row">
+          <button class="btn" data-adjust-seconds="3600">+1h</button>
+          <button class="btn" data-adjust-seconds="900">+15min</button>
+          <button class="btn" data-adjust-seconds="300">+5min</button>
+          <button class="btn" data-adjust-seconds="60">+1min</button>
+          <button class="btn" data-adjust-seconds="30">+30s</button>
+          <button class="btn" data-adjust-seconds="5">+5s</button>
+          <button class="btn" data-adjust-seconds="1">+1s</button>
+        </div>
+        <p class="hint">时间变更后会自动应用倒计时，无需再点击启动。</p>
+      </section>
+
+      <section class="panel">
+        <h2>快捷控制</h2>
+        <div class="row compact wrap">
+          <button class="btn" data-quick-launch="0">点火</button>
+          <button class="btn" data-quick-launch="30">30秒</button>
+          <button class="btn" data-quick-launch="60">1分钟</button>
+          <button class="btn" data-quick-launch="180">3分钟</button>
+          <button class="btn" data-quick-launch="300">5分钟</button>
+          <button class="btn" data-quick-launch="600">10分钟</button>
+          <button class="btn" data-quick-launch="900">15分钟</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>观察点触发</h2>
+        <div class="obs-grid" id="observationButtons"></div>
+      </section>
+
+      <section class="panel">
+        <h2>关键节点窗口</h2>
+        <p class="hint">只显示接下来 2 个节点 + 30 秒内全部节点。</p>
+        <ul id="focusNodes" class="focus-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>运行日志</h2>
+        <div class="row">
+          <button class="btn" id="clearLogBtn">清空展示日志</button>
+        </div>
+        <ul class="runtime-log" id="runtimeLog"></ul>
+      </section>
+    </aside>
+
+    <section class="preview-col">
+      <header class="preview-head">
+        <h2>游客页预览</h2>
+        <a href="/" target="_blank">新标签打开游客页</a>
+      </header>
+      <iframe class="preview-frame" src="/visitor?embed=1" title="游客页预览"></iframe>
+    </section>
+  </main>
+
+  <div class="qr-modal hidden" id="qrModal" role="dialog" aria-modal="true" aria-label="游客二维码">
+    <div class="qr-backdrop" id="qrBackdrop"></div>
+    <div class="qr-panel panel">
+      <h3>游客页面二维码</h3>
+      <img id="visitorQrImage" alt="游客二维码" />
+      <p id="visitorQrText"></p>
+      <div class="row">
+        <button class="btn" id="closeQrBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="config-modal hidden" id="configModal" role="dialog" aria-modal="true" aria-label="型号配置编辑">
+    <div class="config-backdrop" id="configBackdrop"></div>
+    <div class="config-panel panel">
+      <div class="config-head">
+        <h3 id="configModalTitle">型号配置编辑</h3>
+        <div class="row">
+          <button class="btn active" id="configTabRawBtn">源码编辑</button>
+          <button class="btn" id="configTabVisualBtn">可视化编辑</button>
+        </div>
+      </div>
+
+      <div class="config-body" id="configRawPane">
+        <textarea id="configRawEditor" spellcheck="false"></textarea>
+      </div>
+
+      <div class="config-body hidden" id="configVisualPane">
+        <div class="visual-card">
+          <h4>阶段 (stages)</h4>
+          <div class="visual-list" id="visualStages"></div>
+          <div class="row"><button class="btn" id="addStageBtn">添加阶段</button></div>
+        </div>
+
+        <div class="visual-card">
+          <h4>事件 (events)</h4>
+          <div class="visual-list" id="visualEvents"></div>
+          <div class="row"><button class="btn" id="addEventBtn">添加事件</button></div>
+        </div>
+
+        <div class="visual-card">
+          <h4>观察点 (observation_points)</h4>
+          <div class="visual-list" id="visualObs"></div>
+          <div class="row"><button class="btn" id="addObsBtn">添加观察点</button></div>
+        </div>
+      </div>
+
+      <div class="config-foot">
+        <p class="hint" id="configValidationMsg"></p>
+        <button class="btn" id="closeConfigModalBtn">关闭</button>
+        <button class="btn accent" id="saveConfigModalBtn">保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/live-channel.js"></script>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

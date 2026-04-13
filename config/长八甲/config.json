@@ -1,0 +1,100 @@
+{
+  "version": 2,
+  "name": "长八甲",
+  "stages": [
+    {
+      "id": "stg_l8_fuel",
+      "name": "加注中",
+      "start_time": -18000,
+      "end_time": -161,
+      "description": "正在给火箭加注燃料"
+    },
+    {
+      "id": "stg_l8_stop_fill",
+      "name": "停止补加",
+      "start_time": -160,
+      "end_time": -1,
+      "description": "推进剂补加结束"
+    },
+    {
+      "id": "stg_l8_liftoff",
+      "name": "点火起飞",
+      "start_time": 0,
+      "end_time": 9,
+      "description": "发动机点火并离架"
+    },
+    {
+      "id": "stg_l8_pitch",
+      "name": "程序转弯",
+      "start_time": 10,
+      "end_time": 19,
+      "description": "进入程序转弯姿态"
+    },
+    {
+      "id": "stg_l8_stage1",
+      "name": "一级火箭工作段",
+      "start_time": 20,
+      "end_time": 79,
+      "description": "一级推进段"
+    },
+    {
+      "id": "stg_l8_sep",
+      "name": "助推器分离",
+      "start_time": 80,
+      "end_time": 300,
+      "description": "进入分离后飞行"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_l8_start_fill",
+      "name": "开始加注",
+      "time": -18000,
+      "description": "推进剂加注开始"
+    },
+    {
+      "id": "evt_l8_stop_fill",
+      "name": "停止补加",
+      "time": -160,
+      "description": "进入发射前末段"
+    },
+    {
+      "id": "evt_l8_ignition",
+      "name": "点火",
+      "time": 0,
+      "description": "发动机点火"
+    },
+    {
+      "id": "evt_l8_pitch",
+      "name": "程序转弯",
+      "time": 10,
+      "description": "轨迹修正"
+    },
+    {
+      "id": "evt_l8_sep",
+      "name": "助推器分离",
+      "time": 80,
+      "description": "助推器分离完成"
+    }
+  ],
+  "observation_points": [
+    {
+      "id": "obs_l8_pressurize",
+      "name": "停止增压",
+      "new_countdown": 80,
+      "description": "卸压阀关闭，停止冒出白气"
+    },
+    {
+      "id": "obs_l8_disconnect",
+      "name": "补加口脱离",
+      "new_countdown": 60,
+      "description": "地面补加口脱离"
+    },
+    {
+      "id": "obs_l8_arm",
+      "name": "摆杆摆开",
+      "new_countdown": 20,
+      "description": "摆杆摆开确认"
+    }
+  ]
+}

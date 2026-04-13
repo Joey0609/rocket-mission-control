@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "name": "Starship",
+  "stages": [
+    {
+      "id": "stg_ss_fuel",
+      "name": "燃料加注",
+      "start_time": -3600,
+      "end_time": -600,
+      "description": "液氧和甲烷加注中"
+    },
+    {
+      "id": "stg_ss_booster",
+      "name": "助推器工作段",
+      "start_time": 0,
+      "end_time": 170,
+      "description": "Super Heavy工作"
+    },
+    {
+      "id": "stg_ss_orbit",
+      "name": "轨道飞行段",
+      "start_time": 170,
+      "end_time": 600,
+      "description": "Starship单独飞行"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_ss_precool",
+      "name": "引擎预冷",
+      "time": -600,
+      "description": "Raptor发动机冷却"
+    },
+    {
+      "id": "evt_ss_countdown",
+      "name": "倒计时开始",
+      "time": -10,
+      "description": "倒计时启动"
+    },
+    {
+      "id": "evt_ss_launch",
+      "name": "发射",
+      "time": 0,
+      "description": "Starship起飞"
+    },
+    {
+      "id": "evt_ss_maxq",
+      "name": "Max Q",
+      "time": 50,
+      "description": "最大动压点"
+    },
+    {
+      "id": "evt_ss_hot_stage",
+      "name": "热分离",
+      "time": 170,
+      "description": "Super Heavy助推器分离"
+    },
+    {
+      "id": "evt_ss_orbit",
+      "name": "进入轨道",
+      "time": 600,
+      "description": "进入轨道高度"
+    }
+  ],
+  "observation_points": [
+    {
+      "id": "obs_ss_arm",
+      "name": "摆杆摆开",
+      "new_countdown": 95,
+      "description": "观察到摆杆已打开"
+    },
+    {
+      "id": "obs_ss_ignition",
+      "name": "点火确认",
+      "new_countdown": 5,
+      "description": "观察到发动机已点火"
+    }
+  ]
+}

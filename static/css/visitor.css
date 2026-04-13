@@ -1,0 +1,396 @@
+body {
+  overflow-x: hidden;
+}
+
+.nebula,
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nebula {
+  background: radial-gradient(circle at 20% 20%, rgba(43, 177, 222, 0.2), transparent 30%),
+    radial-gradient(circle at 85% 18%, rgba(255, 159, 67, 0.2), transparent 28%),
+    radial-gradient(circle at 60% 80%, rgba(51, 240, 176, 0.2), transparent 30%);
+  animation: nebulaFloat 12s ease-in-out infinite alternate;
+}
+
+.grid-overlay {
+  background-image: linear-gradient(rgba(157, 195, 217, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(157, 195, 217, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.35;
+}
+
+.visitor-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.hero {
+  padding: 26px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(18, 42, 65, 0.9), rgba(10, 84, 112, 0.65));
+  border: 1px solid var(--line);
+  transform: translateY(0);
+  animation: liftIn 0.75s ease;
+}
+
+.hero .tag {
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+}
+
+.hero h1 {
+  margin: 10px 0 4px;
+  font-size: clamp(24px, 4vw, 44px);
+}
+
+.hero p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.hero-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-btn {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(8, 20, 37, 0.5);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.clock-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+#missionCard {
+  max-width: none;
+  justify-self: center;
+  width: 100%;
+}
+
+.clock-card {
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(8, 20, 37, 0.72);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clock-card .label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.clock-card .clock {
+  font-size: clamp(48px, 8.2vw, 118px);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.clock-card.flight {
+  border-color: rgba(255, 93, 108, 0.4);
+}
+
+.pulse-card {
+  animation: pulseGlow 1.4s infinite;
+}
+
+.timeline-info {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.timeline-info .panel {
+  padding: 18px;
+}
+
+.timeline-info h2 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.timeline-info .big {
+  font-size: clamp(18px, 2.8vw, 28px);
+  font-weight: 700;
+}
+
+.countdown-list-wrap,
+.focus-nodes-wrap {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(8, 20, 37, 0.6);
+}
+
+.runtime-countdowns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.runtime-card {
+  min-width: 180px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(51, 240, 176, 0.35);
+  background: rgba(8, 20, 37, 0.8);
+  animation: cardIn 0.45s ease;
+}
+
+body[data-theme="light"] .hero {
+  background: linear-gradient(135deg, rgba(220, 238, 255, 0.92), rgba(192, 224, 252, 0.8));
+}
+
+body[data-theme="light"] .theme-btn {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+body[data-theme="light"] .clock-card,
+body[data-theme="light"] .countdown-list-wrap,
+body[data-theme="light"] .focus-nodes-wrap {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+body[data-theme="light"] .runtime-card {
+  border-color: rgba(13, 143, 115, 0.35);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.runtime-card .name {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.focus-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.focus-list li {
+  color: var(--ink);
+}
+
+.focus-timeline {
+  display: block;
+  overflow: hidden;
+  padding: 6px 2px 8px;
+}
+
+.focus-node {
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(8, 20, 37, 0.72);
+}
+
+.focus-node .name {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.focus-node .meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+body[data-theme="light"] .focus-node {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.axis-shell {
+  position: relative;
+  height: 220px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(8, 20, 37, 0.72), rgba(8, 20, 37, 0.48));
+  overflow: hidden;
+}
+
+.axis-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 159, 67, 0.7), rgba(51, 240, 176, 0.9), rgba(255, 159, 67, 0.7));
+  transform: translateY(-1px);
+}
+
+.axis-now-line {
+  position: absolute;
+  top: 14px;
+  bottom: 10px;
+  left: 33.333%;
+  width: 2px;
+  background: rgba(255, 159, 67, 0.95);
+  box-shadow: 0 0 14px rgba(255, 159, 67, 0.45);
+}
+
+.axis-now-tag {
+  position: absolute;
+  left: 33.333%;
+  top: 10px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn);
+  background: rgba(8, 20, 37, 0.9);
+  border: 1px solid rgba(255, 159, 67, 0.4);
+  border-radius: 999px;
+  padding: 4px 9px;
+}
+
+.axis-grid,
+.axis-nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.axis-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(157, 195, 217, 0.2);
+}
+
+.axis-tick span {
+  position: absolute;
+  bottom: 10px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.axis-node {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.axis-node .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(51, 240, 176, 0.5);
+}
+
+.axis-node.stage .dot {
+  background: #5ca8ff;
+  box-shadow: 0 0 10px rgba(92, 168, 255, 0.48);
+}
+
+.axis-node.event .dot {
+  background: #ffbf5d;
+  box-shadow: 0 0 10px rgba(255, 191, 93, 0.48);
+}
+
+.axis-node .label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.axis-node .meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.axis-node.past {
+  opacity: 0.55;
+}
+
+body[data-theme="light"] .axis-shell {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.74));
+}
+
+body[data-theme="light"] .axis-now-tag {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 rgba(51, 240, 176, 0);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(51, 240, 176, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(51, 240, 176, 0);
+  }
+}
+
+@keyframes nebulaFloat {
+  from {
+    transform: translate(-1%, -1%) scale(1);
+  }
+  to {
+    transform: translate(1.5%, 1%) scale(1.05);
+  }
+}
+
+@keyframes liftIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .clock-board,
+  .timeline-info {
+    grid-template-columns: 1fr;
+  }
+
+  .visitor-shell {
+    padding: 14px;
+  }
+}

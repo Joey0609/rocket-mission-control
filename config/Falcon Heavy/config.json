@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "name": "Falcon Heavy",
+  "stages": [
+    {
+      "id": "stg_fh_fuel",
+      "name": "燃料 加注",
+      "start_time": -3600,
+      "end_time": -60,
+      "description": "27台发动机燃料准备"
+    },
+    {
+      "id": "stg_fh_boosters",
+      "name": "一级工作段",
+      "start_time": 0,
+      "end_time": 154,
+      "description": "三个助推器工作"
+    },
+    {
+      "id": "stg_fh_core",
+      "name": "芯级工作段",
+      "start_time": 154,
+      "end_time": 228,
+      "description": "核心级继续工作"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_fh_countdown",
+      "name": "倒计时开始",
+      "time": -60,
+      "description": "主倒计时启动"
+    },
+    {
+      "id": "evt_fh_ignition",
+      "name": "发动机点火",
+      "time": -3,
+      "description": "27台Merlin同时点火"
+    },
+    {
+      "id": "evt_fh_maxq",
+      "name": "Max Q",
+      "time": 58,
+      "description": "最大动压点"
+    },
+    {
+      "id": "evt_fh_side_sep",
+      "name": "侧助推器分离",
+      "time": 154,
+      "description": "两个侧助推器关机分离"
+    },
+    {
+      "id": "evt_fh_core_sep",
+      "name": "一级分离",
+      "time": 228,
+      "description": "核心级分离"
+    },
+    {
+      "id": "evt_fh_second_ignition",
+      "name": "二次点火",
+      "time": 384,
+      "description": "上面级发动机点火"
+    },
+    {
+      "id": "evt_fh_payload",
+      "name": "有效载荷部署",
+      "time": 660,
+      "description": "任务完成"
+    }
+  ],
+  "observation_points": [
+    {
+      "id": "obs_fh_arm",
+      "name": "摆杆摆开",
+      "new_countdown": 95,
+      "description": "观察到摆杆已打开"
+    },
+    {
+      "id": "obs_fh_side_sep",
+      "name": "侧助推器分离",
+      "new_countdown": 160,
+      "description": "观察到侧助推器分离"
+    }
+  ]
+}

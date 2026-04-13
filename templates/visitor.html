@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>任务游客页</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/visitor.css">
+</head>
+<body>
+  <div class="nebula"></div>
+  <div class="grid-overlay"></div>
+
+  <main class="visitor-shell" id="visitorShell">
+    <header class="hero">
+      <div class="tag">PUBLIC VIEW</div>
+      <h1 id="modelName">等待选择型号</h1>
+      <p id="statusLine">等待任务初始化</p>
+      <div class="hero-tools">
+        <div class="signal" id="channelMode">实时通道: 连接中</div>
+        <button class="theme-btn" id="visitorThemeToggle">浅色模式</button>
+      </div>
+    </header>
+
+    <section class="clock-board">
+      <article class="clock-card primary pulse-card" id="missionCard">
+        <span class="label">任务计时</span>
+        <span class="clock" id="missionClock">T-00:00.000</span>
+      </article>
+    </section>
+
+    <section class="timeline-info">
+      <div class="panel">
+        <h2>当前阶段</h2>
+        <div class="big" id="currentStage">待命</div>
+      </div>
+      <div class="panel">
+        <h2>当前事件</h2>
+        <div class="big" id="currentEvent">等待节点</div>
+      </div>
+      <div class="panel">
+        <h2>说明</h2>
+        <p id="nextDescription">暂无</p>
+      </div>
+    </section>
+
+    <section class="countdown-list-wrap">
+      <h2>观察点触发倒计时</h2>
+      <div id="runtimeCountdowns" class="runtime-countdowns"></div>
+    </section>
+
+    <section class="focus-nodes-wrap">
+      <h2>关键节点时间轴</h2>
+      <div id="focusNodes" class="focus-timeline"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/live-channel.js"></script>
+  <script src="/static/js/visitor.js"></script>
+</body>
+</html>

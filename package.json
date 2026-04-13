@@ -1,0 +1,14 @@
+{
+  "name": "rocket-mission-control",
+  "version": "2.0.0",
+  "description": "Node.js 前后端一体的火箭任务控制系统",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node ./server/index.js",
+    "start:server": "node ./server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4"
+  }
+}
