@@ -23,9 +23,15 @@
           <div class="head-actions">
             <button class="btn" id="openThemeModalBtn">主题</button>
             <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
-            <button class="btn" id="showVisitorQrBtn">游客二维码</button>
-            <button class="btn" id="reloadPreviewBtn">刷新预览</button>
-            <button class="btn warning" id="logoutBtn">退出登录</button>
+            <button class="btn icon-btn" id="showVisitorQrBtn" title="游客二维码" aria-label="游客二维码">
+              <span class="icon-mask" style="--icon-url: url('/assets/qrcode.svg');" aria-hidden="true"></span>
+            </button>
+            <button class="btn icon-btn" id="reloadPreviewBtn" title="刷新预览" aria-label="刷新预览">
+              <span class="icon-mask" style="--icon-url: url('/assets/refresh.svg');" aria-hidden="true"></span>
+            </button>
+            <button class="btn warning icon-btn" id="logoutBtn" title="退出登录" aria-label="退出登录">
+              <span class="icon-mask" style="--icon-url: url('/assets/logout.svg');" aria-hidden="true"></span>
+            </button>
           </div>
         </div>
         <div class="signal" id="channelMode">实时通道: 连接中</div>
@@ -41,10 +47,9 @@
 
           <div class="status-item rocket-card">
             <div class="rocket-card-head">
-              <span>火箭回收</span>
               <label class="switch-wrap slider" id="recoverSwitchWrap">
                 <input type="checkbox" id="recoverToggle">
-                <span>回收</span>
+                <span id="recoverToggleText">不回收</span>
               </label>
             </div>
           </div>
@@ -65,8 +70,8 @@
       <section class="panel">
         <h2>发射控制</h2>
         <div class="row launch-main-row">
-          <button class="btn warning" id="holdBtn">HOLD</button>
           <input type="datetime-local" id="launchAt" step="1">
+          <button class="btn warning" id="holdBtn">HOLD</button>
         </div>
         <div class="row compact wrap launch-adjust-row">
           <button class="btn" data-adjust-seconds="-3600">-1h</button>
@@ -122,9 +127,9 @@
       <h3>选择主题</h3>
       <div class="theme-grid" id="themeGrid"></div>
       <div class="row">
-        <button class="btn" id="cancelThemeBtn">取消</button>
         <button class="btn" id="applyThemeBtn">应用</button>
         <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
+        <button class="btn" id="cancelThemeBtn">取消</button>
       </div>
     </div>
   </div>
@@ -159,9 +164,9 @@
       <div class="config-body" id="configVisualPane">
         <div class="row visual-tools">
           <button class="btn" id="addVisualItemBtn">新增条目</button>
-          <label class="switch-wrap">
+          <label class="switch-wrap slider">
             <input type="checkbox" id="recoverableConfigToggle">
-            <span>可回收</span>
+            <span id="recoverableConfigText">可回收</span>
           </label>
           <button class="btn" id="openPropellantProfileBtn">编辑加注</button>
         </div>
@@ -191,12 +196,15 @@
     <div class="propellant-panel panel">
       <h3>加注参数编辑</h3>
       <div class="propellant-base">
-        <label>火箭级数 <input id="rocketStageCountInput" type="number" min="1" max="6" value="1"></label>
-        <label class="switch-wrap">
+        <label class="propellant-inline">火箭级数 <input id="rocketStageCountInput" type="number" min="1" max="6" value="1"></label>
+        <label class="switch-wrap slider booster-switch-wrap">
           <input id="boosterEnabledInput" type="checkbox">
-          <span>有助推器</span>
+          <span id="boosterEnabledText">无助推器</span>
         </label>
-        <label>助推器数量 <input id="boosterCountInput" type="number" min="0" max="12" value="0"></label>
+        <div class="booster-count-wrap hidden" id="boosterCountWrap">
+          <label>助推器数量 <input id="boosterCountInput" type="number" min="0" max="12" value="0"></label>
+          <span class="hint">仅在开启助推器时生效</span>
+        </div>
       </div>
       <div id="propellantStageList" class="propellant-stage-list"></div>
       <div class="row">
@@ -259,6 +267,7 @@
   <script src="/static/js/notification.js"></script>
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
+  <script src="/static/js/admin-editors.js"></script>
   <script src="/static/js/admin.js"></script>
 </body>
 </html>

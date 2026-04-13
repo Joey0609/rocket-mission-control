@@ -81,5 +81,52 @@
       "new_countdown": 160,
       "description": "观察到侧助推器分离"
     }
-  ]
+  ],
+  "rocket_meta": {
+    "recovery_capable": true,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": true,
+      "count": 2,
+      "fuels": [
+        {
+          "phase": "液体",
+          "oxidizer": "液氧",
+          "fuel": "煤油"
+        }
+      ]
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "engine_layout": {
+    "version": 1,
+    "reserved": true
+  }
 }

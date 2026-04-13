@@ -345,8 +345,11 @@ body {
 }
 
 .theme-preview-gradient {
-  height: 28px;
-  border-radius: 10px;
+  width: 72%;
+  max-width: 108px;
+  margin: 0 auto;
+  height: 18px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
 }
 

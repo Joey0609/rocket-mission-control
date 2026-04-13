@@ -51,12 +51,22 @@ label {
 input {
   width: 100%;
   border: 1px solid var(--line);
-  background: rgba(4, 10, 20, 0.6);
+  background: var(--surface-input);
   color: var(--ink);
   border-radius: 10px;
   padding: 10px;
   font-family: "Manrope", sans-serif;
   margin-bottom: 6px;
+}
+
+input::placeholder {
+  color: color-mix(in srgb, var(--muted) 88%, transparent);
+}
+
+input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 66%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .btn {
@@ -73,8 +83,4 @@ input {
 .foot-note {
   margin-top: 10px;
   font-size: 12px;
-}
-
-body[data-theme="light"] input {
-  background: rgba(255, 255, 255, 0.92);
 }

@@ -80,6 +80,55 @@ function getThemePreviewColors(theme) {
   return [first, second];
 }
 
+function parseThemeColor(rawColor) {
+  const value = String(rawColor || "").trim();
+  const shortHex = /^#([0-9a-f]{3})$/i;
+  const longHex = /^#([0-9a-f]{6})$/i;
+  const rgbMatch = /^rgb\s*\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i;
+
+  if (shortHex.test(value)) {
+    const hex = value.slice(1);
+    return {
+      r: Number.parseInt(hex[0] + hex[0], 16),
+      g: Number.parseInt(hex[1] + hex[1], 16),
+      b: Number.parseInt(hex[2] + hex[2], 16),
+    };
+  }
+
+  if (longHex.test(value)) {
+    const hex = value.slice(1);
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+    };
+  }
+
+  const matched = value.match(rgbMatch);
+  if (matched) {
+    return {
+      r: Math.max(0, Math.min(255, Number.parseInt(matched[1], 10) || 0)),
+      g: Math.max(0, Math.min(255, Number.parseInt(matched[2], 10) || 0)),
+      b: Math.max(0, Math.min(255, Number.parseInt(matched[3], 10) || 0)),
+    };
+  }
+
+  return { r: 40, g: 64, b: 96 };
+}
+
+function getThemeLuma(theme) {
+  const [firstColor] = getThemePreviewColors(theme);
+  const rgb = parseThemeColor(firstColor);
+  return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+}
+
+function getSortedThemes() {
+  return window.MissionThemes
+    .list()
+    .slice()
+    .sort((a, b) => getThemeLuma(b) - getThemeLuma(a));
+}
+
 async function loadDefaultTheme() {
   const themeFromQuery = queryParam("theme");
   if (themeFromQuery) {
@@ -99,7 +148,7 @@ async function loadDefaultTheme() {
 }
 
 function renderThemeCards() {
-  const items = window.MissionThemes.list();
+  const items = getSortedThemes();
   nodes.themeGrid.innerHTML = "";
 
   for (const item of items) {
@@ -137,10 +186,6 @@ function openThemeModal() {
 }
 
 function closeThemeModal(restoreOrigin, force = false) {
-  if (!force && themeModalDraftId !== themeModalOriginId) {
-    toast("还没保存", "error");
-    return false;
-  }
   nodes.themeModal.classList.add("hidden");
   if (restoreOrigin) {
     applyTheme(themeModalOriginId);
@@ -408,7 +453,7 @@ function tickClocks() {
 
 function bindThemeModal() {
   nodes.openThemeModalBtn.addEventListener("click", openThemeModal);
-  nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(true, false));
+  nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(false, true));
   nodes.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, true));
   nodes.applyThemeBtn.addEventListener("click", () => {
     closeThemeModal(false, true);
@@ -421,9 +466,6 @@ function bindThemeModal() {
     }
     if (nodes.themeModal.classList.contains("hidden")) {
       return;
-    }
-    if (themeModalDraftId !== themeModalOriginId) {
-      toast("还没保存", "error");
     }
     if (closeThemeModal(true, true)) {
       event.preventDefault();

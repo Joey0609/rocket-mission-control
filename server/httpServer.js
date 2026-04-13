@@ -869,6 +869,7 @@ function startServer(options = {}) {
 
   app.use(express.json({ limit: "2mb" }));
   app.use("/static", express.static(path.join(rootDir, "static")));
+  app.use("/assets", express.static(path.join(rootDir, "assets")));
 
   app.get(["/", "/visitor"], (req, res) => {
     res.sendFile(path.join(rootDir, "templates", "visitor.html"));

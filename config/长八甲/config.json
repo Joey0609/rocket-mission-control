@@ -96,5 +96,52 @@
       "new_countdown": 20,
       "description": "摆杆摆开确认"
     }
-  ]
+  ],
+  "rocket_meta": {
+    "recovery_capable": false,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "液氢"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": true,
+      "count": 2,
+      "fuels": [
+        {
+          "phase": "液体",
+          "oxidizer": "液氧",
+          "fuel": "煤油"
+        }
+      ]
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "engine_layout": {
+    "version": 1,
+    "reserved": true
+  }
 }

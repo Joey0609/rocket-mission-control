@@ -75,5 +75,46 @@
       "new_countdown": 5,
       "description": "观察到发动机已点火"
     }
-  ]
+  ],
+  "rocket_meta": {
+    "recovery_capable": true,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "甲烷"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "甲烷"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": false,
+      "count": 0,
+      "fuels": []
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "engine_layout": {
+    "version": 1,
+    "reserved": true
+  }
 }
