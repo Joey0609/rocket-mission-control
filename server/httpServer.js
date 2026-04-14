@@ -164,6 +164,8 @@ function normalizeRocketMeta(raw) {
     : stageDefaults;
 
   return {
+    mission_name: String(raw?.mission_name || "").trim(),
+    payload: String(raw?.payload || "").trim(),
     recovery_capable: recoveryCapable,
     recovery_enabled: recoveryCapable ? raw?.recovery_enabled !== false : false,
     stage_count: Math.max(stageCount, stages.length),
@@ -868,6 +870,39 @@ function startServer(options = {}) {
     gcTimer.unref();
   }
 
+  const streamClients = new Set();
+
+  function buildStateSnapshot() {
+    return engine.snapshot({ default_theme: appSettings.get().default_theme });
+  }
+
+  function buildStatePayload() {
+    return JSON.stringify(buildStateSnapshot());
+  }
+
+  function writeSseEvent(res, eventName, payloadStr) {
+    res.write(`event: ${eventName}\ndata: ${payloadStr}\n\n`);
+  }
+
+  function broadcastState(force = false) {
+    if (streamClients.size <= 0) {
+      return;
+    }
+
+    const payload = buildStatePayload();
+    for (const client of streamClients) {
+      if (!force && client.lastPayload === payload) {
+        continue;
+      }
+      client.lastPayload = payload;
+      try {
+        writeSseEvent(client.res, "state", payload);
+      } catch {
+        streamClients.delete(client);
+      }
+    }
+  }
+
   app.use(express.json({ limit: "2mb" }));
   app.use("/static", express.static(path.join(rootDir, "static")));
   app.use("/assets", express.static(path.join(rootDir, "assets")));
@@ -907,6 +942,7 @@ function startServer(options = {}) {
       return;
     }
     const settings = appSettings.setDefaultTheme(themeId);
+    broadcastState();
     res.json({ success: true, settings });
   });
 
@@ -938,7 +974,11 @@ function startServer(options = {}) {
   });
 
   app.get("/api/state", (req, res) => {
-    res.json(engine.snapshot({ default_theme: appSettings.get().default_theme }));
+    res.json(buildStateSnapshot());
+  });
+
+  app.get("/api/visitor_state", (req, res) => {
+    res.json(buildStateSnapshot());
   });
 
   app.get("/api/visitor_url", requireAdminApi, (req, res) => {
@@ -971,20 +1011,15 @@ function startServer(options = {}) {
       res.flushHeaders();
     }
 
-    let lastPayload = "";
-    const send = () => {
-      const payload = JSON.stringify(engine.snapshot({ default_theme: appSettings.get().default_theme }));
-      if (payload !== lastPayload) {
-        lastPayload = payload;
-        res.write(`event: state\ndata: ${payload}\n\n`);
-      }
-    };
+    const client = { res, lastPayload: "" };
+    streamClients.add(client);
 
-    send();
-    const timer = setInterval(send, 1000);
+    const initialPayload = buildStatePayload();
+    client.lastPayload = initialPayload;
+    writeSseEvent(res, "state", initialPayload);
 
     req.on("close", () => {
-      clearInterval(timer);
+      streamClients.delete(client);
     });
   });
 
@@ -1003,6 +1038,7 @@ function startServer(options = {}) {
       res.status(404).json({ success: false, message: "型号不存在" });
       return;
     }
+    broadcastState();
     res.json({ success: true, message: `已选择 ${model}` });
   });
 
@@ -1012,6 +1048,7 @@ function startServer(options = {}) {
 
     if (launchIn !== undefined) {
       engine.launchIn(toInt(launchIn, 0));
+      broadcastState();
       res.json({ success: true });
       return;
     }
@@ -1022,6 +1059,7 @@ function startServer(options = {}) {
         res.status(400).json({ success: false, message: "launch_at 格式非法" });
         return;
       }
+      broadcastState();
       res.json({ success: true });
       return;
     }
@@ -1038,6 +1076,7 @@ function startServer(options = {}) {
       res.status(400).json({ success: false, message });
       return;
     }
+    broadcastState();
     res.json({ success: true, message, hold: engine.holdActive });
   });
 
@@ -1049,6 +1088,7 @@ function startServer(options = {}) {
       res.status(400).json({ success: false, message });
       return;
     }
+    broadcastState();
     res.json({ success: true, message });
   });
 
@@ -1058,11 +1098,13 @@ function startServer(options = {}) {
       res.status(400).json({ success: false, message: "当前状态不可点火" });
       return;
     }
+    broadcastState();
     res.json({ success: true, message: "点火确认" });
   });
 
   app.post("/api/reset", requireAdminApi, (req, res) => {
     engine.reset();
+    broadcastState();
     res.json({ success: true });
   });
 
@@ -1073,6 +1115,7 @@ function startServer(options = {}) {
       return;
     }
     const model = store.save(req.body);
+    broadcastState();
     res.json({ success: true, model: model.name });
   });
 
@@ -1089,6 +1132,8 @@ function startServer(options = {}) {
       engine.currentModelName = null;
     }
 
+    broadcastState();
+
     res.json({ success: true });
   });
 
@@ -1098,6 +1143,14 @@ function startServer(options = {}) {
     url: `http://${host}:${port}`,
     stop: () => new Promise((resolve) => {
       clearInterval(gcTimer);
+      for (const client of streamClients) {
+        try {
+          client.res.end();
+        } catch {
+          // ignore
+        }
+      }
+      streamClients.clear();
       server.close(() => resolve());
     }),
   };

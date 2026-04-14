@@ -1,9 +1,17 @@
 const nodes = {
   modelName: document.getElementById("modelName"),
+  payloadName: document.getElementById("payloadName"),
   statusLine: document.getElementById("statusLine"),
   channelMode: document.getElementById("channelMode"),
   missionClock: document.getElementById("missionClock"),
+  overlayClockSign: document.getElementById("overlayClockSign"),
+  overlayClockTime: document.getElementById("overlayClockTime"),
+  overlayMissionName: document.getElementById("overlayMissionName"),
+  overlayVehicleChunk: document.getElementById("overlayVehicleChunk"),
+  overlayVehicleName: document.getElementById("overlayVehicleName"),
+  overlayPayloadChunk: document.getElementById("overlayPayloadChunk"),
   currentStage: document.getElementById("currentStage"),
+  overlayHoldIndicator: document.getElementById("overlayHoldIndicator"),
   currentEvent: document.getElementById("currentEvent"),
   nextDescription: document.getElementById("nextDescription"),
   missionCard: document.getElementById("missionCard"),
@@ -143,6 +151,22 @@ async function loadDefaultTheme() {
   applyTheme(adminDefaultThemeId);
 }
 
+async function loadInitialState() {
+  const endpoints = ["/api/visitor_state", "/api/state"];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, { cache: "no-store" });
+      if (!res.ok) {
+        continue;
+      }
+      return await res.json();
+    } catch {
+      // try next endpoint
+    }
+  }
+  throw new Error("初始化状态获取失败");
+}
+
 function renderThemeCards() {
   const items = getSortedThemes();
   nodes.themeGrid.innerHTML = "";
@@ -210,6 +234,44 @@ function formatSignedClock(msValue) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `T${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
+}
+
+function formatMissionOverlayClock(msValue) {
+  const totalSeconds = Number(msValue || 0) / 1000;
+  const isPositive = !(totalSeconds < 0 || Object.is(totalSeconds, -0));
+  const absValue = Math.abs(totalSeconds);
+  const secondsForFormatting = totalSeconds < 0 ? Math.ceil(absValue) : Math.floor(absValue);
+  const hours = Math.floor(secondsForFormatting / 3600);
+  const minutes = Math.floor((secondsForFormatting % 3600) / 60);
+  const seconds = secondsForFormatting % 60;
+  return {
+    sign: isPositive ? "+" : "-",
+    timeString: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+  };
+}
+
+function renderMissionOverlay(state, missionMs) {
+  const model = String(state?.current_model || "").trim();
+  const payload = String(state?.rocket_meta?.payload || "").trim();
+  const missionRaw = String(state?.rocket_meta?.mission_name || "").trim();
+  const missionName = missionRaw || model || "待命任务";
+  const vehicleName = missionRaw ? model : "";
+  const hasVehicle = Boolean(vehicleName);
+
+  const overlayClock = formatMissionOverlayClock(missionMs);
+  setTextIfChanged(nodes.overlayClockSign, overlayClock.sign);
+  setTextIfChanged(nodes.overlayClockTime, overlayClock.timeString);
+
+  setTextIfChanged(nodes.overlayMissionName, missionName);
+  if (nodes.overlayVehicleChunk) {
+    nodes.overlayVehicleChunk.classList.toggle("hidden", !hasVehicle);
+  }
+  setTextIfChanged(nodes.overlayVehicleName, vehicleName);
+
+  if (nodes.overlayPayloadChunk) {
+    nodes.overlayPayloadChunk.classList.toggle("hidden", !payload);
+  }
+  setTextIfChanged(nodes.overlayPayloadChunk, payload ? `载荷 · ${payload}` : "");
 }
 
 function currentServerMissionMs(nowPerf) {
@@ -295,7 +357,9 @@ function renderTimeline(state, missionSeconds) {
     return;
   }
 
-  const timelineNodes = Array.isArray(state.timeline_nodes) ? state.timeline_nodes : [];
+  const timelineNodes = Array.isArray(state.timeline_nodes)
+    ? state.timeline_nodes.filter((item) => item && item.kind !== "stage")
+    : [];
   const sig = timelineSig(timelineNodes);
   if (sig !== timelineNodesSignature) {
     timelineNodesSignature = sig;
@@ -310,7 +374,12 @@ function renderTimeline(state, missionSeconds) {
 function renderState(state) {
   lastState = state;
   const model = state.current_model || "等待选择型号";
+  const payload = String(state?.rocket_meta?.payload || "").trim();
   setTextIfChanged(nodes.modelName, model);
+  setTextIfChanged(nodes.payloadName, payload ? `载荷 · ${payload}` : "");
+  if (nodes.payloadName) {
+    nodes.payloadName.classList.toggle("hidden", !payload);
+  }
 
   const nowPerf = performance.now();
   const previousDisplayMs = getDisplayMissionMs(nowPerf);
@@ -326,9 +395,13 @@ function renderState(state) {
 
   const missionMs = getDisplayMissionMs(nowPerf);
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
+  renderMissionOverlay(state, missionMs);
   setTextIfChanged(nodes.currentStage, state.current_stage || "待命");
   setTextIfChanged(nodes.currentEvent, state.current_event || "等待节点");
   setTextIfChanged(nodes.nextDescription, state.next_description || "暂无说明");
+  if (nodes.overlayHoldIndicator) {
+    nodes.overlayHoldIndicator.classList.toggle("active", Boolean(state.is_hold));
+  }
 
   const statusText = state.status === "countdown"
     ? "倒计时运行中"
@@ -347,7 +420,12 @@ function renderState(state) {
 function tickClocks() {
   const nowPerf = performance.now();
   const missionMs = getDisplayMissionMs(nowPerf);
-  setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
+  const formatted = formatSignedClock(missionMs);
+  setTextIfChanged(nodes.missionClock, formatted);
+
+  if (lastState) {
+    renderMissionOverlay(lastState, missionMs);
+  }
 
   if (lastState) {
     renderTimeline(lastState, missionMs / 1000);
@@ -380,6 +458,13 @@ async function init() {
   await loadDefaultTheme();
   bindThemeModal();
   ensureTimelineRenderer();
+
+  try {
+    const initialState = await loadInitialState();
+    renderState(initialState);
+  } catch (error) {
+    toast(error?.message || "初始化状态获取失败", "error");
+  }
 
   const channel = new LiveChannel({
     streamUrl: "/api/stream",

@@ -62,6 +62,20 @@ body {
   font-size: clamp(24px, 4vw, 44px);
 }
 
+.hero-title {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.payload-name {
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--ink) 84%, var(--muted));
+}
+
 .hero p {
   margin: 0 0 12px;
   color: var(--muted);
@@ -183,6 +197,77 @@ body {
   bottom: 0;
   z-index: 28;
   pointer-events: none;
+}
+
+.mission-overlay {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(28rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+  font-family: "Manrope", sans-serif;
+}
+
+.mission-overlay-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  --overlay-prefix-width: clamp(24px, calc(24px + (100vw - 1360px) * 0.0571428571), 44px);
+  --overlay-prefix-font-size: clamp(16px, calc(16px + (100vw - 1360px) * 0.0514285714), 34px);
+  --overlay-time-font-size: clamp(28px, calc(28px + (100vw - 1360px) * 0.0457142857), 44px);
+  --overlay-line-font-size: clamp(12px, calc(12px + (100vw - 1360px) * 0.0114285714), 16px);
+}
+
+.overlay-hold-indicator {
+  width: var(--overlay-prefix-font-size);
+  height: var(--overlay-prefix-font-size);
+  opacity: 0;
+  background: url("/assets/pause.svg") center / contain no-repeat;
+}
+
+.overlay-hold-indicator.active {
+  opacity: 1;
+  animation: holdPulse 1.2s ease-in-out infinite;
+}
+
+.mission-overlay-prefix {
+  display: inline-flex;
+  width: var(--overlay-prefix-width);
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  font-size: var(--overlay-prefix-font-size);
+  color: rgba(245, 245, 244, 0.7);
+  font-weight: 500;
+  font-family: "Manrope", sans-serif;
+}
+
+.mission-overlay-time {
+  font-family: "Manrope", sans-serif;
+  font-size: var(--overlay-time-font-size);
+  color: rgb(255, 255, 255);
+  font-weight: 400;
+}
+
+.mission-overlay-line {
+  font-size: var(--overlay-line-font-size);
+  color: rgba(245, 245, 244, 0.7);
+  font-weight: 500;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.overlay-payload {
+  margin-left: 24px;
 }
 
 .timeline-mount {
@@ -326,6 +411,18 @@ body {
   display: none !important;
 }
 
+@keyframes holdPulse {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
 .theme-modal {
   position: fixed;
   inset: 0;
@@ -420,6 +517,14 @@ body {
 @media (max-width: 980px) {
   .timeline-info {
     grid-template-columns: 1fr;
+  }
+
+  .hero-title {
+    gap: 14px;
+  }
+
+  .mission-overlay {
+    bottom: 12px;
   }
 
   .visitor-shell {

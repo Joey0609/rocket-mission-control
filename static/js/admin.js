@@ -36,6 +36,7 @@ const dom = {
   recoverToggle: document.getElementById("recoverToggle"),
   recoverToggleText: document.getElementById("recoverToggleText"),
   recoverSwitchWrap: document.getElementById("recoverSwitchWrap"),
+  payloadInput: document.getElementById("payloadInput"),
 
   configModal: document.getElementById("configModal"),
   configBackdrop: document.getElementById("configBackdrop"),
@@ -115,6 +116,7 @@ let visualSortTimer = null;
 let updatingRecoverToggle = false;
 let propellantDirty = false;
 let propellantSnapshot = null;
+let payloadApplyTimer = null;
 
 let pendingUnsavedCloseAction = null;
 let pendingUnsavedCloseBusy = false;
@@ -561,6 +563,8 @@ function normalizeDraft(payload, selectedModelName) {
 
   const rocketMeta = payload?.rocket_meta && typeof payload.rocket_meta === "object"
     ? {
+      mission_name: String(payload.rocket_meta.mission_name || "").trim(),
+      payload: String(payload.rocket_meta.payload || "").trim(),
       recovery_capable: payload.rocket_meta.recovery_capable !== false,
       recovery_enabled: payload.rocket_meta.recovery_capable === false ? false : payload.rocket_meta.recovery_enabled !== false,
       stage_count: Math.max(1, toInt(payload.rocket_meta.stage_count, 1)),
@@ -581,6 +585,8 @@ function normalizeDraft(payload, selectedModelName) {
       },
     }
     : {
+      mission_name: "",
+      payload: "",
       recovery_capable: true,
       recovery_enabled: true,
       stage_count: 1,
@@ -753,6 +759,10 @@ function renderRocketConfigCard(state) {
     updatingRecoverToggle = false;
     dom.recoverSwitchWrap.classList.add("dim");
     setRecoverToggleText(false);
+    if (dom.payloadInput) {
+      dom.payloadInput.disabled = true;
+      dom.payloadInput.value = "";
+    }
     return;
   }
 
@@ -764,6 +774,14 @@ function renderRocketConfigCard(state) {
   updatingRecoverToggle = false;
   dom.recoverSwitchWrap.classList.toggle("dim", !capable);
   setRecoverToggleText(enabled);
+
+  if (dom.payloadInput) {
+    const payloadText = String(meta.payload || "").trim();
+    dom.payloadInput.disabled = false;
+    if (document.activeElement !== dom.payloadInput) {
+      dom.payloadInput.value = payloadText;
+    }
+  }
 }
 
 function renderState(state) {
@@ -879,6 +897,64 @@ async function updateRecoveryToggle(enabled) {
   modelsCache[modelName] = draft;
   setRecoverToggleText(Boolean(draft.rocket_meta.recovery_enabled));
   toast(draft.rocket_meta.recovery_enabled ? "已开启回收" : "已关闭回收", "success");
+}
+
+async function updatePayloadValue(modelName, rawValue, silent = false) {
+  if (!modelName || !modelsCache[modelName]) {
+    return;
+  }
+
+  const nextPayload = String(rawValue || "").trim();
+  const currentPayload = String(modelsCache[modelName]?.rocket_meta?.payload || "").trim();
+  if (nextPayload === currentPayload) {
+    return;
+  }
+
+  const draft = normalizeDraft(modelsCache[modelName], modelName);
+  draft.rocket_meta.payload = nextPayload;
+
+  const res = await adminFetch("/api/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error(data.message || "更新载荷失败");
+  }
+
+  modelsCache[modelName] = draft;
+  if (!silent) {
+    toast("载荷已更新", "success");
+  }
+}
+
+function schedulePayloadSave() {
+  if (!dom.payloadInput) {
+    return;
+  }
+  const modelName = dom.modelSelect.value;
+  const nextValue = dom.payloadInput.value;
+  if (payloadApplyTimer) {
+    clearTimeout(payloadApplyTimer);
+  }
+  payloadApplyTimer = setTimeout(() => {
+    payloadApplyTimer = null;
+    updatePayloadValue(modelName, nextValue, true).catch((error) => toast(error.message, "error"));
+  }, 420);
+}
+
+function flushPayloadSave(silent = false) {
+  if (!dom.payloadInput) {
+    return;
+  }
+  const modelName = dom.modelSelect.value;
+  const nextValue = dom.payloadInput.value;
+  if (payloadApplyTimer) {
+    clearTimeout(payloadApplyTimer);
+    payloadApplyTimer = null;
+  }
+  updatePayloadValue(modelName, nextValue, silent).catch((error) => toast(error.message, "error"));
 }
 
 function bindEvents() {
@@ -1090,6 +1166,12 @@ function bindEvents() {
     }
     updateRecoveryToggle(Boolean(dom.recoverToggle.checked)).catch((error) => toast(error.message, "error"));
   });
+
+  if (dom.payloadInput) {
+    dom.payloadInput.addEventListener("input", schedulePayloadSave);
+    dom.payloadInput.addEventListener("change", () => flushPayloadSave(false));
+    dom.payloadInput.addEventListener("blur", () => flushPayloadSave(true));
+  }
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
