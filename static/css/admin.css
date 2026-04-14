@@ -199,7 +199,7 @@ textarea {
 }
 
 .btn.warning {
-  background: linear-gradient(135deg, #a06325, #cb8733);
+  background: linear-gradient(135deg, #ebba88, #cb8733);
 }
 
 .btn.icon-btn {
@@ -243,6 +243,7 @@ textarea {
 
 .status-main {
   grid-column: 1;
+  min-width:260px;
 }
 
 .status-item {
@@ -368,7 +369,8 @@ textarea {
 .theme-modal,
 .propellant-modal,
 .fuel-modal,
-.engine-modal {
+.engine-modal,
+.confirm-modal {
   position: fixed;
   inset: 0;
   z-index: 40;
@@ -386,10 +388,16 @@ textarea {
 
 .qr-panel,
 .theme-panel,
-.engine-panel {
+.engine-panel,
+.confirm-panel {
   position: relative;
   z-index: 1;
   width: min(520px, 92vw);
+}
+
+.confirm-panel p {
+  margin: 10px 0 14px;
+  color: var(--muted);
 }
 
 .qr-panel {
@@ -415,7 +423,7 @@ textarea {
   max-height: 56vh;
   overflow: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -439,20 +447,15 @@ textarea {
 }
 
 .theme-preview-gradient {
-  width: 72%;
-  max-width: 108px;
+  width: 56%;
+  max-width: 82px;
   margin: 0 auto;
   height: 18px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
 }
 
-#themeModal #cancelThemeBtn {
-  margin-left: auto;
-}
-
 .config-panel,
-.propellant-panel,
 .fuel-panel {
   position: relative;
   z-index: 1;
@@ -462,6 +465,31 @@ textarea {
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
   padding: 14px;
+}
+
+.propellant-panel {
+  position: relative;
+  z-index: 1;
+  width: min(760px, 92vw);
+  max-height: 92vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.modal-actions-left,
+.modal-actions-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .config-head {
@@ -543,11 +571,28 @@ textarea {
   width: 34px;
   height: 34px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--surface-button);
   color: var(--muted);
   cursor: pointer;
+}
+
+.type-btn .icon-mask {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask-image: var(--icon-url);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: var(--icon-url);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
 }
 
 .type-btn.active {
@@ -587,12 +632,14 @@ textarea {
 .config-foot {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
 }
 
 .config-foot .hint {
-  margin-right: auto;
+  margin: 0;
+  flex: 1;
+  text-align: center;
 }
 
 .hint.error {
@@ -658,7 +705,7 @@ textarea {
 .propellant-grid-head,
 .propellant-grid-row {
   display: grid;
-  grid-template-columns: 120px 92px 220px minmax(140px, 1fr) minmax(140px, 1fr);
+  grid-template-columns: 120px 92px minmax(220px, 1fr);
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -692,6 +739,15 @@ textarea {
 .propellant-grid-row input {
   margin: 0;
   min-width: 0;
+}
+
+.propellant-cell {
+  min-width: 0;
+}
+
+.propellant-cell select,
+.propellant-cell input {
+  width: 100%;
 }
 
 .propellant-grid-row input[readonly] {
@@ -826,6 +882,20 @@ textarea {
     justify-content: flex-start;
   }
 
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-actions-right {
+    margin-left: auto;
+  }
+
+  .modal-actions .hint {
+    order: 3;
+    flex: 1 1 100%;
+    text-align: left;
+  }
+
   .visual-head,
   .visual-row {
     grid-template-columns: 1fr;
@@ -837,6 +907,10 @@ textarea {
 
   .model-actions-row {
     flex-wrap: wrap;
+  }
+
+  .theme-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .propellant-grid-head,

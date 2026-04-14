@@ -189,11 +189,26 @@ function scheduleVisualSortRerender() {
   }, 160);
 }
 
+const TYPE_ICON_BY_KIND = {
+  stage: "stage.svg",
+  event: "event.svg",
+  observation: "observe.svg",
+};
+
 function makeTypeButton(currentRow, kind, label) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "type-btn";
-  btn.textContent = label;
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+
+  const icon = document.createElement("span");
+  icon.className = "icon-mask";
+  icon.setAttribute("aria-hidden", "true");
+  const iconName = TYPE_ICON_BY_KIND[kind] || "stage.svg";
+  icon.style.setProperty("--icon-url", `url('/assets/${iconName}')`);
+  btn.appendChild(icon);
+
   btn.classList.toggle("active", currentRow.kind === kind);
   btn.addEventListener("click", () => {
     if (currentRow.kind === kind) {
@@ -223,9 +238,9 @@ function renderVisualRow(row, index) {
 
   const typeCell = document.createElement("div");
   typeCell.className = "type-switch";
-  typeCell.appendChild(makeTypeButton(row, "stage", "▦"));
-  typeCell.appendChild(makeTypeButton(row, "event", "◆"));
-  typeCell.appendChild(makeTypeButton(row, "observation", "◎"));
+  typeCell.appendChild(makeTypeButton(row, "stage", "阶段"));
+  typeCell.appendChild(makeTypeButton(row, "event", "事件"));
+  typeCell.appendChild(makeTypeButton(row, "observation", "观察点"));
   line.appendChild(typeCell);
 
   const idInput = document.createElement("input");
@@ -378,7 +393,16 @@ function openConfigModal() {
 
 function closeConfigModal(force = false) {
   if (!force && configDraftDirty) {
-    toast("还没保存", "error");
+    openUnsavedConfirmDialog({
+      title: "配置尚未保存",
+      message: "当前型号配置有未保存修改，是否保存后关闭？",
+      onSave: () => saveConfigModal(),
+      onDiscard: () => {
+        configDraftDirty = false;
+        dom.configModal.classList.add("hidden");
+        return true;
+      },
+    });
     return false;
   }
   dom.configModal.classList.add("hidden");
@@ -388,7 +412,7 @@ function closeConfigModal(force = false) {
 async function saveConfigModal() {
   if (configTab === "raw" && !validateRawDraft()) {
     toast("JSON 无效，无法保存。", "error");
-    return;
+    return false;
   }
 
   if (configTab === "visual") {
@@ -407,7 +431,7 @@ async function saveConfigModal() {
   const data = await res.json();
   if (!data.success) {
     toast(data.message || "保存失败", "error");
-    return;
+    return false;
   }
 
   modelsCache[payload.name] = payload;
@@ -415,6 +439,7 @@ async function saveConfigModal() {
   await fetchModels();
   configDraftDirty = false;
   closeConfigModal(true);
+  return true;
 }
 
 function addVisualItem() {
@@ -440,6 +465,7 @@ function openPropellantModal() {
   if (!configDraft) {
     return;
   }
+  propellantSnapshot = deepClone(configDraft.rocket_meta || {});
   renderPropellantFields();
   dom.propellantModal.classList.remove("hidden");
   propellantDirty = false;
@@ -447,11 +473,185 @@ function openPropellantModal() {
 
 function closePropellantModal(force = false) {
   if (!force && propellantDirty) {
-    toast("还没保存", "error");
+    openUnsavedConfirmDialog({
+      title: "加注参数尚未保存",
+      message: "当前加注参数有未保存修改，是否保存后关闭？",
+      onSave: () => savePropellantModal(),
+      onDiscard: () => {
+        if (configDraft && propellantSnapshot) {
+          configDraft.rocket_meta = deepClone(propellantSnapshot);
+          dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
+          showConfigValidation("已放弃加注参数修改。", false);
+        }
+        propellantDirty = false;
+        propellantSnapshot = null;
+        dom.propellantModal.classList.add("hidden");
+        return true;
+      },
+    });
     return false;
   }
+  propellantDirty = false;
+  propellantSnapshot = null;
   dom.propellantModal.classList.add("hidden");
   return true;
+}
+
+const LIQUID_PROPELLANT_OPTIONS = [
+  { value: "n2o4_udmh", label: "四氧化二氮 + 偏二甲肼", oxidizer: "四氧化二氮", fuel: "偏二甲肼" },
+  { value: "lox_rp1", label: "液氧 + 煤油", oxidizer: "液氧", fuel: "煤油" },
+  { value: "lox_lh2", label: "液氧 + 液氢", oxidizer: "液氧", fuel: "液氢" },
+  { value: "lox_ch4", label: "液氧 + 甲烷", oxidizer: "液氧", fuel: "甲烷" },
+  { value: "lox_ethanol", label: "液氧 + 乙醇", oxidizer: "液氧", fuel: "乙醇" },
+];
+
+function getDefaultLiquidPropellant() {
+  return LIQUID_PROPELLANT_OPTIONS[1] || LIQUID_PROPELLANT_OPTIONS[0];
+}
+
+function findLiquidPropellantOption(oxidizer, fuel) {
+  const oxidizerName = String(oxidizer || "").trim();
+  const fuelName = String(fuel || "").trim();
+  return LIQUID_PROPELLANT_OPTIONS.find((item) => item.oxidizer === oxidizerName && item.fuel === fuelName)
+    || getDefaultLiquidPropellant();
+}
+
+function applyLiquidPropellantOption(targetFuel, optionValue) {
+  const option = LIQUID_PROPELLANT_OPTIONS.find((item) => item.value === optionValue) || getDefaultLiquidPropellant();
+  targetFuel.phase = "液体";
+  targetFuel.oxidizer = option.oxidizer;
+  targetFuel.fuel = option.fuel;
+  return option;
+}
+
+function ensureFuelSeed(rawFuel) {
+  const seed = normalizeFuelSpec(rawFuel || {});
+  if (seed.phase !== "液体" && seed.phase !== "固体") {
+    seed.phase = "液体";
+  }
+  if (seed.phase === "液体") {
+    const option = findLiquidPropellantOption(seed.oxidizer, seed.fuel);
+    seed.oxidizer = option.oxidizer;
+    seed.fuel = option.fuel;
+  }
+  return seed;
+}
+
+function getSolidPropellantText(seed) {
+  const oxidizerName = String(seed?.oxidizer || "").trim();
+  const fuelName = String(seed?.fuel || "").trim();
+  if (oxidizerName && fuelName && oxidizerName !== fuelName) {
+    return `${oxidizerName} + ${fuelName}`;
+  }
+  return oxidizerName || fuelName || "";
+}
+
+function setBoosterUiState(enabled) {
+  if (dom.boosterEnabledText) {
+    dom.boosterEnabledText.textContent = enabled ? "有助推器" : "无助推器";
+  }
+  if (dom.boosterCountWrap) {
+    dom.boosterCountWrap.classList.toggle("hidden", !enabled);
+  }
+  if (!enabled && dom.boosterCountInput) {
+    dom.boosterCountInput.value = "0";
+  }
+}
+
+function createPropellantRow(rowLabel, fuelSeed, onCommit) {
+  const row = document.createElement("div");
+  row.className = "propellant-grid-row";
+
+  const label = document.createElement("span");
+  label.className = "row-label";
+  label.textContent = rowLabel;
+  row.appendChild(label);
+
+  const phaseSelect = document.createElement("select");
+  ["液体", "固体"].forEach((phase) => {
+    const option = document.createElement("option");
+    option.value = phase;
+    option.textContent = phase;
+    phaseSelect.appendChild(option);
+  });
+  row.appendChild(phaseSelect);
+
+  const propellantCell = document.createElement("div");
+  propellantCell.className = "propellant-cell";
+  row.appendChild(propellantCell);
+
+  const comboSelect = document.createElement("select");
+  LIQUID_PROPELLANT_OPTIONS.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    comboSelect.appendChild(option);
+  });
+  propellantCell.appendChild(comboSelect);
+
+  const solidInput = document.createElement("input");
+  solidInput.type = "text";
+  solidInput.placeholder = "请输入固体推进剂";
+  propellantCell.appendChild(solidInput);
+
+  const currentFuel = ensureFuelSeed(fuelSeed);
+  solidInput.value = getSolidPropellantText(currentFuel);
+
+  function commit(markDirty = false) {
+    if (markDirty) {
+      propellantDirty = true;
+    }
+    onCommit(currentFuel);
+  }
+
+  function refreshMode(markDirty = false) {
+    const isLiquid = phaseSelect.value === "液体";
+    if (isLiquid) {
+      const selected = applyLiquidPropellantOption(currentFuel, comboSelect.value);
+      comboSelect.value = selected.value;
+      comboSelect.classList.remove("hidden");
+      solidInput.classList.add("hidden");
+    } else {
+      currentFuel.phase = "固体";
+      comboSelect.classList.add("hidden");
+      solidInput.classList.remove("hidden");
+      currentFuel.oxidizer = String(solidInput.value || "").trim();
+      currentFuel.fuel = "";
+    }
+    commit(markDirty);
+  }
+
+  phaseSelect.value = currentFuel.phase;
+  comboSelect.value = currentFuel.phase === "液体"
+    ? findLiquidPropellantOption(currentFuel.oxidizer, currentFuel.fuel).value
+    : getDefaultLiquidPropellant().value;
+  refreshMode(false);
+
+  phaseSelect.addEventListener("change", () => {
+    if (phaseSelect.value === "固体" && currentFuel.phase !== "固体") {
+      solidInput.value = "";
+    }
+    refreshMode(true);
+  });
+
+  comboSelect.addEventListener("change", () => {
+    if (phaseSelect.value !== "液体") {
+      return;
+    }
+    refreshMode(true);
+  });
+
+  solidInput.addEventListener("input", () => {
+    if (phaseSelect.value !== "固体") {
+      return;
+    }
+    currentFuel.phase = "固体";
+    currentFuel.oxidizer = String(solidInput.value || "").trim();
+    currentFuel.fuel = "";
+    commit(true);
+  });
+
+  return row;
 }
 
 function ensureRocketMeta() {
@@ -466,138 +666,49 @@ function renderPropellantFields() {
   const meta = configDraft.rocket_meta;
   const stageCount = Math.max(1, toInt(meta.stage_count, 1));
   dom.rocketStageCountInput.value = String(stageCount);
-  dom.boosterEnabledInput.checked = Boolean(meta.boosters?.enabled);
+  const boosterEnabled = Boolean(meta.boosters?.enabled);
+  dom.boosterEnabledInput.checked = boosterEnabled;
   dom.boosterCountInput.value = String(Math.max(0, toInt(meta.boosters?.count, 0)));
+  setBoosterUiState(boosterEnabled);
+
+  if (!meta.boosters || typeof meta.boosters !== "object") {
+    meta.boosters = { enabled: false, count: 0, fuels: [] };
+  }
 
   while ((meta.stages || []).length < stageCount) {
+    const defaultFuel = getDefaultLiquidPropellant();
     meta.stages.push({
       stage_index: meta.stages.length + 1,
-      fuels: [normalizeFuelSpec({})],
+      fuels: [normalizeFuelSpec({ phase: "液体", oxidizer: defaultFuel.oxidizer, fuel: defaultFuel.fuel })],
     });
   }
   meta.stages = meta.stages.slice(0, stageCount);
 
   dom.propellantStageList.innerHTML = "";
 
+  const header = document.createElement("div");
+  header.className = "propellant-grid-head";
+  header.innerHTML = "<span>级数</span><span>类型</span><span>推进剂</span>";
+  dom.propellantStageList.appendChild(header);
+
   meta.stages.forEach((stage, index) => {
-    const card = document.createElement("div");
-    card.className = "propellant-stage-item";
-
-    const title = document.createElement("strong");
-    title.textContent = `第 ${index + 1} 级`;
-    card.appendChild(title);
-
-    const fuel = Array.isArray(stage.fuels) && stage.fuels.length > 0 ? stage.fuels[0] : normalizeFuelSpec({});
-
-    const grid = document.createElement("div");
-    grid.className = "propellant-stage-grid";
-
-    const phaseSelect = document.createElement("select");
-    ["液体", "固体"].forEach((phase) => {
-      const opt = document.createElement("option");
-      opt.value = phase;
-      opt.textContent = phase;
-      if (fuel.phase === phase) {
-        opt.selected = true;
-      }
-      phaseSelect.appendChild(opt);
+    const existingFuel = Array.isArray(stage.fuels) && stage.fuels.length > 0
+      ? stage.fuels[0]
+      : normalizeFuelSpec(getDefaultLiquidPropellant());
+    const row = createPropellantRow(`第 ${index + 1} 级`, existingFuel, (nextFuel) => {
+      stage.fuels = [normalizeFuelSpec(nextFuel)];
     });
-
-    const oxidizerInput = document.createElement("input");
-    oxidizerInput.value = fuel.oxidizer || "";
-    oxidizerInput.placeholder = "氧化剂";
-
-    const fuelInput = document.createElement("input");
-    fuelInput.value = fuel.fuel || "";
-    fuelInput.placeholder = "燃料";
-
-    const hint = document.createElement("span");
-    hint.className = "hint";
-    hint.textContent = "每一级配置一个主燃料组合";
-
-    grid.appendChild(phaseSelect);
-    grid.appendChild(oxidizerInput);
-    grid.appendChild(fuelInput);
-    grid.appendChild(hint);
-    card.appendChild(grid);
-
-    phaseSelect.addEventListener("change", () => {
-      propellantDirty = true;
-      fuel.phase = phaseSelect.value;
-      stage.fuels = [fuel];
-    });
-    oxidizerInput.addEventListener("input", () => {
-      propellantDirty = true;
-      fuel.oxidizer = oxidizerInput.value;
-      stage.fuels = [fuel];
-    });
-    fuelInput.addEventListener("input", () => {
-      propellantDirty = true;
-      fuel.fuel = fuelInput.value;
-      stage.fuels = [fuel];
-    });
-
-    dom.propellantStageList.appendChild(card);
+    dom.propellantStageList.appendChild(row);
   });
 
-  if (meta.boosters?.enabled) {
-    const boosterCard = document.createElement("div");
-    boosterCard.className = "propellant-stage-item";
-    boosterCard.innerHTML = "<strong>助推器</strong>";
-
+  if (boosterEnabled) {
     const boosterFuel = Array.isArray(meta.boosters.fuels) && meta.boosters.fuels.length > 0
       ? meta.boosters.fuels[0]
-      : normalizeFuelSpec({});
-
-    const grid = document.createElement("div");
-    grid.className = "propellant-stage-grid";
-
-    const phaseSelect = document.createElement("select");
-    ["液体", "固体"].forEach((phase) => {
-      const opt = document.createElement("option");
-      opt.value = phase;
-      opt.textContent = phase;
-      if (boosterFuel.phase === phase) {
-        opt.selected = true;
-      }
-      phaseSelect.appendChild(opt);
+      : normalizeFuelSpec(getDefaultLiquidPropellant());
+    const boosterRow = createPropellantRow("助推器", boosterFuel, (nextFuel) => {
+      meta.boosters.fuels = [normalizeFuelSpec(nextFuel)];
     });
-
-    const oxidizerInput = document.createElement("input");
-    oxidizerInput.value = boosterFuel.oxidizer || "";
-    oxidizerInput.placeholder = "氧化剂";
-
-    const fuelInput = document.createElement("input");
-    fuelInput.value = boosterFuel.fuel || "";
-    fuelInput.placeholder = "燃料";
-
-    const hint = document.createElement("span");
-    hint.className = "hint";
-    hint.textContent = `当前数量: ${toInt(meta.boosters.count, 0)} 个`;
-
-    grid.appendChild(phaseSelect);
-    grid.appendChild(oxidizerInput);
-    grid.appendChild(fuelInput);
-    grid.appendChild(hint);
-    boosterCard.appendChild(grid);
-
-    phaseSelect.addEventListener("change", () => {
-      propellantDirty = true;
-      boosterFuel.phase = phaseSelect.value;
-      meta.boosters.fuels = [boosterFuel];
-    });
-    oxidizerInput.addEventListener("input", () => {
-      propellantDirty = true;
-      boosterFuel.oxidizer = oxidizerInput.value;
-      meta.boosters.fuels = [boosterFuel];
-    });
-    fuelInput.addEventListener("input", () => {
-      propellantDirty = true;
-      boosterFuel.fuel = fuelInput.value;
-      meta.boosters.fuels = [boosterFuel];
-    });
-
-    dom.propellantStageList.appendChild(boosterCard);
+    dom.propellantStageList.appendChild(boosterRow);
   }
 }
 
@@ -610,31 +721,51 @@ function savePropellantModal() {
   meta.stages = (meta.stages || []).slice(0, stageCount);
 
   while (meta.stages.length < stageCount) {
+    const defaultFuel = getDefaultLiquidPropellant();
     meta.stages.push({
       stage_index: meta.stages.length + 1,
-      fuels: [normalizeFuelSpec({})],
+      fuels: [normalizeFuelSpec({ phase: "液体", oxidizer: defaultFuel.oxidizer, fuel: defaultFuel.fuel })],
     });
   }
 
   meta.stages = meta.stages.map((stage, index) => ({
     stage_index: index + 1,
     fuels: Array.isArray(stage.fuels) && stage.fuels.length > 0
-      ? [normalizeFuelSpec(stage.fuels[0])]
-      : [normalizeFuelSpec({})],
+      ? [ensureFuelSeed(stage.fuels[0])]
+      : [normalizeFuelSpec(getDefaultLiquidPropellant())],
   }));
 
+  const boosterEnabled = Boolean(dom.boosterEnabledInput.checked);
+  const boosterCount = boosterEnabled ? Math.max(0, toInt(dom.boosterCountInput.value, 0)) : 0;
+  const boosterFuelSeed = Array.isArray(meta.boosters?.fuels) && meta.boosters.fuels.length > 0
+    ? ensureFuelSeed(meta.boosters.fuels[0])
+    : normalizeFuelSpec(getDefaultLiquidPropellant());
+
   meta.boosters = {
-    enabled: Boolean(dom.boosterEnabledInput.checked),
-    count: Math.max(0, toInt(dom.boosterCountInput.value, 0)),
-    fuels: meta.boosters?.enabled && Array.isArray(meta.boosters.fuels) && meta.boosters.fuels.length > 0
-      ? [normalizeFuelSpec(meta.boosters.fuels[0])]
-      : (Boolean(dom.boosterEnabledInput.checked) ? [normalizeFuelSpec({})] : []),
+    enabled: boosterEnabled,
+    count: boosterCount,
+    fuels: boosterEnabled ? [boosterFuelSeed] : [],
   };
+
+  setBoosterUiState(boosterEnabled);
 
   syncRawFromVisual();
   propellantDirty = false;
+  propellantSnapshot = null;
   closePropellantModal(true);
   toast("加注参数已更新", "success");
+  return true;
+}
+
+function formatFuelChannelLabel(fuel) {
+  const phase = String(fuel?.phase || "液体");
+  if (phase === "固体") {
+    const name = String(fuel?.oxidizer || fuel?.fuel || "").trim() || "自定义推进剂";
+    return `${phase} ${name}`;
+  }
+  const oxidizerName = String(fuel?.oxidizer || "").trim() || "-";
+  const fuelName = String(fuel?.fuel || "").trim() || "-";
+  return `${phase} ${oxidizerName}+${fuelName}`;
 }
 
 function deriveFuelChannels(rocketMeta) {
@@ -645,7 +776,7 @@ function deriveFuelChannels(rocketMeta) {
     const fuels = Array.isArray(stage.fuels) ? stage.fuels : [];
     fuels.forEach((fuel, index) => {
       const id = `stage${stage.stage_index}_${index}`;
-      const label = `第${stage.stage_index}级 ${fuel.phase} ${fuel.oxidizer}/${fuel.fuel}`;
+      const label = `第${stage.stage_index}级 ${formatFuelChannelLabel(fuel)}`;
       channels.push({ id, label });
     });
   });
@@ -654,7 +785,7 @@ function deriveFuelChannels(rocketMeta) {
     const fuels = Array.isArray(rocketMeta.boosters.fuels) ? rocketMeta.boosters.fuels : [];
     fuels.forEach((fuel, index) => {
       const id = `booster_${index}`;
-      const label = `助推器 ${fuel.phase} ${fuel.oxidizer}/${fuel.fuel}`;
+      const label = `助推器 ${formatFuelChannelLabel(fuel)}`;
       channels.push({ id, label });
     });
   }
@@ -1094,7 +1225,15 @@ function openFuelModal(source) {
 
 function closeFuelModal(force = false) {
   if (!force && fuelDirty) {
-    toast("还没保存", "error");
+    openUnsavedConfirmDialog({
+      title: "燃料配置尚未保存",
+      message: "当前燃料编辑有未保存修改，是否保存后关闭？",
+      onSave: () => saveFuelModal(),
+      onDiscard: () => {
+        fuelDirty = false;
+        return closeFuelModal(true);
+      },
+    });
     return false;
   }
   dom.fuelModal.classList.add("hidden");
@@ -1104,16 +1243,19 @@ function closeFuelModal(force = false) {
 
 async function saveFuelModal() {
   if (!fuelEditDraft) {
-    return;
+    return false;
   }
 
   if (fuelEditSource === "config" && configDraft) {
     configDraft.fuel_editor = deepClone(fuelEditDraft.fuel_editor);
     dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
+    configDraftDirty = true;
+    dom.saveConfigModalBtn.disabled = false;
+    showConfigValidation("燃料配置已更新，请保存型号配置以落盘。", false);
     toast("燃料配置已写入当前型号草稿", "success");
     fuelDirty = false;
     closeFuelModal(true);
-    return;
+    return true;
   }
 
   const payload = normalizeDraft(fuelEditDraft, fuelEditModelName);
@@ -1127,11 +1269,12 @@ async function saveFuelModal() {
   const data = await res.json();
   if (!data.success) {
     toast(data.message || "保存燃料配置失败", "error");
-    return;
+    return false;
   }
 
   modelsCache[payload.name] = payload;
   toast("燃料配置已保存", "success");
   fuelDirty = false;
   closeFuelModal(true);
+  return true;
 }

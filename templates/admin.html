@@ -126,10 +126,14 @@
     <div class="theme-panel panel">
       <h3>选择主题</h3>
       <div class="theme-grid" id="themeGrid"></div>
-      <div class="row">
-        <button class="btn" id="applyThemeBtn">应用</button>
-        <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
-        <button class="btn" id="cancelThemeBtn">取消</button>
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="cancelThemeBtn">取消</button>
+        </div>
+        <div class="modal-actions-right">
+          <button class="btn" id="applyThemeBtn">应用</button>
+          <button class="btn accent" id="saveDefaultThemeBtn">设为默认主题</button>
+        </div>
       </div>
     </div>
   </div>
@@ -183,10 +187,14 @@
         </div>
       </div>
 
-      <div class="config-foot">
+      <div class="config-foot modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closeConfigModalBtn">关闭</button>
+        </div>
         <p class="hint" id="configValidationMsg"></p>
-        <button class="btn" id="closeConfigModalBtn">关闭</button>
-        <button class="btn accent" id="saveConfigModalBtn">保存配置</button>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="saveConfigModalBtn">保存配置</button>
+        </div>
       </div>
     </div>
   </div>
@@ -207,9 +215,13 @@
         </div>
       </div>
       <div id="propellantStageList" class="propellant-stage-list"></div>
-      <div class="row">
-        <button class="btn" id="closePropellantModalBtn">关闭</button>
-        <button class="btn accent" id="savePropellantModalBtn">保存</button>
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closePropellantModalBtn">关闭</button>
+        </div>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="savePropellantModalBtn">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -245,10 +257,14 @@
         </div>
       </div>
 
-      <div class="config-foot">
+      <div class="config-foot modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closeFuelModalBtn">关闭</button>
+        </div>
         <p class="hint">-1 代表自动插值；T0 默认 100%，最早时刻默认 0%。</p>
-        <button class="btn" id="closeFuelModalBtn">关闭</button>
-        <button class="btn accent" id="saveFuelModalBtn">保存燃料配置</button>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="saveFuelModalBtn">保存燃料配置</button>
+        </div>
       </div>
     </div>
   </div>
@@ -260,6 +276,23 @@
       <p>该功能预留，后续可在此扩展发动机布局可视化编辑。</p>
       <div class="row">
         <button class="btn" id="closeEngineLayoutBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal hidden" id="unsavedConfirmModal" role="dialog" aria-modal="true" aria-label="未保存确认">
+    <div class="config-backdrop" id="unsavedConfirmBackdrop"></div>
+    <div class="confirm-panel panel">
+      <h3 id="unsavedConfirmTitle">检测到未保存修改</h3>
+      <p id="unsavedConfirmMessage">当前修改尚未保存，是否先保存再关闭？</p>
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="unsavedConfirmCancelBtn">取消</button>
+        </div>
+        <div class="modal-actions-right">
+          <button class="btn warning" id="unsavedConfirmDiscardBtn">不保存</button>
+          <button class="btn accent" id="unsavedConfirmSaveBtn">保存</button>
+        </div>
       </div>
     </div>
   </div>

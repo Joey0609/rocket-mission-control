@@ -6,8 +6,8 @@ const nodes = {
   currentStage: document.getElementById("currentStage"),
   currentEvent: document.getElementById("currentEvent"),
   nextDescription: document.getElementById("nextDescription"),
-  focusNodes: document.getElementById("focusNodes"),
   missionCard: document.getElementById("missionCard"),
+  timelineMount: document.getElementById("timelineMount"),
 
   openThemeModalBtn: document.getElementById("openThemeModalBtn"),
   themeModal: document.getElementById("themeModal"),
@@ -18,10 +18,8 @@ const nodes = {
 };
 
 const CLOCK_TICK_MS = 20;
-const AXIS_BEFORE_SEC = 120;
-const AXIS_AFTER_SEC = 240;
-const AXIS_STEP_SEC = 30;
 const TIME_JUMP_SMOOTH_MS = 1000;
+const DEFAULT_MISSION_WINDOW_SECONDS = 3600;
 
 let serverAnchor = {
   ms: 0,
@@ -35,11 +33,9 @@ let displaySmooth = {
   startPerf: 0,
 };
 
-let timelineNodes = [];
-let timelineSignature = "";
-let axisNodeViews = [];
-let axisRefs = null;
-let axisGridBucket = null;
+let timelineRenderer = null;
+let timelineNodesSignature = "";
+let lastState = null;
 
 let adminDefaultThemeId = window.MissionThemes.defaultId;
 let currentThemeId = adminDefaultThemeId;
@@ -185,7 +181,7 @@ function openThemeModal() {
   nodes.themeModal.classList.remove("hidden");
 }
 
-function closeThemeModal(restoreOrigin, force = false) {
+function closeThemeModal(restoreOrigin) {
   nodes.themeModal.classList.add("hidden");
   if (restoreOrigin) {
     applyTheme(themeModalOriginId);
@@ -214,11 +210,6 @@ function formatSignedClock(msValue) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `T${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
-}
-
-function formatTimelineSec(secValue) {
-  const sec = Math.trunc(secValue);
-  return sec >= 0 ? `T+${sec}` : `T${sec}`;
 }
 
 function currentServerMissionMs(nowPerf) {
@@ -268,148 +259,58 @@ function timelineSig(nodesData) {
     .join(";");
 }
 
-function ensureAxisSkeleton() {
-  if (axisRefs) {
-    return axisRefs;
+function toTimelineEvents(nodesData) {
+  if (!Array.isArray(nodesData)) {
+    return [];
   }
 
-  nodes.focusNodes.innerHTML = `
-    <div class="axis-shell">
-      <div class="axis-band" id="axisBand"></div>
-      <div class="axis-now-line"></div>
-      <div class="axis-now-tag" id="axisNowTag">T+0</div>
-      <div class="axis-grid" id="axisGrid"></div>
-      <div class="axis-nodes" id="axisNodes"></div>
-    </div>
-  `;
-
-  axisRefs = {
-    band: document.getElementById("axisBand"),
-    grid: document.getElementById("axisGrid"),
-    nodes: document.getElementById("axisNodes"),
-    nowTag: document.getElementById("axisNowTag"),
-  };
-  return axisRefs;
+  return nodesData.map((item, index) => ({
+    id: String(item.id || `node-${index}`),
+    name: String(item.name || "未命名节点"),
+    time: Number(item.time || 0),
+  }));
 }
 
-function rebuildAxisNodes() {
-  const refs = ensureAxisSkeleton();
-  refs.nodes.innerHTML = "";
-  axisNodeViews = [];
+function ensureTimelineRenderer() {
+  if (timelineRenderer || !nodes.timelineMount) {
+    return;
+  }
 
-  timelineNodes.forEach((item) => {
-    const marker = document.createElement("article");
-    marker.className = `axis-node ${item.kind || "event"}`;
-    marker.style.transition = "left 60ms linear, opacity 220ms ease";
+  const TimelineRenderer = window.MissionTimeline?.TimelineRenderer;
+  if (typeof TimelineRenderer !== "function") {
+    toast("时间轴模块加载失败", "error");
+    return;
+  }
 
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    marker.appendChild(dot);
-
-    const label = document.createElement("span");
-    label.className = "label";
-    label.textContent = item.name;
-    marker.appendChild(label);
-
-    const meta = document.createElement("span");
-    meta.className = "meta";
-    meta.textContent = formatTimelineSec(item.time);
-    marker.appendChild(meta);
-
-    refs.nodes.appendChild(marker);
-    axisNodeViews.push({ el: marker, time: Number(item.time || 0) });
+  timelineRenderer = new TimelineRenderer({
+    mountEl: nodes.timelineMount,
+    missionDuration: DEFAULT_MISSION_WINDOW_SECONDS,
+    svgHeight: 200,
   });
 }
 
-function renderAxisGrid(missionSec) {
-  const refs = ensureAxisSkeleton();
-  const start = missionSec - AXIS_BEFORE_SEC;
-  const end = missionSec + AXIS_AFTER_SEC;
-  const width = end - start;
-
-  refs.grid.innerHTML = "";
-  const firstTick = Math.floor(start / AXIS_STEP_SEC) * AXIS_STEP_SEC;
-  for (let t = firstTick; t <= end; t += AXIS_STEP_SEC) {
-    const percent = ((t - start) / width) * 100;
-    if (percent < -2 || percent > 102) {
-      continue;
-    }
-    const tick = document.createElement("div");
-    tick.className = "axis-tick";
-    tick.style.left = `${percent}%`;
-    tick.innerHTML = `<span>${formatTimelineSec(t)}</span>`;
-    refs.grid.appendChild(tick);
-  }
-}
-
-function maybeRenderAxisGrid(missionSec) {
-  const bucket = Math.floor((missionSec - AXIS_BEFORE_SEC) / AXIS_STEP_SEC);
-  if (bucket === axisGridBucket) {
-    return;
-  }
-  axisGridBucket = bucket;
-  renderAxisGrid(missionSec);
-}
-
-function updateAxisPositions(missionSec) {
-  if (!axisRefs || axisNodeViews.length === 0) {
+function renderTimeline(state, missionSeconds) {
+  ensureTimelineRenderer();
+  if (!timelineRenderer) {
     return;
   }
 
-  maybeRenderAxisGrid(missionSec);
-
-  const start = missionSec - AXIS_BEFORE_SEC;
-  const end = missionSec + AXIS_AFTER_SEC;
-  const width = end - start;
-  axisRefs.nowTag.textContent = `${formatTimelineSec(missionSec)} NOW`;
-
-  axisNodeViews.forEach((item) => {
-    const percent = ((item.time - start) / width) * 100;
-    const visible = percent >= -8 && percent <= 108;
-    item.el.style.display = visible ? "grid" : "none";
-    if (!visible) {
-      return;
-    }
-    item.el.style.left = `${percent}%`;
-    item.el.classList.toggle("past", item.time <= missionSec);
-  });
-}
-
-function renderTimelineNodes(nodesData) {
-  const sig = timelineSig(nodesData);
-  if (sig === timelineSignature) {
-    return;
+  const timelineNodes = Array.isArray(state.timeline_nodes) ? state.timeline_nodes : [];
+  const sig = timelineSig(timelineNodes);
+  if (sig !== timelineNodesSignature) {
+    timelineNodesSignature = sig;
+    timelineRenderer.setEvents(toTimelineEvents(timelineNodes));
   }
 
-  timelineSignature = sig;
-  timelineNodes = Array.isArray(nodesData)
-    ? nodesData
-      .slice()
-      .sort((a, b) => Number(a.time || 0) - Number(b.time || 0))
-      .map((item) => ({
-        id: item.id,
-        kind: item.kind || "event",
-        name: item.name || "未命名节点",
-        time: Number(item.time || 0),
-      }))
-    : [];
-
-  if (timelineNodes.length === 0) {
-    nodes.focusNodes.innerHTML = "<div class='focus-node'><div class='name'>当前型号无关键节点</div><div class='meta'>请在管理页配置阶段与事件</div></div>";
-    axisRefs = null;
-    axisNodeViews = [];
-    axisGridBucket = null;
-    return;
-  }
-
-  ensureAxisSkeleton();
-  axisGridBucket = null;
-  rebuildAxisNodes();
+  timelineRenderer.setMissionDuration(DEFAULT_MISSION_WINDOW_SECONDS);
+  timelineRenderer.setCurrentTimeOffset(missionSeconds);
+  timelineRenderer.render();
 }
 
 function renderState(state) {
+  lastState = state;
   const model = state.current_model || "等待选择型号";
-  nodes.modelName.textContent = model;
+  setTextIfChanged(nodes.modelName, model);
 
   const nowPerf = performance.now();
   const previousDisplayMs = getDisplayMissionMs(nowPerf);
@@ -425,9 +326,9 @@ function renderState(state) {
 
   const missionMs = getDisplayMissionMs(nowPerf);
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
-  nodes.currentStage.textContent = state.current_stage || "待命";
-  nodes.currentEvent.textContent = state.current_event || "等待节点";
-  nodes.nextDescription.textContent = state.next_description || "暂无说明";
+  setTextIfChanged(nodes.currentStage, state.current_stage || "待命");
+  setTextIfChanged(nodes.currentEvent, state.current_event || "等待节点");
+  setTextIfChanged(nodes.nextDescription, state.next_description || "暂无说明");
 
   const statusText = state.status === "countdown"
     ? "倒计时运行中"
@@ -437,26 +338,28 @@ function renderState(state) {
         ? "倒计时 HOLD"
         : "等待任务启动";
 
-  nodes.statusLine.textContent = `${statusText} · ${state.now}`;
+  setTextIfChanged(nodes.statusLine, `${statusText} · ${state.now}`);
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
-  renderTimelineNodes(state.timeline_nodes || []);
-  updateAxisPositions(missionMs / 1000);
+  renderTimeline(state, missionMs / 1000);
 }
 
 function tickClocks() {
   const nowPerf = performance.now();
   const missionMs = getDisplayMissionMs(nowPerf);
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
-  updateAxisPositions(missionMs / 1000);
+
+  if (lastState) {
+    renderTimeline(lastState, missionMs / 1000);
+  }
 }
 
 function bindThemeModal() {
   nodes.openThemeModalBtn.addEventListener("click", openThemeModal);
-  nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(false, true));
-  nodes.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, true));
+  nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(false));
+  nodes.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true));
   nodes.applyThemeBtn.addEventListener("click", () => {
-    closeThemeModal(false, true);
+    closeThemeModal(false);
     toast("主题已应用（本次访问有效）", "success");
   });
 
@@ -467,7 +370,7 @@ function bindThemeModal() {
     if (nodes.themeModal.classList.contains("hidden")) {
       return;
     }
-    if (closeThemeModal(true, true)) {
+    if (closeThemeModal(true)) {
       event.preventDefault();
     }
   });
@@ -476,6 +379,7 @@ function bindThemeModal() {
 async function init() {
   await loadDefaultTheme();
   bindThemeModal();
+  ensureTimelineRenderer();
 
   const channel = new LiveChannel({
     streamUrl: "/api/stream",
@@ -485,6 +389,13 @@ async function init() {
 
   channel.start();
   window.setInterval(tickClocks, CLOCK_TICK_MS);
+
+  window.addEventListener("beforeunload", () => {
+    channel.stop();
+    if (timelineRenderer) {
+      timelineRenderer.destroy();
+    }
+  });
 }
 
 init().catch((error) => toast(error.message, "error"));

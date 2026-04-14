@@ -58,7 +58,9 @@ const dom = {
   propellantBackdrop: document.getElementById("propellantBackdrop"),
   rocketStageCountInput: document.getElementById("rocketStageCountInput"),
   boosterEnabledInput: document.getElementById("boosterEnabledInput"),
+  boosterEnabledText: document.getElementById("boosterEnabledText"),
   boosterCountInput: document.getElementById("boosterCountInput"),
+  boosterCountWrap: document.getElementById("boosterCountWrap"),
   propellantStageList: document.getElementById("propellantStageList"),
   closePropellantModalBtn: document.getElementById("closePropellantModalBtn"),
   savePropellantModalBtn: document.getElementById("savePropellantModalBtn"),
@@ -78,6 +80,14 @@ const dom = {
   engineLayoutModal: document.getElementById("engineLayoutModal"),
   engineLayoutBackdrop: document.getElementById("engineLayoutBackdrop"),
   closeEngineLayoutBtn: document.getElementById("closeEngineLayoutBtn"),
+
+  unsavedConfirmModal: document.getElementById("unsavedConfirmModal"),
+  unsavedConfirmBackdrop: document.getElementById("unsavedConfirmBackdrop"),
+  unsavedConfirmTitle: document.getElementById("unsavedConfirmTitle"),
+  unsavedConfirmMessage: document.getElementById("unsavedConfirmMessage"),
+  unsavedConfirmCancelBtn: document.getElementById("unsavedConfirmCancelBtn"),
+  unsavedConfirmDiscardBtn: document.getElementById("unsavedConfirmDiscardBtn"),
+  unsavedConfirmSaveBtn: document.getElementById("unsavedConfirmSaveBtn"),
 };
 
 const CLOCK_TICK_MS = 20;
@@ -104,6 +114,10 @@ let visualUndoStack = [];
 let visualSortTimer = null;
 let updatingRecoverToggle = false;
 let propellantDirty = false;
+let propellantSnapshot = null;
+
+let pendingUnsavedCloseAction = null;
+let pendingUnsavedCloseBusy = false;
 
 let missionAnchor = {
   ms: 0,
@@ -287,34 +301,96 @@ function isThemeUnsaved() {
   return themeModalDraftId !== themeModalOriginId;
 }
 
+function setUnsavedConfirmBusy(busy) {
+  pendingUnsavedCloseBusy = Boolean(busy);
+  dom.unsavedConfirmCancelBtn.disabled = pendingUnsavedCloseBusy;
+  dom.unsavedConfirmDiscardBtn.disabled = pendingUnsavedCloseBusy;
+  dom.unsavedConfirmSaveBtn.disabled = pendingUnsavedCloseBusy;
+}
+
+function closeUnsavedConfirmDialog() {
+  dom.unsavedConfirmModal.classList.add("hidden");
+  pendingUnsavedCloseAction = null;
+  setUnsavedConfirmBusy(false);
+}
+
+function openUnsavedConfirmDialog(options = {}) {
+  const title = String(options.title || "检测到未保存修改").trim() || "检测到未保存修改";
+  const message = String(options.message || "当前修改尚未保存，是否先保存再关闭？").trim() || "当前修改尚未保存，是否先保存再关闭？";
+  const saveText = String(options.saveText || "保存").trim() || "保存";
+  const discardText = String(options.discardText || "不保存").trim() || "不保存";
+
+  pendingUnsavedCloseAction = {
+    onSave: typeof options.onSave === "function" ? options.onSave : null,
+    onDiscard: typeof options.onDiscard === "function" ? options.onDiscard : null,
+  };
+
+  dom.unsavedConfirmTitle.textContent = title;
+  dom.unsavedConfirmMessage.textContent = message;
+  dom.unsavedConfirmSaveBtn.textContent = saveText;
+  dom.unsavedConfirmDiscardBtn.textContent = discardText;
+  setUnsavedConfirmBusy(false);
+  dom.unsavedConfirmModal.classList.remove("hidden");
+}
+
+async function runPendingUnsavedCloseAction(action) {
+  if (!pendingUnsavedCloseAction || pendingUnsavedCloseBusy) {
+    return;
+  }
+
+  if (action === "cancel") {
+    closeUnsavedConfirmDialog();
+    return;
+  }
+
+  const handler = action === "save"
+    ? pendingUnsavedCloseAction.onSave
+    : pendingUnsavedCloseAction.onDiscard;
+
+  if (typeof handler !== "function") {
+    closeUnsavedConfirmDialog();
+    return;
+  }
+
+  setUnsavedConfirmBusy(true);
+  try {
+    const result = await handler();
+    if (result === true) {
+      closeUnsavedConfirmDialog();
+      return;
+    }
+    setUnsavedConfirmBusy(false);
+  } catch (error) {
+    setUnsavedConfirmBusy(false);
+    toast(error?.message || "操作失败", "error");
+  }
+}
+
 function handleEscapeClose() {
+  if (isModalVisible(dom.unsavedConfirmModal)) {
+    closeUnsavedConfirmDialog();
+    return true;
+  }
+
   if (isModalVisible(dom.engineLayoutModal)) {
     closeEngineLayoutModal();
     return true;
   }
   if (isModalVisible(dom.fuelModal)) {
-    if (fuelDirty) {
-      toast("还没保存", "error");
-    }
-    return closeFuelModal(true);
+    closeFuelModal(false);
+    return true;
   }
   if (isModalVisible(dom.propellantModal)) {
-    if (propellantDirty) {
-      toast("还没保存", "error");
-    }
-    return closePropellantModal(true);
+    closePropellantModal(false);
+    return true;
   }
   if (isModalVisible(dom.configModal)) {
-    if (configDraftDirty) {
-      toast("还没保存", "error");
-    }
-    return closeConfigModal(true);
+    closeConfigModal(false);
+    return true;
   }
   if (isModalVisible(dom.themeModal)) {
-    if (isThemeUnsaved()) {
-      toast("还没保存", "error");
-    }
-    return closeThemeModal(true, true);
+    closeThemeModal(true, false);
+    return true;
   }
   if (isModalVisible(dom.qrModal)) {
     closeQrModal();
@@ -382,7 +458,16 @@ function openThemeModal() {
 
 function closeThemeModal(restoreOrigin, force = false) {
   if (!force && isThemeUnsaved()) {
-    toast("还没保存", "error");
+    openUnsavedConfirmDialog({
+      title: "主题尚未确认",
+      message: "当前主题变更还没确认，是否保存后关闭？",
+      onSave: () => {
+        closeThemeModal(false, true);
+        toast("主题已应用", "success");
+        return true;
+      },
+      onDiscard: () => closeThemeModal(true, true),
+    });
     return false;
   }
   dom.themeModal.classList.add("hidden");
@@ -807,7 +892,7 @@ function bindEvents() {
 
   dom.openThemeModalBtn.addEventListener("click", openThemeModal);
   dom.themeBackdrop.addEventListener("click", () => closeThemeModal(true, false));
-  dom.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, true));
+  dom.cancelThemeBtn.addEventListener("click", () => closeThemeModal(true, false));
   dom.applyThemeBtn.addEventListener("click", () => {
     closeThemeModal(false, true);
     toast("主题已应用", "success");
@@ -829,6 +914,16 @@ function bindEvents() {
   dom.showVisitorQrBtn.addEventListener("click", () => {
     openQrModal().catch((error) => toast(error.message, "error"));
   });
+
+  dom.unsavedConfirmBackdrop.addEventListener("click", closeUnsavedConfirmDialog);
+  dom.unsavedConfirmCancelBtn.addEventListener("click", () => runPendingUnsavedCloseAction("cancel"));
+  dom.unsavedConfirmDiscardBtn.addEventListener("click", () => {
+    runPendingUnsavedCloseAction("discard").catch((error) => toast(error.message, "error"));
+  });
+  dom.unsavedConfirmSaveBtn.addEventListener("click", () => {
+    runPendingUnsavedCloseAction("save").catch((error) => toast(error.message, "error"));
+  });
+
   dom.closeQrBtn.addEventListener("click", closeQrModal);
   dom.qrBackdrop.addEventListener("click", closeQrModal);
 
@@ -912,16 +1007,40 @@ function bindEvents() {
   dom.savePropellantModalBtn.addEventListener("click", savePropellantModal);
 
   dom.rocketStageCountInput.addEventListener("input", () => {
+    if (!configDraft) {
+      return;
+    }
+    ensureRocketMeta();
+    configDraft.rocket_meta.stage_count = Math.max(1, toInt(dom.rocketStageCountInput.value, 1));
     propellantDirty = true;
     renderPropellantFields();
   });
   dom.boosterEnabledInput.addEventListener("change", () => {
+    if (!configDraft) {
+      return;
+    }
+    ensureRocketMeta();
+    if (!configDraft.rocket_meta.boosters || typeof configDraft.rocket_meta.boosters !== "object") {
+      configDraft.rocket_meta.boosters = { enabled: false, count: 0, fuels: [] };
+    }
+    configDraft.rocket_meta.boosters.enabled = Boolean(dom.boosterEnabledInput.checked);
+    if (!configDraft.rocket_meta.boosters.enabled) {
+      configDraft.rocket_meta.boosters.count = 0;
+      configDraft.rocket_meta.boosters.fuels = [];
+    }
     propellantDirty = true;
     renderPropellantFields();
   });
   dom.boosterCountInput.addEventListener("input", () => {
+    if (!configDraft) {
+      return;
+    }
+    ensureRocketMeta();
+    if (!configDraft.rocket_meta.boosters || typeof configDraft.rocket_meta.boosters !== "object") {
+      configDraft.rocket_meta.boosters = { enabled: false, count: 0, fuels: [] };
+    }
+    configDraft.rocket_meta.boosters.count = Math.max(0, toInt(dom.boosterCountInput.value, 0));
     propellantDirty = true;
-    renderPropellantFields();
   });
 
   dom.saveConfigModalBtn.addEventListener("click", () => {

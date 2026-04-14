@@ -1,3 +1,13 @@
+node_modules/
+node/
+.env
+.DS_Store
+.vscode/
+.idea/
+logs/
+dist/
+coverage/
+config/app-settings.json
 __pycache__/
 *.pyc
 .venv/
