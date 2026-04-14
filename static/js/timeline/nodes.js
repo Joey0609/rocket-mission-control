@@ -4,6 +4,7 @@
   const constants = window.MissionTimeline.constants;
   const easing = window.MissionTimeline.easing;
   const color = window.MissionTimeline.color;
+  const computeLaunchZoomScale = window.MissionTimeline.computeLaunchZoomScale;
   const createTimeMapFunction = window.MissionTimeline.createTimeMapFunction;
 
   const COLOR_PAST_PRESENT = color.parseRgba(constants.COLOR_PAST_PRESENT_STR) || { r: 255, g: 255, b: 255, a: 1 };
@@ -37,12 +38,22 @@
     const colorTransitionDuration = constants.COLOR_TRANSITION_DURATION;
     const transitionStartOffset = colorTransitionDuration / 2;
     const transitionEndOffset = -colorTransitionDuration / 2;
+    const launchZoomScale = typeof computeLaunchZoomScale === "function"
+      ? computeLaunchZoomScale(currentTimelineTime, {
+        startTime: constants.LAUNCH_SCALE_START_TIME,
+        peakTime: constants.LAUNCH_SCALE_PEAK_TIME,
+        endTime: constants.LAUNCH_SCALE_END_TIME,
+        recoverDuration: constants.LAUNCH_SCALE_RECOVER_DURATION,
+        maxScale: constants.LAUNCH_SCALE_MAX,
+      })
+      : 1;
 
     const mapTime = createTimeMapFunction(
       currentTimelineTime,
       Number(options.averageDensityFactor || 1.6),
       Number(options.pastNodeDensityFactor || 2.4),
       Number(options.futureNodeDensityFactor || 2.4),
+      launchZoomScale,
     );
 
     const normalizedEvents = normalizeEvents(options.events);

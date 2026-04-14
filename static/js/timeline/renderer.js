@@ -127,9 +127,10 @@
         filter: `url(#${this.ids.blurFilter})`,
       });
 
-      const maskedGroup = drawing.createSvgElement("g", {
+      const maskedGroupAttrs = {
         mask: `url(#${this.ids.fixedFadeMask})`,
-      });
+      };
+      const maskedGroup = drawing.createSvgElement("g", maskedGroupAttrs);
 
       this.fillRect = drawing.createSvgElement("rect", {
         x: 0,

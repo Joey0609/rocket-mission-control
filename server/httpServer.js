@@ -459,7 +459,8 @@ class MissionEngine {
     if (!Number.isFinite(ts)) {
       return false;
     }
-    this.launchEpoch = Math.max(Date.now(), ts);
+    // 允许传入过去时间，便于任务计时直接进入 T+ 阶段。
+    this.launchEpoch = ts;
     this.ignitionEpoch = null;
     this.running = true;
     this.runtimeCountdowns = [];
