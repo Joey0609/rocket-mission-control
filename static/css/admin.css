@@ -167,8 +167,9 @@ body {
   justify-self: end;
 }
 
-#holdBtn.active {
+#holdBtn.warning {
   background: linear-gradient(135deg, #955923, #c47a2f);
+  border-color: color-mix(in srgb, #e4be7a 55%, var(--line));
 }
 
 .launch-adjust-row {
@@ -373,17 +374,41 @@ textarea {
 }
 
 .model-actions-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   align-items: center;
-  flex-wrap: nowrap;
+  gap: 8px;
 }
 
 .model-actions-row select {
-  flex: 1 1 auto;
-  min-width: 140px;
+  grid-column: 1 / 3;
+  min-width: 0;
 }
 
 .model-actions-row .btn {
-  min-width: 102px;
+  min-width: 0;
+  width: 100%;
+  padding-inline: 0;
+}
+
+#refreshModelsBtn {
+  grid-column: 3;
+}
+
+#openConfigEditorBtn {
+  grid-column: 4;
+}
+
+#openFuelEditorBtn {
+  grid-column: 5;
+}
+
+#openTelemetryEditorBtn {
+  grid-column: 6;
+}
+
+#openEngineLayoutBtn {
+  grid-column: 7;
 }
 
 .obs-grid {
@@ -411,6 +436,7 @@ textarea {
 .theme-modal,
 .propellant-modal,
 .fuel-modal,
+.telemetry-modal,
 .engine-modal,
 .confirm-modal {
   position: fixed;
@@ -498,7 +524,8 @@ textarea {
 }
 
 .config-panel,
-.fuel-panel {
+.fuel-panel,
+.telemetry-panel {
   position: relative;
   z-index: 1;
   width: min(1320px, 96vw);
@@ -555,7 +582,8 @@ textarea {
 }
 
 .config-body,
-.fuel-body {
+.fuel-body,
+.telemetry-body {
   min-height: 0;
   overflow: auto;
 }
@@ -863,7 +891,24 @@ textarea {
   padding: 22px 34px 16px;
 }
 
+.curve-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, transparent 0, transparent 33px, rgba(20, 27, 44, 0.04) 33px, rgba(20, 27, 44, 0.04) calc(100% - 33px), transparent calc(100% - 33px)),
+    linear-gradient(to bottom, transparent 0, transparent 22px, rgba(20, 27, 44, 0.03) 22px, rgba(20, 27, 44, 0.03) calc(100% - 16px), transparent calc(100% - 16px));
+}
+
 #fuelCurveCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+#telemetryCurveCanvas {
   width: 100%;
   height: auto;
   display: block;
@@ -875,7 +920,7 @@ textarea {
   top: 50%;
   transform: translateY(-50%) rotate(-90deg);
   font-size: 11px;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--ink) 62%, var(--muted));
   transform-origin: center;
 }
 
@@ -886,6 +931,34 @@ textarea {
 .curve-y-right {
   right: -10px;
   transform: translateY(-50%) rotate(90deg);
+}
+
+.curve-x-label {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 62%, var(--muted));
+}
+
+#telemetryCurveLegend {
+  margin-left: auto;
+}
+
+.telemetry-dual-input {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.telemetry-dual-input input,
+.telemetry-single-input input {
+  width: 100%;
+}
+
+.telemetry-row-split td:first-child {
+  color: color-mix(in srgb, var(--ink) 88%, #ffd08f);
 }
 
 @media (max-width: 1320px) {
@@ -961,7 +1034,16 @@ textarea {
   }
 
   .model-actions-row {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr;
+  }
+
+  .model-actions-row select,
+  #refreshModelsBtn,
+  #openConfigEditorBtn,
+  #openFuelEditorBtn,
+  #openTelemetryEditorBtn,
+  #openEngineLayoutBtn {
+    grid-column: auto;
   }
 
   .theme-grid {

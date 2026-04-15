@@ -86,9 +86,9 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "",
+    "payload": "123",
     "recovery_capable": true,
-    "recovery_enabled": false,
+    "recovery_enabled": true,
     "stage_count": 2,
     "stages": [
       {
@@ -126,8 +126,175 @@
   },
   "fuel_editor": {
     "version": 1,
-    "node_values": {},
-    "curves": {}
+    "node_values": {
+      "stage:stg_fh_fuel:start": {
+        "stage1_0": 0,
+        "stage2_0": 0,
+        "booster_0": 0
+      },
+      "observation:obs_fh_side_sep": {
+        "stage1_0": 98,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "observation:obs_fh_arm": {
+        "stage1_0": 100,
+        "stage2_0": 100,
+        "booster_0": 100
+      },
+      "event:evt_fh_countdown": {
+        "stage1_0": 100,
+        "stage2_0": 100,
+        "booster_0": 100
+      },
+      "stage:stg_fh_fuel:end": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_fh_ignition": {
+        "stage1_0": 100,
+        "stage2_0": 100,
+        "booster_0": 100
+      },
+      "stage:stg_fh_boosters:start": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_fh_maxq": {
+        "stage1_0": 55,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_fh_side_sep": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": 0
+      },
+      "stage:stg_fh_core:start": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "stage:stg_fh_boosters:end": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "stage:stg_fh_core:end": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_fh_core_sep": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_fh_second_ignition": {
+        "stage1_0": 0,
+        "stage2_0": 100,
+        "booster_0": -1
+      },
+      "event:evt_fh_payload": {
+        "stage1_0": 0,
+        "stage2_0": 0,
+        "booster_0": -1
+      }
+    },
+    "curves": {
+      "stage1_0": [
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 58,
+          "value": 55
+        },
+        {
+          "time": 154,
+          "value": 0
+        },
+        {
+          "time": 228,
+          "value": 0
+        },
+        {
+          "time": 384,
+          "value": 0
+        },
+        {
+          "time": 660,
+          "value": 0
+        }
+      ],
+      "stage2_0": [
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 58,
+          "value": 100
+        },
+        {
+          "time": 154,
+          "value": 100
+        },
+        {
+          "time": 228,
+          "value": 100
+        },
+        {
+          "time": 384,
+          "value": 100
+        },
+        {
+          "time": 660,
+          "value": 0
+        }
+      ],
+      "booster_0": [
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 58,
+          "value": 61
+        },
+        {
+          "time": 154,
+          "value": 0
+        },
+        {
+          "time": 228,
+          "value": 0
+        },
+        {
+          "time": 384,
+          "value": 0
+        },
+        {
+          "time": 660,
+          "value": 0
+        }
+      ]
+    }
   },
   "engine_layout": {
     "version": 1,

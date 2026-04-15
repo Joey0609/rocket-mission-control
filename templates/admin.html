@@ -66,8 +66,9 @@
           <select id="modelSelect"></select>
           <button class="btn" id="refreshModelsBtn">刷新</button>
           <button class="btn" id="openConfigEditorBtn">编辑配置</button>
-          <button class="btn" id="openFuelEditorBtn">编辑加注</button>
-          <button class="btn" id="openEngineLayoutBtn">编辑发动机布局</button>
+          <button class="btn" id="openFuelEditorBtn">编辑燃料</button>
+          <button class="btn" id="openTelemetryEditorBtn">编辑遥测</button>
+          <button class="btn" id="openEngineLayoutBtn">编辑发动机</button>
         </div>
       </section>
 
@@ -258,8 +259,8 @@
         </div>
         <div class="curve-shell">
           <canvas id="fuelCurveCanvas" width="1000" height="360"></canvas>
-          <div class="curve-y-left">速度 (m/s)</div>
-          <div class="curve-y-right">高度 (m)</div>
+          <div class="curve-y-left" id="fuelCurveYLabel">燃料余量 (%)</div>
+          <div class="curve-x-label">任务时间 (s)</div>
         </div>
       </div>
 
@@ -275,10 +276,53 @@
     </div>
   </div>
 
+  <div class="telemetry-modal hidden" id="telemetryModal" role="dialog" aria-modal="true" aria-label="遥测编辑">
+    <div class="config-backdrop" id="telemetryBackdrop"></div>
+    <div class="telemetry-panel panel">
+      <div class="config-head">
+        <h3>遥测编辑</h3>
+        <div class="row">
+          <button class="btn active" id="telemetryTabListBtn">列表编辑</button>
+          <button class="btn" id="telemetryTabAltitudeBtn">高度曲线编辑</button>
+          <button class="btn" id="telemetryTabSpeedBtn">速度曲线编辑</button>
+          <button class="btn" id="telemetryTabAccelBtn">加速度曲线编辑</button>
+        </div>
+      </div>
+
+      <div class="telemetry-body" id="telemetryListPane">
+        <div class="fuel-table-wrap">
+          <table class="fuel-table" id="telemetryTable"></table>
+        </div>
+      </div>
+
+      <div class="telemetry-body hidden" id="telemetryCurvePane">
+        <div class="row curve-toolbar">
+          <span class="hint" id="telemetryCurveHint">拖拽数据点实时编辑。</span>
+          <span class="hint" id="telemetryCurveLegend"></span>
+        </div>
+        <div class="curve-shell">
+          <canvas id="telemetryCurveCanvas" width="1000" height="360"></canvas>
+          <div class="curve-y-left" id="telemetryCurveYLabel">高度 (km)</div>
+          <div class="curve-x-label">任务时间 (s)</div>
+        </div>
+      </div>
+
+      <div class="config-foot modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closeTelemetryModalBtn">关闭</button>
+        </div>
+        <p class="hint" id="telemetrySplitHint">仅展示 T0 及之后事件节点。</p>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="saveTelemetryModalBtn">保存遥测配置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="engine-modal hidden" id="engineLayoutModal" role="dialog" aria-modal="true" aria-label="发动机布局编辑">
     <div class="config-backdrop" id="engineLayoutBackdrop"></div>
     <div class="engine-panel panel">
-      <h3>编辑发动机布局</h3>
+      <h3>编辑发动机</h3>
       <p>该功能预留，后续可在此扩展发动机布局可视化编辑。</p>
       <div class="row">
         <button class="btn" id="closeEngineLayoutBtn">关闭</button>

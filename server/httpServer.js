@@ -10,6 +10,11 @@ function toInt(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function toNumber(value, fallback = 0) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function newId(prefix) {
   return `${prefix}_${Math.random().toString(16).slice(2, 10)}`;
 }
@@ -212,6 +217,73 @@ function normalizeFuelEditor(raw) {
   };
 }
 
+const TELEMETRY_METRICS = ["altitude_km", "speed_mps", "accel_g"];
+
+function normalizeTelemetryBranch(rawValue, fallback = 0) {
+  if (rawValue && typeof rawValue === "object") {
+    const stage1 = toNumber(rawValue.stage1, fallback);
+    const upper = toNumber(rawValue.upper, stage1);
+    return { stage1, upper };
+  }
+  const value = toNumber(rawValue, fallback);
+  return { stage1: value, upper: value };
+}
+
+function normalizeTelemetryCurveArray(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((p) => ({
+      time: toInt(p?.time, 0),
+      value: toNumber(p?.value, 0),
+    }))
+    .sort((a, b) => a.time - b.time);
+}
+
+function normalizeTelemetryEditor(raw) {
+  const nodeValues = {};
+  const sourceNodeValues = raw?.node_values && typeof raw.node_values === "object" ? raw.node_values : {};
+
+  for (const [nodeKey, metricMap] of Object.entries(sourceNodeValues)) {
+    if (!metricMap || typeof metricMap !== "object") {
+      continue;
+    }
+    nodeValues[nodeKey] = {};
+    for (const metricKey of TELEMETRY_METRICS) {
+      nodeValues[nodeKey][metricKey] = normalizeTelemetryBranch(metricMap[metricKey], 0);
+    }
+  }
+
+  const curves = {};
+  const sourceCurves = raw?.curves && typeof raw.curves === "object" ? raw.curves : {};
+
+  for (const metricKey of TELEMETRY_METRICS) {
+    const metricSource = sourceCurves[metricKey];
+    const metricCurves = {
+      stage1: [],
+      upper: [],
+    };
+
+    if (Array.isArray(metricSource)) {
+      metricCurves.stage1 = normalizeTelemetryCurveArray(metricSource);
+      metricCurves.upper = metricCurves.stage1.map((point) => ({ ...point }));
+    } else if (metricSource && typeof metricSource === "object") {
+      metricCurves.stage1 = normalizeTelemetryCurveArray(metricSource.stage1);
+      const upperRaw = Array.isArray(metricSource.upper) ? metricSource.upper : metricCurves.stage1;
+      metricCurves.upper = normalizeTelemetryCurveArray(upperRaw);
+    }
+
+    curves[metricKey] = metricCurves;
+  }
+
+  return {
+    version: 1,
+    node_values: nodeValues,
+    curves,
+  };
+}
+
 function normalizeEngineLayout(raw) {
   if (!raw || typeof raw !== "object") {
     return { version: 1, reserved: true };
@@ -236,6 +308,7 @@ function normalizeModel(raw) {
     observation_points,
     rocket_meta: normalizeRocketMeta(raw?.rocket_meta || {}),
     fuel_editor: normalizeFuelEditor(raw?.fuel_editor || {}),
+    telemetry_editor: normalizeTelemetryEditor(raw?.telemetry_editor || {}),
     engine_layout: normalizeEngineLayout(raw?.engine_layout || {}),
   };
 }

@@ -8,6 +8,7 @@ const dom = {
   refreshModelsBtn: document.getElementById("refreshModelsBtn"),
   openConfigEditorBtn: document.getElementById("openConfigEditorBtn"),
   openFuelEditorBtn: document.getElementById("openFuelEditorBtn"),
+  openTelemetryEditorBtn: document.getElementById("openTelemetryEditorBtn"),
   openEngineLayoutBtn: document.getElementById("openEngineLayoutBtn"),
   launchAt: document.getElementById("launchAt"),
   telemetryToggleBtn: document.getElementById("telemetryToggleBtn"),
@@ -79,6 +80,22 @@ const dom = {
   fuelCurveCanvas: document.getElementById("fuelCurveCanvas"),
   closeFuelModalBtn: document.getElementById("closeFuelModalBtn"),
   saveFuelModalBtn: document.getElementById("saveFuelModalBtn"),
+
+  telemetryModal: document.getElementById("telemetryModal"),
+  telemetryBackdrop: document.getElementById("telemetryBackdrop"),
+  telemetryTabListBtn: document.getElementById("telemetryTabListBtn"),
+  telemetryTabAltitudeBtn: document.getElementById("telemetryTabAltitudeBtn"),
+  telemetryTabSpeedBtn: document.getElementById("telemetryTabSpeedBtn"),
+  telemetryTabAccelBtn: document.getElementById("telemetryTabAccelBtn"),
+  telemetryListPane: document.getElementById("telemetryListPane"),
+  telemetryCurvePane: document.getElementById("telemetryCurvePane"),
+  telemetryTable: document.getElementById("telemetryTable"),
+  telemetryCurveCanvas: document.getElementById("telemetryCurveCanvas"),
+  telemetryCurveYLabel: document.getElementById("telemetryCurveYLabel"),
+  telemetryCurveLegend: document.getElementById("telemetryCurveLegend"),
+  telemetrySplitHint: document.getElementById("telemetrySplitHint"),
+  closeTelemetryModalBtn: document.getElementById("closeTelemetryModalBtn"),
+  saveTelemetryModalBtn: document.getElementById("saveTelemetryModalBtn"),
 
   engineLayoutModal: document.getElementById("engineLayoutModal"),
   engineLayoutBackdrop: document.getElementById("engineLayoutBackdrop"),
@@ -380,6 +397,10 @@ function handleEscapeClose() {
     closeEngineLayoutModal();
     return true;
   }
+  if (isModalVisible(dom.telemetryModal)) {
+    closeTelemetryModal(false);
+    return true;
+  }
   if (isModalVisible(dom.fuelModal)) {
     closeFuelModal(false);
     return true;
@@ -610,6 +631,16 @@ function normalizeDraft(payload, selectedModelName) {
       : {},
   };
 
+  const telemetryEditor = {
+    version: 1,
+    node_values: payload?.telemetry_editor?.node_values && typeof payload.telemetry_editor.node_values === "object"
+      ? deepClone(payload.telemetry_editor.node_values)
+      : {},
+    curves: payload?.telemetry_editor?.curves && typeof payload.telemetry_editor.curves === "object"
+      ? deepClone(payload.telemetry_editor.curves)
+      : {},
+  };
+
   return {
     version: 2,
     name: String(payload?.name || selectedModelName || "未命名型号").trim() || "未命名型号",
@@ -618,6 +649,7 @@ function normalizeDraft(payload, selectedModelName) {
     observation_points: normalizedObs,
     rocket_meta: rocketMeta,
     fuel_editor: fuelEditor,
+    telemetry_editor: telemetryEditor,
     engine_layout: payload?.engine_layout && typeof payload.engine_layout === "object"
       ? deepClone(payload.engine_layout)
       : { version: 1, reserved: true },
@@ -827,7 +859,8 @@ function renderState(state) {
     }
   }
 
-  dom.holdBtn.classList.toggle("active", Boolean(state.is_hold));
+  dom.holdBtn.classList.remove("active");
+  dom.holdBtn.classList.toggle("warning", Boolean(state.is_hold));
   dom.holdBtn.textContent = "HOLD";
 
   renderObservationButtons(state);
@@ -1201,16 +1234,70 @@ function bindEvents() {
     }
     curveDragState = hit;
   });
+  dom.fuelCurveCanvas.addEventListener("mousemove", (event) => {
+    updateFuelCurveHoverByPointer(event.clientX, event.clientY);
+  });
+  dom.fuelCurveCanvas.addEventListener("mouseleave", () => {
+    clearFuelCurveHover();
+  });
+
+  if (dom.openTelemetryEditorBtn) {
+    dom.openTelemetryEditorBtn.addEventListener("click", () => openTelemetryModal("model"));
+  }
+  if (dom.telemetryBackdrop) {
+    dom.telemetryBackdrop.addEventListener("click", () => closeTelemetryModal(false));
+  }
+  if (dom.closeTelemetryModalBtn) {
+    dom.closeTelemetryModalBtn.addEventListener("click", () => closeTelemetryModal(false));
+  }
+  if (dom.saveTelemetryModalBtn) {
+    dom.saveTelemetryModalBtn.addEventListener("click", () => {
+      saveTelemetryModal().catch((error) => toast(error.message, "error"));
+    });
+  }
+  if (dom.telemetryTabListBtn) {
+    dom.telemetryTabListBtn.addEventListener("click", () => setTelemetryTab("list"));
+  }
+  if (dom.telemetryTabAltitudeBtn) {
+    dom.telemetryTabAltitudeBtn.addEventListener("click", () => setTelemetryTab("altitude"));
+  }
+  if (dom.telemetryTabSpeedBtn) {
+    dom.telemetryTabSpeedBtn.addEventListener("click", () => setTelemetryTab("speed"));
+  }
+  if (dom.telemetryTabAccelBtn) {
+    dom.telemetryTabAccelBtn.addEventListener("click", () => setTelemetryTab("accel"));
+  }
+  if (dom.telemetryCurveCanvas) {
+    dom.telemetryCurveCanvas.addEventListener("mousedown", (event) => {
+      const rect = dom.telemetryCurveCanvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const hit = findTelemetryCurvePointAtPosition(x, y);
+      if (!hit) {
+        return;
+      }
+      telemetryDragState = hit;
+    });
+    dom.telemetryCurveCanvas.addEventListener("mousemove", (event) => {
+      updateTelemetryCurveHoverByPointer(event.clientX, event.clientY);
+    });
+    dom.telemetryCurveCanvas.addEventListener("mouseleave", () => {
+      clearTelemetryCurveHover();
+    });
+  }
 
   window.addEventListener("mousemove", (event) => {
     if (!curveDragState) {
+      updateTelemetryCurvePointByPointer(event.clientX, event.clientY);
       return;
     }
     updateCurvePointByPointer(event.clientX, event.clientY);
+    updateTelemetryCurvePointByPointer(event.clientX, event.clientY);
   });
 
   window.addEventListener("mouseup", () => {
     curveDragState = null;
+    telemetryDragState = null;
   });
 
   dom.openEngineLayoutBtn.addEventListener("click", openEngineLayoutModal);
@@ -1257,6 +1344,9 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     if (!dom.fuelModal.classList.contains("hidden") && fuelTab === "curve") {
       renderFuelCurve();
+    }
+    if (!dom.telemetryModal.classList.contains("hidden") && telemetryTab !== "list") {
+      renderTelemetryCurve();
     }
   });
 }

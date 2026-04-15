@@ -1,0 +1,128 @@
+{
+  "version": 2,
+  "name": "Falcon 9",
+  "stages": [
+    {
+      "id": "stg_f9_fuel",
+      "name": "燃料加注",
+      "start_time": -3600,
+      "end_time": -60,
+      "description": "正在加注液氧和煤油"
+    },
+    {
+      "id": "stg_f9_stage1",
+      "name": "一级工作段",
+      "start_time": 0,
+      "end_time": 150,
+      "description": "第一级发动机工作"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_f9_countdown",
+      "name": "倒计时开始",
+      "time": -60,
+      "description": "主倒计时启动"
+    },
+    {
+      "id": "evt_f9_ignition",
+      "name": "主发动机点火",
+      "time": -3,
+      "description": "9台Merlin发动机点火"
+    },
+    {
+      "id": "evt_f9_pitch",
+      "name": "程序转弯",
+      "time": 13,
+      "description": "火箭开始程序转弯"
+    },
+    {
+      "id": "evt_f9_maxq",
+      "name": "Max Q",
+      "time": 62,
+      "description": "最大动压点"
+    },
+    {
+      "id": "evt_f9_stage_sep",
+      "name": "一级分离",
+      "time": 150,
+      "description": "第一级完成工作"
+    },
+    {
+      "id": "evt_f9_second_ignition",
+      "name": "二次点火",
+      "time": 378,
+      "description": "真空 Merlin 发动机点火"
+    },
+    {
+      "id": "evt_f9_fairing_sep",
+      "name": "整流罩分离",
+      "time": 510,
+      "description": "有效载荷整流罩释放"
+    },
+    {
+      "id": "evt_f9_seco",
+      "name": "二级熄火",
+      "time": 540,
+      "description": "上面级发动机停止"
+    },
+    {
+      "id": "evt_f9_payload",
+      "name": "有效载荷部署",
+      "time": 600,
+      "description": "任务完成"
+    }
+  ],
+  "observation_points": [
+    {
+      "id": "obs_f9_arm",
+      "name": "摆杆摆开",
+      "time": -95,
+      "new_countdown": 95,
+      "description": "观察到摆杆已打开"
+    }
+  ],
+  "rocket_meta": {
+    "mission_name": "",
+    "payload": "",
+    "recovery_capable": true,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": false,
+      "count": 0,
+      "fuels": []
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "engine_layout": {
+    "version": 1,
+    "reserved": true
+  }
+}
