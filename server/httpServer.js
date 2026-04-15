@@ -368,6 +368,8 @@ class MissionEngine {
     this.holdActive = false;
     this.holdStartedAt = null;
     this.holdAccumulatedMs = 0;
+    this.telemetryEnabled = false;
+    this.telemetryPaused = false;
   }
 
   markDirty() {
@@ -432,6 +434,43 @@ class MissionEngine {
 
   toggleHold() {
     return this.setHold(!this.holdActive);
+  }
+
+  setTelemetryEnabled(nextEnabled) {
+    const target = Boolean(nextEnabled);
+    if (target === this.telemetryEnabled) {
+      return [true, target ? "遥测已开启" : "遥测已关闭"];
+    }
+
+    this.telemetryEnabled = target;
+    if (!target) {
+      this.telemetryPaused = false;
+    }
+    this.markDirty();
+    return [true, target ? "已开启遥测" : "已关闭遥测"];
+  }
+
+  toggleTelemetryEnabled() {
+    return this.setTelemetryEnabled(!this.telemetryEnabled);
+  }
+
+  setTelemetryPaused(nextPaused) {
+    if (!this.telemetryEnabled) {
+      return [false, "请先开启遥测"];
+    }
+
+    const target = Boolean(nextPaused);
+    if (target === this.telemetryPaused) {
+      return [true, target ? "遥测已中断" : "遥测已恢复"];
+    }
+
+    this.telemetryPaused = target;
+    this.markDirty();
+    return [true, target ? "已中断遥测" : "已恢复遥测"];
+  }
+
+  toggleTelemetryPaused() {
+    return this.setTelemetryPaused(!this.telemetryPaused);
   }
 
   selectModel(name) {
@@ -704,6 +743,8 @@ class MissionEngine {
       running: this.running,
       is_flying: Boolean(this.ignitionEpoch),
       is_hold: this.holdActive,
+      telemetry_enabled: this.telemetryEnabled,
+      telemetry_paused: this.telemetryEnabled ? this.telemetryPaused : false,
       hold_elapsed_ms: this.holdElapsedMs(now),
       current_model: model?.name || null,
       main_countdown_seconds: mainSec,
@@ -1078,6 +1119,42 @@ function startServer(options = {}) {
     }
     broadcastState();
     res.json({ success: true, message, hold: engine.holdActive });
+  });
+
+  app.post("/api/telemetry/enable", requireAdminApi, (req, res) => {
+    const payloadEnabled = req.body?.enabled;
+    const [ok, message] = typeof payloadEnabled === "boolean"
+      ? engine.setTelemetryEnabled(payloadEnabled)
+      : engine.toggleTelemetryEnabled();
+    if (!ok) {
+      res.status(400).json({ success: false, message });
+      return;
+    }
+    broadcastState();
+    res.json({
+      success: true,
+      message,
+      telemetry_enabled: engine.telemetryEnabled,
+      telemetry_paused: engine.telemetryPaused,
+    });
+  });
+
+  app.post("/api/telemetry/pause", requireAdminApi, (req, res) => {
+    const payloadPaused = req.body?.paused;
+    const [ok, message] = typeof payloadPaused === "boolean"
+      ? engine.setTelemetryPaused(payloadPaused)
+      : engine.toggleTelemetryPaused();
+    if (!ok) {
+      res.status(400).json({ success: false, message });
+      return;
+    }
+    broadcastState();
+    res.json({
+      success: true,
+      message,
+      telemetry_enabled: engine.telemetryEnabled,
+      telemetry_paused: engine.telemetryPaused,
+    });
   });
 
   app.post("/api/observation", requireAdminApi, (req, res) => {

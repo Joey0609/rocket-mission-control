@@ -86,7 +86,7 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "123",
+    "payload": "",
     "recovery_capable": true,
     "recovery_enabled": false,
     "stage_count": 2,

@@ -126,21 +126,49 @@ body {
   align-items: center;
 }
 
+.launch-main-row #launchAt {
+  grid-column: 1 / 5;
+}
+
+#telemetryToggleBtn,
+#telemetryPauseBtn,
 #holdBtn {
   min-width: 0;
   max-width: none;
   width: 100%;
-  grid-column: 7;
   padding-inline: 0;
+}
+
+#telemetryToggleBtn {
+  grid-column: 5;
+}
+
+#telemetryPauseBtn {
+  grid-column: 6;
+}
+
+#telemetryToggleBtn.active {
+  background: linear-gradient(135deg, #2f7b5b, #3d9e72);
+  border-color: color-mix(in srgb, #79d6ad 55%, var(--line));
+}
+
+#telemetryPauseBtn.active {
+  background: linear-gradient(135deg, #91652a, #c1913f);
+  border-color: color-mix(in srgb, #e4be7a 52%, var(--line));
+}
+
+#telemetryPauseBtn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+#holdBtn {
+  grid-column: 7;
   justify-self: end;
 }
 
 #holdBtn.active {
   background: linear-gradient(135deg, #955923, #c47a2f);
-}
-
-.launch-main-row #launchAt {
-  grid-column: 1 / 7;
 }
 
 .launch-adjust-row {
@@ -637,10 +665,23 @@ textarea {
 }
 
 .row-delete {
-  width: 40px;
+  width: 34px;
+  height: 34px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #d97782 52%, var(--line));
+  background: linear-gradient(135deg, #bc606c, #df8a94);
+  color: #ffe9ec;
   font-size: 18px;
   line-height: 1;
+}
+
+.row-delete:hover {
+  border-color: color-mix(in srgb, #f0b5bc 62%, var(--line));
+  background: linear-gradient(135deg, #c86c77, #e69ca5);
 }
 
 .config-foot {

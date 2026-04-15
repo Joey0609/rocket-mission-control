@@ -18,7 +18,11 @@
   <main class="visitor-shell" id="visitorShell">
     <header class="hero">
       <div class="hero-meta-row">
-        <div class="tag">PUBLIC VIEW</div>
+        <div class="hero-meta-left">
+          <div class="tag">PUBLIC VIEW</div>
+          <div class="signal" id="channelMode">实时通道: 连接中</div>
+        </div>
+        <button class="theme-btn" id="openThemeModalBtn">主题</button>
         <!-- <div class="copyright">Copyright Joey0609，北斗-玉衡</div> -->
       </div>
       <h1 class="hero-title">
@@ -26,10 +30,6 @@
         <span id="payloadName" class="payload-name hidden"></span>
       </h1>
       <p id="statusLine">等待任务初始化</p>
-      <div class="hero-tools">
-        <div class="signal" id="channelMode">实时通道: 连接中</div>
-        <button class="theme-btn" id="openThemeModalBtn">主题</button>
-      </div>
     </header>
 
     <section class="clock-board">
@@ -66,7 +66,7 @@
       <div class="mission-overlay-time" id="overlayClockTime">00:00:00</div>
     </div>
     <div class="mission-overlay-line">
-      <span id="overlayMissionName">待命任务</span><span id="overlayVehicleChunk" class="hidden"> · <span id="overlayVehicleName">等待选择型号</span></span><span id="overlayPayloadChunk" class="overlay-payload hidden">载荷 · -</span>
+      <span id="overlayMissionName">待命任务</span><span id="overlayVehicleChunk" class="hidden"> · <span id="overlayVehicleName">等待选择型号</span></span><span id="overlayPayloadChunk" class="overlay-payload hidden">-</span>
     </div>
   </section>
 

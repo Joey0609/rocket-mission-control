@@ -52,8 +52,8 @@
                 <span id="recoverToggleText">不回收</span>
               </label>
               <div class="rocket-meta-field">
-                <label for="payloadInput">载荷</label>
-                <input type="text" id="payloadInput" placeholder="例如：卫星互联网载荷">
+                <!-- <label for="payloadInput">载荷</label> -->
+                <input type="text" id="payloadInput" placeholder="载荷">
               </div>
             </div>
           </div>
@@ -66,7 +66,7 @@
           <select id="modelSelect"></select>
           <button class="btn" id="refreshModelsBtn">刷新</button>
           <button class="btn" id="openConfigEditorBtn">编辑配置</button>
-          <button class="btn" id="openFuelEditorBtn">编辑燃料</button>
+          <button class="btn" id="openFuelEditorBtn">编辑加注</button>
           <button class="btn" id="openEngineLayoutBtn">编辑发动机布局</button>
         </div>
       </section>
@@ -75,7 +75,9 @@
         <h2>发射控制</h2>
         <div class="row launch-main-row">
           <input type="datetime-local" id="launchAt" step="1">
-          <button class="btn warning" id="holdBtn">HOLD</button>
+          <button class="btn" id="telemetryToggleBtn">开启遥测</button>
+          <button class="btn" id="telemetryPauseBtn">中断遥测</button>
+          <button class="btn" id="holdBtn">HOLD</button>
         </div>
         <div class="row compact wrap launch-adjust-row">
           <button class="btn" data-adjust-seconds="-3600">-1h</button>
@@ -176,7 +178,7 @@
             <input type="checkbox" id="recoverableConfigToggle">
             <span id="recoverableConfigText">可回收</span>
           </label>
-          <button class="btn" id="openPropellantProfileBtn">编辑加注</button>
+          <button class="btn" id="openPropellantProfileBtn">编辑燃料</button>
         </div>
         <div class="visual-table">
           <div class="visual-head">

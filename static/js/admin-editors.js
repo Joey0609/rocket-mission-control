@@ -327,7 +327,7 @@ function renderVisualRow(row, index) {
 
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
-  deleteBtn.className = "btn danger row-delete";
+  deleteBtn.className = "btn row-delete";
   deleteBtn.textContent = "×";
   deleteBtn.title = "删除";
   deleteBtn.addEventListener("click", () => {
@@ -998,14 +998,18 @@ function renderFuelTable() {
 function curveCanvasMetrics() {
   const canvas = dom.fuelCurveCanvas;
   const rect = canvas.getBoundingClientRect();
-  if (rect.width > 10) {
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.round(rect.width * ratio);
-    canvas.height = Math.round(360 * ratio);
+  const ratio = window.devicePixelRatio || 1;
+  const targetWidth = rect.width > 10 ? rect.width : Math.max(480, canvas.clientWidth || 0, canvas.width / ratio);
+  const targetHeight = rect.height > 10 ? rect.height : 360;
+  const pixelWidth = Math.round(targetWidth * ratio);
+  const pixelHeight = Math.round(targetHeight * ratio);
+
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
   }
 
   const ctx = canvas.getContext("2d");
-  const ratio = window.devicePixelRatio || 1;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
   const width = canvas.width / ratio;
@@ -1179,6 +1183,14 @@ function setFuelTab(tab) {
   dom.fuelTabCurveBtn.classList.toggle("active", fuelTab === "curve");
   if (fuelTab === "curve") {
     renderFuelCurve();
+    requestAnimationFrame(() => {
+      renderFuelCurve();
+      setTimeout(() => {
+        if (!dom.fuelModal.classList.contains("hidden") && fuelTab === "curve") {
+          renderFuelCurve();
+        }
+      }, 80);
+    });
   }
 }
 

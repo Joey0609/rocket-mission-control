@@ -271,7 +271,7 @@ function renderMissionOverlay(state, missionMs) {
   if (nodes.overlayPayloadChunk) {
     nodes.overlayPayloadChunk.classList.toggle("hidden", !payload);
   }
-  setTextIfChanged(nodes.overlayPayloadChunk, payload ? `载荷 · ${payload}` : "");
+  setTextIfChanged(nodes.overlayPayloadChunk, payload ? `${payload}` : "");
 }
 
 function currentServerMissionMs(nowPerf) {
@@ -376,7 +376,7 @@ function renderState(state) {
   const model = state.current_model || "等待选择型号";
   const payload = String(state?.rocket_meta?.payload || "").trim();
   setTextIfChanged(nodes.modelName, model);
-  setTextIfChanged(nodes.payloadName, payload ? `载荷 · ${payload}` : "");
+  setTextIfChanged(nodes.payloadName, payload ? `${payload}` : "");
   if (nodes.payloadName) {
     nodes.payloadName.classList.toggle("hidden", !payload);
   }
