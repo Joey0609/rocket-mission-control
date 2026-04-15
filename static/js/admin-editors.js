@@ -2,6 +2,7 @@ const TELEMETRY_METRIC_DEFS = [
   { key: "altitude_km", label: "高度 (km)", shortLabel: "高度", defaultValue: 0 },
   { key: "speed_mps", label: "速度 (m/s)", shortLabel: "速度", defaultValue: 0 },
   { key: "accel_g", label: "加速度 (g)", shortLabel: "加速度", defaultValue: 0 },
+  { key: "angular_velocity_dps", label: "角速度 (deg/s)", shortLabel: "角速度", defaultValue: 0 },
 ];
 
 let telemetryEditDraft = null;
@@ -1794,6 +1795,9 @@ function getTelemetryMetricByTab(tabKey = telemetryTab) {
   if (tabKey === "accel") {
     return TELEMETRY_METRIC_DEFS[2];
   }
+  if (tabKey === "angular") {
+    return TELEMETRY_METRIC_DEFS[3];
+  }
   return null;
 }
 
@@ -1820,7 +1824,8 @@ function renderTelemetryTable() {
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["节点", "时间(s)", "高度 (km)", "速度 (m/s)", "加速度 (g)"].forEach((text) => {
+  const headerTexts = ["节点", "时间(s)", ...TELEMETRY_METRIC_DEFS.map((metric) => metric.label)];
+  headerTexts.forEach((text) => {
     const th = document.createElement("th");
     th.textContent = text;
     headRow.appendChild(th);
@@ -2327,7 +2332,7 @@ function clearTelemetryCurveHover() {
 }
 
 function setTelemetryTab(tab) {
-  const nextTab = ["list", "altitude", "speed", "accel"].includes(tab) ? tab : "list";
+  const nextTab = ["list", "altitude", "speed", "accel", "angular"].includes(tab) ? tab : "list";
   telemetryTab = nextTab;
 
   dom.telemetryListPane.classList.toggle("hidden", telemetryTab !== "list");
@@ -2337,6 +2342,9 @@ function setTelemetryTab(tab) {
   dom.telemetryTabAltitudeBtn.classList.toggle("active", telemetryTab === "altitude");
   dom.telemetryTabSpeedBtn.classList.toggle("active", telemetryTab === "speed");
   dom.telemetryTabAccelBtn.classList.toggle("active", telemetryTab === "accel");
+  if (dom.telemetryTabAngularBtn) {
+    dom.telemetryTabAngularBtn.classList.toggle("active", telemetryTab === "angular");
+  }
 
   if (telemetryTab !== "list") {
     renderTelemetryCurve();

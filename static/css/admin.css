@@ -148,13 +148,14 @@ body {
 }
 
 #telemetryToggleBtn.active {
-  background: linear-gradient(135deg, #2f7b5b, #3d9e72);
+  background: linear-gradient(135deg, #479071, #79d6ad);
   border-color: color-mix(in srgb, #79d6ad 55%, var(--line));
 }
 
 #telemetryPauseBtn.active {
-  background: linear-gradient(135deg, #91652a, #c1913f);
-  border-color: color-mix(in srgb, #e4be7a 52%, var(--line));
+  background: linear-gradient(135deg, #f1c98a, #d79a41);
+  border-color: color-mix(in srgb, #f3d39d 58%, var(--line));
+  color: #2a1c0b;
 }
 
 #telemetryPauseBtn:disabled {
@@ -168,7 +169,6 @@ body {
 }
 
 #holdBtn.warning {
-  background: linear-gradient(135deg, #955923, #c47a2f);
   border-color: color-mix(in srgb, #e4be7a 55%, var(--line));
 }
 
@@ -228,7 +228,8 @@ textarea {
 }
 
 .btn.warning {
-  background: linear-gradient(135deg, #ebba88, #cb8733);
+  background: linear-gradient(135deg, #f1c98a, #d99235);
+  color: #2a1c0b;
 }
 
 .btn.icon-btn {

@@ -217,7 +217,38 @@ function normalizeFuelEditor(raw) {
   };
 }
 
-const TELEMETRY_METRICS = ["altitude_km", "speed_mps", "accel_g"];
+const TELEMETRY_METRICS = ["altitude_km", "speed_mps", "accel_g", "angular_velocity_dps"];
+
+const TELEMETRY_PROFILE_METRIC_DEFS = {
+  speed_mps: {
+    sourceKey: "speed_mps",
+    unit: "M/S",
+    max_value: 8500,
+    fraction_digits: 0,
+    fallback: 0,
+  },
+  altitude_km: {
+    sourceKey: "altitude_km",
+    unit: "KM",
+    max_value: 700,
+    fraction_digits: 1,
+    fallback: 0,
+  },
+  accel_g: {
+    sourceKey: "accel_g",
+    unit: "G",
+    max_value: 8,
+    fraction_digits: 2,
+    fallback: 0,
+  },
+  angular_velocity_dps: {
+    sourceKey: "angular_velocity_dps",
+    unit: "DEG/S",
+    max_value: 180,
+    fraction_digits: 1,
+    fallback: 0,
+  },
+};
 
 function normalizeTelemetryBranch(rawValue, fallback = 0) {
   if (rawValue && typeof rawValue === "object") {
@@ -236,9 +267,139 @@ function normalizeTelemetryCurveArray(raw) {
   return raw
     .map((p) => ({
       time: toInt(p?.time, 0),
-      value: toNumber(p?.value, 0),
+      value: Math.max(0, toNumber(p?.value, 0)),
     }))
     .sort((a, b) => a.time - b.time);
+}
+
+function finalizeTelemetryCurve(points, fallback = 0) {
+  const uniqueByTime = new Map();
+  for (const point of normalizeTelemetryCurveArray(points)) {
+    uniqueByTime.set(point.time, point.value);
+  }
+
+  const normalized = Array.from(uniqueByTime.entries())
+    .map(([time, value]) => ({ time: Number(time), value: Math.max(0, Number(value) || 0) }))
+    .sort((a, b) => a.time - b.time);
+
+  if (normalized.length === 0) {
+    return [
+      { time: 0, value: fallback },
+      { time: 60, value: fallback },
+    ];
+  }
+
+  if (normalized.length === 1) {
+    return [
+      normalized[0],
+      { time: normalized[0].time + 60, value: normalized[0].value },
+    ];
+  }
+
+  return normalized;
+}
+
+function mapTelemetryCurveValues(points, mapper) {
+  if (typeof mapper !== "function") {
+    return points.map((point) => ({ ...point }));
+  }
+
+  return points.map((point) => ({
+    time: point.time,
+    value: Math.max(0, mapper(point.value)),
+  }));
+}
+
+function resolveTelemetrySplitMode(model) {
+  const recoveryEnabled = model?.rocket_meta?.recovery_capable !== false
+    && model?.rocket_meta?.recovery_enabled !== false;
+
+  if (!recoveryEnabled) {
+    return {
+      enabled: false,
+      separation_time: Number.POSITIVE_INFINITY,
+      separation_name: "",
+    };
+  }
+
+  const sortedEvents = Array.isArray(model?.events)
+    ? model.events
+      .map((event) => ({
+        name: String(event?.name || ""),
+        time: toInt(event?.time, 0),
+      }))
+      .sort((a, b) => a.time - b.time)
+    : [];
+
+  const separationEvent = sortedEvents.find((event) => event.name.includes("分离"));
+  if (!separationEvent) {
+    return {
+      enabled: false,
+      separation_time: Number.POSITIVE_INFINITY,
+      separation_name: "",
+    };
+  }
+
+  return {
+    enabled: true,
+    separation_time: separationEvent.time,
+    separation_name: separationEvent.name,
+  };
+}
+
+function resolveTelemetryMetricCurves(model, metricKey, fallback = 0) {
+  const metricSource = model?.telemetry_editor?.curves?.[metricKey];
+  let stage1Source = [];
+  let upperSource = [];
+
+  if (Array.isArray(metricSource)) {
+    stage1Source = metricSource;
+    upperSource = metricSource;
+  } else if (metricSource && typeof metricSource === "object") {
+    stage1Source = metricSource.stage1;
+    upperSource = Array.isArray(metricSource.upper) ? metricSource.upper : metricSource.stage1;
+  }
+
+  const stage1 = finalizeTelemetryCurve(stage1Source, fallback);
+  const upper = finalizeTelemetryCurve(upperSource, fallback);
+
+  return {
+    stage1,
+    upper,
+  };
+}
+
+function buildTelemetryProfile(model) {
+  const splitMode = resolveTelemetrySplitMode(model);
+  const metrics = {};
+
+  for (const [metricName, metricDef] of Object.entries(TELEMETRY_PROFILE_METRIC_DEFS)) {
+    const sourceCurves = resolveTelemetryMetricCurves(model, metricDef.sourceKey, metricDef.fallback);
+    const stage1 = mapTelemetryCurveValues(sourceCurves.stage1, metricDef.transform);
+    let upper = mapTelemetryCurveValues(sourceCurves.upper, metricDef.transform);
+
+    if (!splitMode.enabled) {
+      upper = stage1.map((point) => ({ ...point }));
+    }
+
+    metrics[metricName] = {
+      unit: metricDef.unit,
+      max_value: metricDef.max_value,
+      fraction_digits: metricDef.fraction_digits,
+      curves: {
+        stage1,
+        upper,
+      },
+    };
+  }
+
+  return {
+    version: 1,
+    split_enabled: splitMode.enabled,
+    separation_time: splitMode.separation_time,
+    separation_name: splitMode.separation_name,
+    metrics,
+  };
 }
 
 function normalizeTelemetryEditor(raw) {
@@ -314,7 +475,7 @@ function normalizeModel(raw) {
 }
 
 function normalizeAppSettings(raw) {
-  const theme = String(raw?.default_theme || "aurora").trim() || "aurora";
+  const theme = String(raw?.default_theme || "lavender-mist").trim() || "lavender-mist";
   return {
     version: 1,
     default_theme: theme,
@@ -422,7 +583,7 @@ class AppSettingsStore {
   }
 
   setDefaultTheme(themeId) {
-    this.settings.default_theme = String(themeId || "aurora").trim() || "aurora";
+    this.settings.default_theme = String(themeId || "lavender-mist").trim() || "lavender-mist";
     this.save();
     return this.get();
   }
@@ -443,6 +604,7 @@ class MissionEngine {
     this.holdAccumulatedMs = 0;
     this.telemetryEnabled = false;
     this.telemetryPaused = false;
+    this.telemetryPauseMissionMs = 0;
   }
 
   markDirty() {
@@ -512,15 +674,12 @@ class MissionEngine {
   setTelemetryEnabled(nextEnabled) {
     const target = Boolean(nextEnabled);
     if (target === this.telemetryEnabled) {
-      return [true, target ? "遥测已开启" : "遥测已关闭"];
+      return [true, target ? "仪表盘已显示" : "仪表盘已隐藏"];
     }
 
     this.telemetryEnabled = target;
-    if (!target) {
-      this.telemetryPaused = false;
-    }
     this.markDirty();
-    return [true, target ? "已开启遥测" : "已关闭遥测"];
+    return [true, target ? "仪表盘已显示" : "仪表盘已隐藏"];
   }
 
   toggleTelemetryEnabled() {
@@ -528,16 +687,13 @@ class MissionEngine {
   }
 
   setTelemetryPaused(nextPaused) {
-    if (!this.telemetryEnabled) {
-      return [false, "请先开启遥测"];
-    }
-
     const target = Boolean(nextPaused);
     if (target === this.telemetryPaused) {
       return [true, target ? "遥测已中断" : "遥测已恢复"];
     }
 
     this.telemetryPaused = target;
+    this.telemetryPauseMissionMs = target ? this.missionTimeMs(Date.now()) : 0;
     this.markDirty();
     return [true, target ? "已中断遥测" : "已恢复遥测"];
   }
@@ -803,6 +959,7 @@ class MissionEngine {
     const missionTime = this.missionTimeSec(now);
     const missionTimeMs = this.missionTimeMs(now);
     const timeline = this.timelineSummary(missionTime);
+    const telemetryProfile = buildTelemetryProfile(model);
     const unifiedFormatted = this.running
       ? (missionTime >= 0 ? this.fmtPlus(missionTime) : this.fmtMinus(Math.abs(missionTime)))
       : "T-00:00";
@@ -817,7 +974,10 @@ class MissionEngine {
       is_flying: Boolean(this.ignitionEpoch),
       is_hold: this.holdActive,
       telemetry_enabled: this.telemetryEnabled,
-      telemetry_paused: this.telemetryEnabled ? this.telemetryPaused : false,
+      telemetry_paused: this.telemetryPaused,
+      telemetry_pause_mission_ms: this.telemetryPaused
+        ? this.telemetryPauseMissionMs
+        : 0,
       hold_elapsed_ms: this.holdElapsedMs(now),
       current_model: model?.name || null,
       main_countdown_seconds: mainSec,
@@ -840,6 +1000,7 @@ class MissionEngine {
       observation_log: this.observationLog.slice(-100),
       focus_nodes: timeline.focusNodes,
       timeline_nodes: timeline.timelineNodes || [],
+      telemetry_profile: telemetryProfile,
       next_poll_hint_ms: timeline.nextPollHintMs,
       change_token: this.lastMutation,
       ...extra,
@@ -1209,6 +1370,9 @@ function startServer(options = {}) {
       message,
       telemetry_enabled: engine.telemetryEnabled,
       telemetry_paused: engine.telemetryPaused,
+      telemetry_pause_mission_ms: engine.telemetryPaused
+        ? engine.telemetryPauseMissionMs
+        : 0,
     });
   });
 
@@ -1227,6 +1391,9 @@ function startServer(options = {}) {
       message,
       telemetry_enabled: engine.telemetryEnabled,
       telemetry_paused: engine.telemetryPaused,
+      telemetry_pause_mission_ms: engine.telemetryPaused
+        ? engine.telemetryPauseMissionMs
+        : 0,
     });
   });
 

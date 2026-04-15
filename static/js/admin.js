@@ -87,6 +87,7 @@ const dom = {
   telemetryTabAltitudeBtn: document.getElementById("telemetryTabAltitudeBtn"),
   telemetryTabSpeedBtn: document.getElementById("telemetryTabSpeedBtn"),
   telemetryTabAccelBtn: document.getElementById("telemetryTabAccelBtn"),
+  telemetryTabAngularBtn: document.getElementById("telemetryTabAngularBtn"),
   telemetryListPane: document.getElementById("telemetryListPane"),
   telemetryCurvePane: document.getElementById("telemetryCurvePane"),
   telemetryTable: document.getElementById("telemetryTable"),
@@ -820,7 +821,7 @@ function renderRocketConfigCard(state) {
 
 function renderTelemetryButtons(state) {
   const telemetryEnabled = Boolean(state.telemetry_enabled);
-  const telemetryPaused = telemetryEnabled && Boolean(state.telemetry_paused);
+  const telemetryPaused = Boolean(state.telemetry_paused);
 
   if (dom.telemetryToggleBtn) {
     dom.telemetryToggleBtn.textContent = telemetryEnabled ? "关闭遥测" : "开启遥测";
@@ -1091,38 +1092,73 @@ function bindEvents() {
   if (dom.telemetryToggleBtn) {
     dom.telemetryToggleBtn.addEventListener("click", async () => {
       const nextEnabled = !Boolean(lastState?.telemetry_enabled);
-      const res = await adminFetch("/api/telemetry/enable", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: nextEnabled }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast(data.message || "遥测开关失败", "error");
-        return;
+      dom.telemetryToggleBtn.disabled = true;
+      if (dom.telemetryPauseBtn) {
+        dom.telemetryPauseBtn.disabled = true;
       }
-      toast(data.message || (nextEnabled ? "已开启遥测" : "已关闭遥测"), "success");
+      try {
+        const res = await adminFetch("/api/telemetry/enable", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: nextEnabled }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          renderTelemetryButtons(lastState || {});
+          toast(data.message || "遥测开关失败", "error");
+          return;
+        }
+        lastState = {
+          ...(lastState || {}),
+          telemetry_enabled: Boolean(data.telemetry_enabled),
+          telemetry_paused: Boolean(data.telemetry_paused),
+          telemetry_pause_mission_ms: Number(data.telemetry_pause_mission_ms || 0),
+        };
+        renderTelemetryButtons(lastState);
+        toast(data.message || (nextEnabled ? "仪表盘已显示" : "仪表盘已隐藏"), "success");
+      } finally {
+        if (dom.telemetryToggleBtn) {
+          dom.telemetryToggleBtn.disabled = false;
+        }
+      }
     });
   }
 
   if (dom.telemetryPauseBtn) {
     dom.telemetryPauseBtn.addEventListener("click", async () => {
-      if (!Boolean(lastState?.telemetry_enabled)) {
-        toast("请先开启遥测", "error");
-        return;
-      }
       const nextPaused = !Boolean(lastState?.telemetry_paused);
-      const res = await adminFetch("/api/telemetry/pause", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paused: nextPaused }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast(data.message || "遥测中断失败", "error");
-        return;
+      dom.telemetryPauseBtn.disabled = true;
+      if (dom.telemetryToggleBtn) {
+        dom.telemetryToggleBtn.disabled = true;
       }
-      toast(data.message || (nextPaused ? "已中断遥测" : "已恢复遥测"), "success");
+      try {
+        const res = await adminFetch("/api/telemetry/pause", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paused: nextPaused }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          renderTelemetryButtons(lastState || {});
+          toast(data.message || "遥测中断失败", "error");
+          return;
+        }
+        lastState = {
+          ...(lastState || {}),
+          telemetry_enabled: Boolean(data.telemetry_enabled),
+          telemetry_paused: Boolean(data.telemetry_paused),
+          telemetry_pause_mission_ms: Number(data.telemetry_pause_mission_ms || 0),
+        };
+        renderTelemetryButtons(lastState);
+        toast(data.message || (nextPaused ? "已中断遥测" : "已恢复遥测"), "success");
+      } finally {
+        if (dom.telemetryToggleBtn) {
+          dom.telemetryToggleBtn.disabled = false;
+        }
+        if (dom.telemetryPauseBtn) {
+          dom.telemetryPauseBtn.disabled = !Boolean(lastState?.telemetry_enabled);
+        }
+      }
     });
   }
 
@@ -1266,6 +1302,9 @@ function bindEvents() {
   }
   if (dom.telemetryTabAccelBtn) {
     dom.telemetryTabAccelBtn.addEventListener("click", () => setTelemetryTab("accel"));
+  }
+  if (dom.telemetryTabAngularBtn) {
+    dom.telemetryTabAngularBtn.addEventListener("click", () => setTelemetryTab("angular"));
   }
   if (dom.telemetryCurveCanvas) {
     dom.telemetryCurveCanvas.addEventListener("mousedown", (event) => {

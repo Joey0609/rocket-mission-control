@@ -10,6 +10,13 @@
       "description": "正在加注液氧和煤油"
     },
     {
+      "id": "evt_f9_countdown",
+      "name": "倒计时开始",
+      "start_time": -60,
+      "end_time": 0,
+      "description": "主倒计时启动"
+    },
+    {
       "id": "stg_f9_stage1",
       "name": "一级工作段",
       "start_time": 0,
@@ -18,12 +25,6 @@
     }
   ],
   "events": [
-    {
-      "id": "evt_f9_countdown",
-      "name": "倒计时开始",
-      "time": -60,
-      "description": "主倒计时启动"
-    },
     {
       "id": "evt_f9_ignition",
       "name": "主发动机点火",
@@ -120,6 +121,28 @@
     "version": 1,
     "node_values": {},
     "curves": {}
+  },
+  "telemetry_editor": {
+    "version": 1,
+    "node_values": {},
+    "curves": {
+      "altitude_km": {
+        "stage1": [],
+        "upper": []
+      },
+      "speed_mps": {
+        "stage1": [],
+        "upper": []
+      },
+      "accel_g": {
+        "stage1": [],
+        "upper": []
+      },
+      "angular_velocity_dps": {
+        "stage1": [],
+        "upper": []
+      }
+    }
   },
   "engine_layout": {
     "version": 1,

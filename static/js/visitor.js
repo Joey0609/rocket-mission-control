@@ -16,6 +16,8 @@ const nodes = {
   nextDescription: document.getElementById("nextDescription"),
   missionCard: document.getElementById("missionCard"),
   timelineMount: document.getElementById("timelineMount"),
+  telemetryGaugesLeft: document.getElementById("telemetryGaugesLeft"),
+  telemetryGaugesRight: document.getElementById("telemetryGaugesRight"),
 
   openThemeModalBtn: document.getElementById("openThemeModalBtn"),
   themeModal: document.getElementById("themeModal"),
@@ -44,6 +46,7 @@ let displaySmooth = {
 let timelineRenderer = null;
 let timelineNodesSignature = "";
 let lastState = null;
+let telemetryGaugePanel = null;
 
 let adminDefaultThemeId = window.MissionThemes.defaultId;
 let currentThemeId = adminDefaultThemeId;
@@ -351,6 +354,31 @@ function ensureTimelineRenderer() {
   });
 }
 
+function ensureTelemetryGaugePanel() {
+  if (telemetryGaugePanel) {
+    return;
+  }
+
+  const createPanel = window.MissionTelemetry?.createTelemetryGaugePanel;
+  if (typeof createPanel !== "function") {
+    return;
+  }
+
+  telemetryGaugePanel = createPanel({
+    leftMountEl: nodes.telemetryGaugesLeft,
+    rightMountEl: nodes.telemetryGaugesRight,
+  });
+}
+
+function setTelemetryDashboardVisibility(visible) {
+  for (const mount of [nodes.telemetryGaugesLeft, nodes.telemetryGaugesRight]) {
+    const side = mount?.closest?.(".timeline-side");
+    if (side) {
+      side.classList.toggle("telemetry-panel-hidden", !visible);
+    }
+  }
+}
+
 function renderTimeline(state, missionSeconds) {
   ensureTimelineRenderer();
   if (!timelineRenderer) {
@@ -369,6 +397,29 @@ function renderTimeline(state, missionSeconds) {
   timelineRenderer.setMissionDuration(DEFAULT_MISSION_WINDOW_SECONDS);
   timelineRenderer.setCurrentTimeOffset(missionSeconds);
   timelineRenderer.render();
+}
+
+function renderTelemetryGauges(state, missionSeconds) {
+  ensureTelemetryGaugePanel();
+  if (!telemetryGaugePanel) {
+    return;
+  }
+
+  const telemetryEnabled = Boolean(state?.telemetry_enabled);
+  setTelemetryDashboardVisibility(telemetryEnabled);
+  telemetryGaugePanel.setProfile(state?.telemetry_profile || null);
+  if (!telemetryEnabled) {
+    return;
+  }
+
+  telemetryGaugePanel.update({
+    missionSeconds,
+    telemetryEnabled,
+    telemetryPaused: Boolean(state?.telemetry_paused),
+    telemetryPauseMissionSeconds: Number.isFinite(state?.telemetry_pause_mission_ms)
+      ? Number(state.telemetry_pause_mission_ms) / 1000
+      : null,
+  });
 }
 
 function renderState(state) {
@@ -415,6 +466,7 @@ function renderState(state) {
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
   renderTimeline(state, missionMs / 1000);
+  renderTelemetryGauges(state, missionMs / 1000);
 }
 
 function tickClocks() {
@@ -429,6 +481,7 @@ function tickClocks() {
 
   if (lastState) {
     renderTimeline(lastState, missionMs / 1000);
+    renderTelemetryGauges(lastState, missionMs / 1000);
   }
 }
 
@@ -458,6 +511,7 @@ async function init() {
   await loadDefaultTheme();
   bindThemeModal();
   ensureTimelineRenderer();
+  ensureTelemetryGaugePanel();
 
   try {
     const initialState = await loadInitialState();
@@ -479,6 +533,9 @@ async function init() {
     channel.stop();
     if (timelineRenderer) {
       timelineRenderer.destroy();
+    }
+    if (telemetryGaugePanel) {
+      telemetryGaugePanel.destroy();
     }
   });
 }

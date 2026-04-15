@@ -86,9 +86,9 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "123",
+    "payload": "",
     "recovery_capable": true,
-    "recovery_enabled": true,
+    "recovery_enabled": false,
     "stage_count": 2,
     "stages": [
       {
@@ -126,174 +126,338 @@
   },
   "fuel_editor": {
     "version": 1,
+    "node_values": {},
+    "curves": {}
+  },
+  "telemetry_editor": {
+    "version": 1,
     "node_values": {
-      "stage:stg_fh_fuel:start": {
-        "stage1_0": 0,
-        "stage2_0": 0,
-        "booster_0": 0
-      },
-      "observation:obs_fh_side_sep": {
-        "stage1_0": 98,
-        "stage2_0": -1,
-        "booster_0": -1
-      },
-      "observation:obs_fh_arm": {
-        "stage1_0": 100,
-        "stage2_0": 100,
-        "booster_0": 100
-      },
-      "event:evt_fh_countdown": {
-        "stage1_0": 100,
-        "stage2_0": 100,
-        "booster_0": 100
-      },
-      "stage:stg_fh_fuel:end": {
-        "stage1_0": 100,
-        "stage2_0": -1,
-        "booster_0": -1
-      },
-      "event:evt_fh_ignition": {
-        "stage1_0": 100,
-        "stage2_0": 100,
-        "booster_0": 100
-      },
-      "stage:stg_fh_boosters:start": {
-        "stage1_0": 100,
-        "stage2_0": -1,
-        "booster_0": -1
+      "event:__telemetry_t0__": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       },
       "event:evt_fh_maxq": {
-        "stage1_0": 55,
-        "stage2_0": -1,
-        "booster_0": -1
+        "altitude_km": {
+          "stage1": 20.565960462127457,
+          "upper": 20.565960462127457
+        },
+        "speed_mps": {
+          "stage1": 312.5900957671838,
+          "upper": 312.5900957671838
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       },
       "event:evt_fh_side_sep": {
-        "stage1_0": 0,
-        "stage2_0": -1,
-        "booster_0": 0
-      },
-      "stage:stg_fh_core:start": {
-        "stage1_0": 0,
-        "stage2_0": -1,
-        "booster_0": -1
-      },
-      "stage:stg_fh_boosters:end": {
-        "stage1_0": 0,
-        "stage2_0": -1,
-        "booster_0": -1
-      },
-      "stage:stg_fh_core:end": {
-        "stage1_0": 0,
-        "stage2_0": -1,
-        "booster_0": -1
+        "altitude_km": {
+          "stage1": 86.37847438132599,
+          "upper": 86.37847438132599
+        },
+        "speed_mps": {
+          "stage1": 664.2539535052674,
+          "upper": 664.2539535052674
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       },
       "event:evt_fh_core_sep": {
-        "stage1_0": 0,
-        "stage2_0": -1,
-        "booster_0": -1
+        "altitude_km": {
+          "stage1": 131.06020730826538,
+          "upper": 131.06020730826538
+        },
+        "speed_mps": {
+          "stage1": 919.4988616223168,
+          "upper": 919.4988616223168
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       },
       "event:evt_fh_second_ignition": {
-        "stage1_0": 0,
-        "stage2_0": 100,
-        "booster_0": -1
+        "altitude_km": {
+          "stage1": 171.49195845447287,
+          "upper": 171.49195845447287
+        },
+        "speed_mps": {
+          "stage1": 3184.439301361939,
+          "upper": 3184.439301361939
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       },
       "event:evt_fh_payload": {
-        "stage1_0": 0,
-        "stage2_0": 0,
-        "booster_0": -1
+        "altitude_km": {
+          "stage1": 412.16238484787107,
+          "upper": 412.16238484787107
+        },
+        "speed_mps": {
+          "stage1": 11861.677741165471,
+          "upper": 11861.677741165471
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
       }
     },
     "curves": {
-      "stage1_0": [
-        {
-          "time": -60,
-          "value": 100
-        },
-        {
-          "time": -3,
-          "value": 100
-        },
-        {
-          "time": 58,
-          "value": 55
-        },
-        {
-          "time": 154,
-          "value": 0
-        },
-        {
-          "time": 228,
-          "value": 0
-        },
-        {
-          "time": 384,
-          "value": 0
-        },
-        {
-          "time": 660,
-          "value": 0
-        }
-      ],
-      "stage2_0": [
-        {
-          "time": -60,
-          "value": 100
-        },
-        {
-          "time": -3,
-          "value": 100
-        },
-        {
-          "time": 58,
-          "value": 100
-        },
-        {
-          "time": 154,
-          "value": 100
-        },
-        {
-          "time": 228,
-          "value": 100
-        },
-        {
-          "time": 384,
-          "value": 100
-        },
-        {
-          "time": 660,
-          "value": 0
-        }
-      ],
-      "booster_0": [
-        {
-          "time": -60,
-          "value": 100
-        },
-        {
-          "time": -3,
-          "value": 100
-        },
-        {
-          "time": 58,
-          "value": 61
-        },
-        {
-          "time": 154,
-          "value": 0
-        },
-        {
-          "time": 228,
-          "value": 0
-        },
-        {
-          "time": 384,
-          "value": 0
-        },
-        {
-          "time": 660,
-          "value": 0
-        }
-      ]
+      "altitude_km": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 20.565960462127457
+          },
+          {
+            "time": 154,
+            "value": 86.37847438132599
+          },
+          {
+            "time": 228,
+            "value": 131.06020730826538
+          },
+          {
+            "time": 384,
+            "value": 171.49195845447287
+          },
+          {
+            "time": 660,
+            "value": 412.16238484787107
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 20.565960462127457
+          },
+          {
+            "time": 154,
+            "value": 86.37847438132599
+          },
+          {
+            "time": 228,
+            "value": 131.06020730826538
+          },
+          {
+            "time": 384,
+            "value": 171.49195845447287
+          },
+          {
+            "time": 660,
+            "value": 412.16238484787107
+          }
+        ]
+      },
+      "speed_mps": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 312.5900957671838
+          },
+          {
+            "time": 154,
+            "value": 664.2539535052674
+          },
+          {
+            "time": 228,
+            "value": 919.4988616223168
+          },
+          {
+            "time": 384,
+            "value": 3184.439301361939
+          },
+          {
+            "time": 660,
+            "value": 11861.677741165471
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 312.5900957671838
+          },
+          {
+            "time": 154,
+            "value": 664.2539535052674
+          },
+          {
+            "time": 228,
+            "value": 919.4988616223168
+          },
+          {
+            "time": 384,
+            "value": 3184.439301361939
+          },
+          {
+            "time": 660,
+            "value": 11861.677741165471
+          }
+        ]
+      },
+      "accel_g": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 0
+          },
+          {
+            "time": 154,
+            "value": 0
+          },
+          {
+            "time": 228,
+            "value": 0
+          },
+          {
+            "time": 384,
+            "value": 0
+          },
+          {
+            "time": 660,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 0
+          },
+          {
+            "time": 154,
+            "value": 0
+          },
+          {
+            "time": 228,
+            "value": 0
+          },
+          {
+            "time": 384,
+            "value": 0
+          },
+          {
+            "time": 660,
+            "value": 0
+          }
+        ]
+      },
+      "angular_velocity_dps": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 0
+          },
+          {
+            "time": 154,
+            "value": 0
+          },
+          {
+            "time": 228,
+            "value": 0
+          },
+          {
+            "time": 384,
+            "value": 0
+          },
+          {
+            "time": 660,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 58,
+            "value": 0
+          },
+          {
+            "time": 154,
+            "value": 0
+          },
+          {
+            "time": 228,
+            "value": 0
+          },
+          {
+            "time": 384,
+            "value": 0
+          },
+          {
+            "time": 660,
+            "value": 0
+          }
+        ]
+      }
     }
   },
   "engine_layout": {

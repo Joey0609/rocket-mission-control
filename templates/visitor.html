@@ -71,6 +71,14 @@
   </section>
 
   <section class="timeline-fixed-layer" aria-hidden="true">
+    <aside class="timeline-side timeline-side-left telemetry-panel-hidden" aria-hidden="true">
+      <div class="timeline-side-bg"></div>
+      <div class="telemetry-gauges" id="telemetryGaugesLeft"></div>
+    </aside>
+    <aside class="timeline-side timeline-side-right telemetry-panel-hidden" aria-hidden="true">
+      <div class="timeline-side-bg"></div>
+      <div class="telemetry-gauges" id="telemetryGaugesRight"></div>
+    </aside>
     <div class="timeline-mount" id="timelineMount"></div>
     <div class="timeline-gradient-bar"></div>
   </section>
@@ -98,6 +106,8 @@
   <script src="/static/js/timeline/nodes.js"></script>
   <script src="/static/js/timeline/svg-drawing.js"></script>
   <script src="/static/js/timeline/renderer.js"></script>
+  <script src="/static/js/telemetry/gauge.js"></script>
+  <script src="/static/js/telemetry/gauge-panel.js"></script>
   <script src="/static/js/visitor.js"></script>
 </body>
 </html>

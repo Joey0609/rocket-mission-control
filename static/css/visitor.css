@@ -206,6 +206,132 @@ body {
   pointer-events: none;
 }
 
+.timeline-side {
+  position: absolute;
+  bottom: 0;
+  width: min(36vw, 560px);
+  height: 190px;
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 1;
+  transition: opacity 280ms ease;
+  will-change: opacity;
+}
+
+.timeline-side.telemetry-panel-hidden {
+  opacity: 0;
+}
+
+.timeline-side-left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 28px;
+}
+
+.timeline-side-right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 28px;
+}
+
+.timeline-side-bg {
+  position: absolute;
+  bottom: 0;
+  width: min(35vw, 520px);
+  height: 126px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  opacity: 0.8;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-axis-tag) 88%, transparent) 0%,
+      color-mix(in srgb, var(--surface-axis) 72%, transparent) 62%,
+      rgba(0, 0, 0, 0) 100%);
+}
+
+.timeline-side-left .timeline-side-bg {
+  left: 0;
+  clip-path: polygon(0 100%, 0 36%, 70% 0, 100% 0, 100% 100%);
+}
+
+.timeline-side-right .timeline-side-bg {
+  right: 0;
+  clip-path: polygon(0 0, 30% 0, 100% 36%, 100% 100%, 0 100%);
+}
+
+.telemetry-gauges {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.telemetry-gauge-slot {
+  width: 138px;
+  height: 138px;
+}
+
+.telemetry-gauge-widget {
+  width: 100%;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.telemetry-gauge-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.telemetry-gauge-bg-arc-main {
+  stroke: rgba(148, 163, 184, 0.78);
+}
+
+.telemetry-gauge-bg-arc-danger {
+  stroke: rgba(148, 163, 184, 0.78);
+}
+
+.telemetry-gauge-progress-main {
+  stroke: rgba(245, 245, 244, 0.97);
+}
+
+.telemetry-gauge-progress-danger {
+  stroke: rgba(245, 245, 244, 0.97);
+}
+
+.telemetry-gauge-tick-start {
+  stroke: rgba(245, 245, 244, 0.96);
+}
+
+.telemetry-gauge-tick-end {
+  stroke: rgba(163, 163, 163, 0.75);
+}
+
+.telemetry-gauge-text-root {
+  fill: currentColor;
+  font-family: "Saira", "Orbitron", "Noto Sans SC", sans-serif;
+  user-select: none;
+}
+
+.telemetry-gauge-label,
+.telemetry-gauge-unit {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  fill: rgba(212, 212, 216, 0.9);
+}
+
+.telemetry-gauge-value {
+  font-size: 42px;
+  /* font-weight: 600; */
+  letter-spacing: 0.02em;
+  fill: rgba(255, 255, 255, 0.98);
+  font-variant-numeric: tabular-nums;
+}
+
 .mission-overlay {
   position: fixed;
   left: 50%;
@@ -278,6 +404,8 @@ body {
 }
 
 .timeline-mount {
+  position: relative;
+  z-index: 20;
   width: 100vw;
   height: 200px;
   overflow: hidden;
@@ -294,6 +422,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 22;
   height: 128px;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5));
 }
@@ -542,6 +671,44 @@ body {
     height: 180px;
   }
 
+  .timeline-side {
+    width: min(47vw, 380px);
+    height: 166px;
+  }
+
+  .timeline-side-left {
+    padding-left: 12px;
+  }
+
+  .timeline-side-right {
+    padding-right: 12px;
+  }
+
+  .timeline-side-bg {
+    width: min(45vw, 360px);
+    height: 108px;
+  }
+
+  .telemetry-gauges {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .telemetry-gauge-slot {
+    width: 138px;
+    height: 138px;
+  }
+
+  .telemetry-gauge-label,
+  .telemetry-gauge-unit {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+
+  .telemetry-gauge-value {
+    font-size: 30px;
+  }
+
   .hero-meta-row {
     flex-wrap: wrap;
     align-items: center;
@@ -554,5 +721,44 @@ body {
 
   .theme-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .timeline-side {
+    width: min(100vw, 340px);
+    height: 140px;
+  }
+
+  .timeline-side-left {
+    padding-left: 0;
+  }
+
+  .timeline-side-right {
+    padding-right: 0;
+  }
+
+  .timeline-side-bg {
+    display: none;
+  }
+
+  .telemetry-gauges {
+    gap: 0;
+    margin-bottom: 0;
+  }
+
+  .telemetry-gauge-slot {
+    width: 138px;
+    height: 138px;
+  }
+
+  .telemetry-gauge-label,
+  .telemetry-gauge-unit {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+
+  .telemetry-gauge-value {
+    font-size: 21px;
   }
 }
