@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "model_id": "FALCONHEAVY",
   "name": "Falcon Heavy",
   "stages": [
     {
@@ -461,7 +462,14 @@
     }
   },
   "engine_layout": {
-    "version": 1,
-    "reserved": true
+    "version": 2,
+    "presets": [
+      {
+        "id": "preset_default",
+        "name": "默认预设",
+        "engine_count": 27
+      }
+    ],
+    "node_configs": {}
   }
 }

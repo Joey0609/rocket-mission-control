@@ -64,11 +64,11 @@
         <h2>型号管理</h2>
         <div class="row model-actions-row">
           <select id="modelSelect"></select>
-          <button class="btn" id="refreshModelsBtn">刷新</button>
           <button class="btn" id="openConfigEditorBtn">编辑配置</button>
           <button class="btn" id="openFuelEditorBtn">编辑燃料</button>
           <button class="btn" id="openTelemetryEditorBtn">编辑遥测</button>
           <button class="btn" id="openEngineLayoutBtn">编辑发动机</button>
+          <button class="btn" id="openDashboardEditorBtn">编辑仪表盘</button>
         </div>
       </section>
 
@@ -102,7 +102,7 @@
 
       <section class="panel">
         <h2>快捷控制</h2>
-        <div class="row compact wrap">
+        <div class="row compact wrap quick-launch-row">
           <button class="btn" data-quick-launch="0">点火</button>
           <button class="btn" data-quick-launch="30">30秒</button>
           <button class="btn" data-quick-launch="60">1分钟</button>
@@ -218,7 +218,6 @@
         </label>
         <div class="booster-count-wrap hidden" id="boosterCountWrap">
           <label>助推器数量 <input id="boosterCountInput" type="number" min="0" max="12" value="0"></label>
-          <span class="hint">仅在开启助推器时生效</span>
         </div>
       </div>
       <div id="propellantStageList" class="propellant-stage-list"></div>
@@ -323,10 +322,67 @@
   <div class="engine-modal hidden" id="engineLayoutModal" role="dialog" aria-modal="true" aria-label="发动机布局编辑">
     <div class="config-backdrop" id="engineLayoutBackdrop"></div>
     <div class="engine-panel panel">
-      <h3>编辑发动机</h3>
-      <p>该功能预留，后续可在此扩展发动机布局可视化编辑。</p>
-      <div class="row">
-        <button class="btn" id="closeEngineLayoutBtn">关闭</button>
+      <div class="config-head">
+        <h3>编辑发动机</h3>
+        <div class="row">
+          <button class="btn active" id="engineTabListBtn">列表编辑</button>
+          <button class="btn" id="engineTabPresetBtn">预设编辑</button>
+        </div>
+      </div>
+
+      <div class="engine-body" id="engineListPane">
+        <div class="engine-table-wrap">
+          <table class="fuel-table engine-table" id="engineTable"></table>
+        </div>
+      </div>
+
+      <div class="engine-body hidden" id="enginePresetPane">
+        <div class="engine-editor-layout">
+          <aside class="engine-preset-list">
+            <div class="engine-preset-head">
+              <strong>预设</strong>
+            </div>
+            <div class="engine-preset-items" id="enginePresetItems"></div>
+          </aside>
+
+          <section class="engine-preset-editor">
+            <div class="engine-preset-toolbar">
+              <div class="engine-current-node" id="engineCurrentNodeLabel">当前节点：-</div>
+              <div class="row compact">
+                <button class="btn" id="engineAllOnBtn">全部开机</button>
+                <button class="btn" id="engineAllOffBtn">全部关机</button>
+                <button class="btn" id="engineExportSvgBtn">导出SVG</button>
+              </div>
+            </div>
+
+            <p class="hint" id="enginePresetReadonlyHint">预设只读，点火状态仅保存在节点配置里。</p>
+
+            <div class="engine-preview-shell compact" id="enginePresetPreviewShell">
+              <div class="engine-preview-stage" id="enginePresetPreview"></div>
+            </div>
+
+            <p class="hint">点击圆点可切换当前节点点亮状态；保存后列表预览自动刷新。</p>
+
+            <div class="modal-actions">
+              <div class="modal-actions-left">
+                <button class="btn" id="engineBackToListBtn">返回列表</button>
+              </div>
+              <div class="modal-actions-right">
+                <button class="btn accent" id="saveEngineNodeConfigBtn">保存节点配置</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="config-foot modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closeEngineLayoutBtn">关闭</button>
+        </div>
+        <p class="hint" id="engineLayoutHint">仅显示点火后的节点；若未检测到“点火”事件则从 T0 开始。</p>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="saveEngineLayoutBtn">保存发动机配置</button>
+        </div>
       </div>
     </div>
   </div>

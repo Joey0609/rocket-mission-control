@@ -377,6 +377,10 @@ function setTelemetryDashboardVisibility(visible) {
       side.classList.toggle("telemetry-panel-hidden", !visible);
     }
   }
+
+  if (telemetryGaugePanel && typeof telemetryGaugePanel.setVisible === "function") {
+    telemetryGaugePanel.setVisible(visible);
+  }
 }
 
 function renderTimeline(state, missionSeconds) {
@@ -419,6 +423,10 @@ function renderTelemetryGauges(state, missionSeconds) {
     telemetryPauseMissionSeconds: Number.isFinite(state?.telemetry_pause_mission_ms)
       ? Number(state.telemetry_pause_mission_ms) / 1000
       : null,
+    modelName: state?.current_model || "",
+    timelineNodes: Array.isArray(state?.timeline_nodes) ? state.timeline_nodes : [],
+    engineLayout: state?.engine_layout || null,
+    enginePresetLibrary: state?.engine_preset_library || null,
   });
 }
 

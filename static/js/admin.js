@@ -5,11 +5,11 @@ const dom = {
   missionClock: document.getElementById("missionClock"),
   activeCount: document.getElementById("activeCount"),
   modelSelect: document.getElementById("modelSelect"),
-  refreshModelsBtn: document.getElementById("refreshModelsBtn"),
   openConfigEditorBtn: document.getElementById("openConfigEditorBtn"),
   openFuelEditorBtn: document.getElementById("openFuelEditorBtn"),
   openTelemetryEditorBtn: document.getElementById("openTelemetryEditorBtn"),
   openEngineLayoutBtn: document.getElementById("openEngineLayoutBtn"),
+  openDashboardEditorBtn: document.getElementById("openDashboardEditorBtn"),
   launchAt: document.getElementById("launchAt"),
   telemetryToggleBtn: document.getElementById("telemetryToggleBtn"),
   telemetryPauseBtn: document.getElementById("telemetryPauseBtn"),
@@ -100,6 +100,21 @@ const dom = {
 
   engineLayoutModal: document.getElementById("engineLayoutModal"),
   engineLayoutBackdrop: document.getElementById("engineLayoutBackdrop"),
+  engineTabListBtn: document.getElementById("engineTabListBtn"),
+  engineTabPresetBtn: document.getElementById("engineTabPresetBtn"),
+  engineListPane: document.getElementById("engineListPane"),
+  enginePresetPane: document.getElementById("enginePresetPane"),
+  engineTable: document.getElementById("engineTable"),
+  enginePresetItems: document.getElementById("enginePresetItems"),
+  engineAllOnBtn: document.getElementById("engineAllOnBtn"),
+  engineAllOffBtn: document.getElementById("engineAllOffBtn"),
+  engineCurrentNodeLabel: document.getElementById("engineCurrentNodeLabel"),
+  enginePresetPreview: document.getElementById("enginePresetPreview"),
+  engineExportSvgBtn: document.getElementById("engineExportSvgBtn"),
+  engineBackToListBtn: document.getElementById("engineBackToListBtn"),
+  saveEngineNodeConfigBtn: document.getElementById("saveEngineNodeConfigBtn"),
+  saveEngineLayoutBtn: document.getElementById("saveEngineLayoutBtn"),
+  engineLayoutHint: document.getElementById("engineLayoutHint"),
   closeEngineLayoutBtn: document.getElementById("closeEngineLayoutBtn"),
 
   unsavedConfirmModal: document.getElementById("unsavedConfirmModal"),
@@ -550,7 +565,61 @@ function normalizeFuelSpec(item) {
   };
 }
 
+function normalizeEngineStatesDraft(rawStates, rawActiveIds) {
+  const states = [];
+  if (Array.isArray(rawStates)) {
+    rawStates.forEach((item, index) => {
+      states.push({
+        id: Math.max(0, toInt(item?.id, index)),
+        enabled: Boolean(item?.enabled),
+      });
+    });
+  } else if (Array.isArray(rawActiveIds)) {
+    rawActiveIds.forEach((item) => {
+      const id = Math.max(0, toInt(item, -1));
+      if (id >= 0) {
+        states.push({ id, enabled: true });
+      }
+    });
+  }
+
+  const deduped = new Map();
+  states.forEach((state) => {
+    deduped.set(state.id, { id: state.id, enabled: Boolean(state.enabled) });
+  });
+
+  return Array.from(deduped.values()).sort((a, b) => a.id - b.id);
+}
+
+function normalizeEngineLayoutDraft(rawEngineLayout) {
+  const source = rawEngineLayout && typeof rawEngineLayout === "object" ? rawEngineLayout : {};
+  const nodeConfigs = {};
+  const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+    ? source.node_configs
+    : {};
+
+  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+    if (!nodeKey) {
+      continue;
+    }
+
+    nodeConfigs[nodeKey] = {
+      preset_id: String(config?.preset_id || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, ""),
+      engine_states: normalizeEngineStatesDraft(config?.engine_states, config?.active_ids),
+    };
+  }
+
+  return {
+    version: 3,
+    node_configs: nodeConfigs,
+  };
+}
+
 function normalizeDraft(payload, selectedModelName) {
+  const normalizedName = String(payload?.name || selectedModelName || "未命名型号").trim() || "未命名型号";
   const normalizedStages = Array.isArray(payload?.stages)
     ? payload.stages.map((item) => ({
       id: String(item.id || "").trim() || `stg_${Date.now()}`,
@@ -644,16 +713,15 @@ function normalizeDraft(payload, selectedModelName) {
 
   return {
     version: 2,
-    name: String(payload?.name || selectedModelName || "未命名型号").trim() || "未命名型号",
+    model_id: String(payload?.model_id || "").trim(),
+    name: normalizedName,
     stages: normalizedStages,
     events: normalizedEvents,
     observation_points: normalizedObs,
     rocket_meta: rocketMeta,
     fuel_editor: fuelEditor,
     telemetry_editor: telemetryEditor,
-    engine_layout: payload?.engine_layout && typeof payload.engine_layout === "object"
-      ? deepClone(payload.engine_layout)
-      : { version: 1, reserved: true },
+    engine_layout: normalizeEngineLayoutDraft(payload?.engine_layout),
   };
 }
 
@@ -917,11 +985,20 @@ function quickLaunch(seconds) {
 // 编辑器逻辑已拆分到 static/js/admin-editors.js
 
 function openEngineLayoutModal() {
+  if (typeof openEngineLayoutEditorModal === "function") {
+    Promise.resolve(openEngineLayoutEditorModal("model"))
+      .catch((error) => toast(error?.message || "打开发动机编辑器失败", "error"));
+    return;
+  }
   dom.engineLayoutModal.classList.remove("hidden");
 }
 
-function closeEngineLayoutModal() {
+function closeEngineLayoutModal(force = false) {
+  if (typeof closeEngineLayoutEditorModal === "function") {
+    return closeEngineLayoutEditorModal(force);
+  }
   dom.engineLayoutModal.classList.add("hidden");
+  return true;
 }
 
 async function updateRecoveryToggle(enabled) {
@@ -1011,10 +1088,6 @@ function flushPayloadSave(silent = false) {
 }
 
 function bindEvents() {
-  dom.refreshModelsBtn.addEventListener("click", () => {
-    fetchModels().catch((error) => toast(error.message, "error"));
-  });
-
   dom.modelSelect.addEventListener("change", () => {
     applySelectedModel(dom.modelSelect.value).catch((error) => toast(error.message, "error"));
   });

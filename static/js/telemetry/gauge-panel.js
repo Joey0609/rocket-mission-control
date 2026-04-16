@@ -28,19 +28,584 @@
       fractionDigits: 2,
     },
     {
-      id: "angularRate",
+      id: "engineLayout",
       side: "right",
-      metricKey: "angular_velocity_dps",
-      label: "ANG RATE",
-      unit: "DEG/S",
-      maxValue: 180,
-      fractionDigits: 1,
+      type: "engine_layout",
+      label: "ENGINES",
+      unit: "LAYOUT",
+      size: 138,
     },
   ];
+
+  const DEFAULT_ENGINE_PRESET_LIBRARY = {
+    version: 1,
+    presets: [
+      {
+        id: "falcon9_stage1",
+        name: "Falcon 9 B5 Stage 1 (9机)",
+        engine_count: 9,
+        background_circles: [
+          { id: "main_fill", x: 0, y: 0, r: 110, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+          { id: "main_outline", x: 0, y: 0, r: 115, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 4 },
+        ],
+        engines: [
+          { id: 0, x: 0, y: 0, r: 21 },
+          { id: 1, x: 26.79, y: -64.67, r: 21 },
+          { id: 2, x: 64.67, y: -26.79, r: 21 },
+          { id: 3, x: 64.67, y: 26.79, r: 21 },
+          { id: 4, x: 26.79, y: 64.67, r: 21 },
+          { id: 5, x: -26.79, y: 64.67, r: 21 },
+          { id: 6, x: -64.67, y: 26.79, r: 21 },
+          { id: 7, x: -64.67, y: -26.79, r: 21 },
+          { id: 8, x: -26.79, y: -64.67, r: 21 },
+        ],
+      },
+      {
+        id: "falcon9_stage2",
+        name: "Falcon 9 B5 Stage 2 (1机)",
+        engine_count: 1,
+        background_circles: [
+          { id: "main_fill", x: 0, y: 0, r: 110, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+          { id: "main_outline", x: 0, y: 0, r: 115, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 4 },
+        ],
+        engines: [{ id: 0, x: 0, y: 0, r: 21 }],
+      },
+      {
+        id: "cz7a_stage1",
+        name: "CZ-7A Stage 1 (芯级+助推)",
+        engine_count: 6,
+        background_circles: [
+          { id: "main_fill", x: 0, y: 0, r: 230, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+          { id: "core_outline", x: 0, y: 0, r: 100, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+          { id: "booster_outline_0", x: 115.97, y: -115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+          { id: "booster_outline_1", x: 115.97, y: 115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+          { id: "booster_outline_2", x: -115.97, y: 115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+          { id: "booster_outline_3", x: -115.97, y: -115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+        ],
+        engines: [
+          { id: 0, x: -50, y: 0, r: 40 },
+          { id: 1, x: 50, y: 0, r: 40 },
+          { id: 2, x: 115.97, y: -115.97, r: 40 },
+          { id: 3, x: 115.97, y: 115.97, r: 40 },
+          { id: 4, x: -115.97, y: 115.97, r: 40 },
+          { id: 5, x: -115.97, y: -115.97, r: 40 },
+        ],
+      },
+      {
+        id: "cz7a_stage2",
+        name: "CZ-7A Stage 2 (2机)",
+        engine_count: 2,
+        background_circles: [
+          { id: "main_fill", x: 0, y: 0, r: 230, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+          { id: "main_outline", x: 0, y: 0, r: 200, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 5 },
+        ],
+        engines: [
+          { id: 0, x: -100, y: 0, r: 21 },
+          { id: 1, x: 100, y: 0, r: 21 },
+        ],
+      },
+    ],
+  };
 
   function toNumber(value, fallback = 0) {
     const parsed = Number.parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function toInt(value, fallback = 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function sanitizePresetId(rawId, fallback = "") {
+    return String(rawId || fallback)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "");
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function normalizeEnginePresetNodeRaw(rawNode, fallbackId = 0) {
+    return {
+      id: Math.max(0, toInt(rawNode?.id, fallbackId)),
+      x: Number(rawNode?.x || 0),
+      y: Number(rawNode?.y || 0),
+      r: Math.max(2, Number(rawNode?.r || 10)),
+    };
+  }
+
+  function normalizeBackgroundCircleRaw(rawCircle, fallbackId = 0) {
+    return {
+      id: String(rawCircle?.id || `bg_${fallbackId}`).trim() || `bg_${fallbackId}`,
+      x: Number(rawCircle?.x || 0),
+      y: Number(rawCircle?.y || 0),
+      r: Math.max(2, Number(rawCircle?.r || 10)),
+      fill: String(rawCircle?.fill ?? "none"),
+      stroke: String(rawCircle?.stroke ?? "rgba(128,128,128,0.3)"),
+      stroke_width: Math.max(0, Number(rawCircle?.stroke_width ?? 1.5)),
+    };
+  }
+
+  function normalizePresetLibrary(raw) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const sourcePresets = Array.isArray(source.presets) ? source.presets : [];
+    const presets = sourcePresets.map((preset, index) => {
+      const id = sanitizePresetId(preset?.id, `preset_${index + 1}`) || `preset_${index + 1}`;
+      const nodes = (Array.isArray(preset?.engines) ? preset.engines : [])
+        .map((item, nodeIndex) => normalizeEnginePresetNodeRaw(item, nodeIndex));
+
+      const deduped = new Map();
+      nodes.forEach((node) => {
+        deduped.set(node.id, node);
+      });
+
+      const engines = Array.from(deduped.values()).sort((a, b) => a.id - b.id);
+      const fallbackEngines = engines.length > 0 ? engines : [{ id: 0, x: 0, y: 0, r: 10 }];
+
+      const rawBackgroundCircles = Array.isArray(preset?.background_circles) ? preset.background_circles : [];
+      const dedupedBackgroundCircles = new Map();
+      rawBackgroundCircles
+        .map((item, bgIndex) => normalizeBackgroundCircleRaw(item, bgIndex))
+        .forEach((item) => {
+          dedupedBackgroundCircles.set(item.id, item);
+        });
+
+      return {
+        id,
+        name: String(preset?.name || `预设 ${index + 1}`).trim() || `预设 ${index + 1}`,
+        engine_count: Math.max(fallbackEngines.length, toInt(preset?.engine_count, fallbackEngines.length)),
+        background_circles: Array.from(dedupedBackgroundCircles.values()),
+        engines: fallbackEngines,
+      };
+    });
+
+    if (presets.length === 0) {
+      return normalizePresetLibrary(DEFAULT_ENGINE_PRESET_LIBRARY);
+    }
+
+    return { version: 1, presets };
+  }
+
+  function getPresetById(library, presetId) {
+    const normalizedId = sanitizePresetId(presetId);
+    return library.presets.find((preset) => preset.id === normalizedId) || library.presets[0] || null;
+  }
+
+  function guessEnginePresetIdByModelName(modelName) {
+    const text = String(modelName || "").toLowerCase();
+    if (text.includes("falcon") && text.includes("9")) {
+      return "falcon9_stage1";
+    }
+    if (text.includes("长八") || text.includes("cz-7") || text.includes("cz7")) {
+      return "cz7a_stage1";
+    }
+    return "falcon9_stage1";
+  }
+
+  function normalizeEngineStateList(rawStates = []) {
+    const list = Array.isArray(rawStates) ? rawStates : [];
+    const deduped = new Map();
+    list.forEach((item, index) => {
+      const id = Math.max(0, toInt(item?.id, index));
+      deduped.set(id, { id, enabled: Boolean(item?.enabled) });
+    });
+    return Array.from(deduped.values()).sort((a, b) => a.id - b.id);
+  }
+
+  function buildDefaultEngineStates(preset) {
+    const nodes = Array.isArray(preset?.engines) ? preset.engines : [];
+    return nodes.map((node) => ({ id: node.id, enabled: false }));
+  }
+
+  function mergeEngineStatesWithPreset(preset, rawStates = []) {
+    const defaultStates = buildDefaultEngineStates(preset);
+    const source = normalizeEngineStateList(rawStates);
+    const sourceMap = new Map(source.map((item) => [item.id, item]));
+    return defaultStates.map((base) => ({
+      id: base.id,
+      enabled: Boolean(sourceMap.get(base.id)?.enabled),
+    }));
+  }
+
+  function buildTimelineNodeMaps(timelineNodes) {
+    const keyToTime = new Map();
+    const keyToName = new Map();
+    const list = Array.isArray(timelineNodes) ? timelineNodes : [];
+
+    for (const node of list) {
+      const id = String(node?.id || "").trim();
+      const kind = String(node?.kind || "").trim();
+      if (!id || !kind) {
+        continue;
+      }
+      const time = toNumber(node?.time, 0);
+      const name = String(node?.name || id);
+
+      if (kind === "event") {
+        keyToTime.set(`event:${id}`, time);
+        keyToName.set(`event:${id}`, name);
+      }
+      if (kind === "stage") {
+        keyToTime.set(`stage:${id}:start`, time);
+        keyToName.set(`stage:${id}:start`, name);
+      }
+      if (kind === "observation") {
+        keyToTime.set(`observation:${id}`, time);
+        keyToName.set(`observation:${id}`, name);
+      }
+    }
+
+    keyToTime.set("event:__engine_t0__", 0);
+    keyToName.set("event:__engine_t0__", "T0");
+    return { keyToTime, keyToName };
+  }
+
+  function resolveNodeTime(nodeKey, keyToTime) {
+    if (keyToTime.has(nodeKey)) {
+      return keyToTime.get(nodeKey);
+    }
+    if (nodeKey === "event:__telemetry_t0__") {
+      return 0;
+    }
+    return 0;
+  }
+
+  function normalizeEngineLayout(raw, modelName, presetLibrary) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const defaultPreset = getPresetById(presetLibrary, guessEnginePresetIdByModelName(modelName));
+    const fallbackPreset = defaultPreset || presetLibrary.presets[0] || null;
+    const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+      ? source.node_configs
+      : {};
+    const nodeConfigs = {};
+
+    for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+      if (!nodeKey) {
+        continue;
+      }
+      const preset = getPresetById(presetLibrary, config?.preset_id) || fallbackPreset;
+      if (!preset) {
+        continue;
+      }
+      nodeConfigs[nodeKey] = {
+        preset_id: preset.id,
+        engine_states: mergeEngineStatesWithPreset(preset, config?.engine_states),
+      };
+    }
+
+    if (Object.keys(nodeConfigs).length === 0 && fallbackPreset) {
+      nodeConfigs["event:__engine_t0__"] = {
+        preset_id: fallbackPreset.id,
+        engine_states: buildDefaultEngineStates(fallbackPreset),
+      };
+    }
+
+    return {
+      version: 3,
+      node_configs: nodeConfigs,
+    };
+  }
+
+  function formatMissionSeconds(seconds) {
+    const sign = seconds < 0 ? "-" : "+";
+    const abs = Math.abs(Math.round(seconds));
+    const mm = Math.floor(abs / 60);
+    const ss = abs % 60;
+    return `T${sign}${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  }
+
+  function buildEngineTimelineEntries(layout, timelineNodes, presetLibrary) {
+    const maps = buildTimelineNodeMaps(timelineNodes);
+    const nodeConfigs = layout?.node_configs && typeof layout.node_configs === "object"
+      ? layout.node_configs
+      : {};
+
+    const entries = Object.entries(nodeConfigs)
+      .map(([nodeKey, config]) => {
+        const preset = getPresetById(presetLibrary, config?.preset_id);
+        if (!preset) {
+          return null;
+        }
+
+        const states = mergeEngineStatesWithPreset(preset, config?.engine_states);
+        const stateMap = new Map(states.map((item) => [item.id, Boolean(item.enabled)]));
+
+        return {
+          key: nodeKey,
+          name: maps.keyToName.get(nodeKey) || nodeKey,
+          time: resolveNodeTime(nodeKey, maps.keyToTime),
+          preset,
+          stateMap,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.time - b.time) || a.key.localeCompare(b.key, "zh-CN"));
+
+    if (entries.length === 0) {
+      const fallbackPreset = presetLibrary.presets[0] || null;
+      if (!fallbackPreset) {
+        return [];
+      }
+      const states = buildDefaultEngineStates(fallbackPreset);
+      return [{
+        key: "event:__engine_t0__",
+        name: "T0",
+        time: 0,
+        preset: fallbackPreset,
+        stateMap: new Map(states.map((item) => [item.id, false])),
+      }];
+    }
+
+    return entries;
+  }
+
+  function buildPresetLibrarySignature(library) {
+    const items = Array.isArray(library?.presets) ? library.presets : [];
+    return items
+      .map((preset) => {
+        const enginesSig = preset.engines
+          .map((engine) => `${engine.id}:${engine.x}:${engine.y}:${engine.r}`)
+          .join(",");
+        const bgSig = (preset.background_circles || [])
+          .map((circle) => `${circle.id}:${circle.x}:${circle.y}:${circle.r}:${circle.fill}:${circle.stroke}:${circle.stroke_width}`)
+          .join(",");
+        return `${preset.id}|${enginesSig}|${bgSig}`;
+      })
+      .join(";");
+  }
+
+  function buildLayoutSignature(layout) {
+    const nodeConfigs = layout?.node_configs && typeof layout.node_configs === "object"
+      ? layout.node_configs
+      : {};
+    return Object.keys(nodeConfigs)
+      .sort((a, b) => a.localeCompare(b, "zh-CN"))
+      .map((key) => {
+        const config = nodeConfigs[key] || {};
+        const statesSig = (Array.isArray(config.engine_states) ? config.engine_states : [])
+          .map((state) => `${state.id}:${state.enabled ? 1 : 0}`)
+          .join(",");
+        return `${key}|${config.preset_id || ""}|${statesSig}`;
+      })
+      .join(";");
+  }
+
+  function buildTimelineSignature(timelineNodes) {
+    const list = Array.isArray(timelineNodes) ? timelineNodes : [];
+    return list
+      .map((node) => `${node?.kind || ""}:${node?.id || ""}:${toNumber(node?.time, 0)}`)
+      .join(";");
+  }
+
+  class EngineLayoutWidget {
+    constructor(options = {}) {
+      this.mountEl = options.mountEl || null;
+      this.label = String(options.label || "ENGINES");
+      this.size = Math.max(120, toInt(options.size, 138));
+      this.gaugeCtor = typeof options.gaugeCtor === "function" ? options.gaugeCtor : null;
+      this.gauge = null;
+      this.rootEl = null;
+      this.overlayEl = null;
+      this.canvasEl = null;
+      this.metaEl = null;
+      this.nodeElements = new Map();
+      this.lastStateMap = new Map();
+      this.activePresetId = "";
+      this.engineTimelineEntries = [];
+      this.profileSignature = "";
+
+      this.mount();
+    }
+
+    mount() {
+      if (!this.mountEl || !this.gaugeCtor) {
+        return;
+      }
+
+      this.mountEl.innerHTML = "";
+      this.gauge = new this.gaugeCtor({
+        mountEl: this.mountEl,
+        label: this.label,
+        unit: "LAYOUT",
+        maxValue: 100,
+        fractionDigits: 0,
+      });
+      this.gauge.setValue(0);
+
+      const root = this.mountEl.querySelector(".telemetry-gauge-widget");
+      if (!root) {
+        return;
+      }
+
+      root.classList.add("engine-layout-gauge");
+
+      const overlay = document.createElement("div");
+      overlay.className = "telemetry-engine-overlay";
+      overlay.innerHTML = `
+        <div class="telemetry-engine-canvas"></div>
+      `;
+      root.appendChild(overlay);
+
+      this.rootEl = root;
+      this.overlayEl = overlay;
+      this.canvasEl = overlay.querySelector(".telemetry-engine-canvas");
+      this.metaEl = null;
+    }
+
+    renderPreset(preset) {
+      if (!this.canvasEl || !preset) {
+        return;
+      }
+
+      const width = this.size;
+      const height = this.size;
+      const nodes = Array.isArray(preset.engines) ? preset.engines : [];
+      const allCircles = [
+        ...nodes.map((item) => ({ x: item.x, y: item.y, r: item.r })),
+      ];
+
+      if (allCircles.length === 0) {
+        allCircles.push({ x: 0, y: 0, r: 10 });
+      }
+
+      const minX = Math.min(...allCircles.map((item) => item.x - item.r));
+      const maxX = Math.max(...allCircles.map((item) => item.x + item.r));
+      const minY = Math.min(...allCircles.map((item) => item.y - item.r));
+      const maxY = Math.max(...allCircles.map((item) => item.y + item.r));
+      const spanW = Math.max(1, maxX - minX);
+      const spanH = Math.max(1, maxY - minY);
+      const padding = 12;
+      const scale = Math.min((width - padding * 2) / spanW, (height - padding * 2) / spanH, 1.2);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      const nodesMarkup = nodes
+        .map((point) => {
+          const px = (width / 2) + (point.x - cx) * scale;
+          const py = (height / 2) + (point.y - cy) * scale;
+          const pr = Math.max(3, point.r * scale);
+          return `<circle class=\"telemetry-engine-node is-inactive\" data-engine-id=\"${point.id}\" cx=\"${px.toFixed(2)}\" cy=\"${py.toFixed(2)}\" r=\"${pr.toFixed(2)}\" />`;
+        })
+        .join("");
+
+      this.canvasEl.innerHTML = `
+        <svg class=\"telemetry-engine-svg\" viewBox=\"0 0 ${width} ${height}\" xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"发动机布局\">
+          ${nodesMarkup}
+        </svg>
+      `;
+
+      this.nodeElements.clear();
+      for (const node of this.canvasEl.querySelectorAll("[data-engine-id]")) {
+        const id = toInt(node.getAttribute("data-engine-id"), -1);
+        if (id >= 0) {
+          this.nodeElements.set(id, node);
+        }
+      }
+    }
+
+    applyStateMap(stateMap) {
+      this.nodeElements.forEach((nodeEl, engineId) => {
+        const enabled = Boolean(stateMap.get(engineId));
+
+        nodeEl.classList.toggle("is-active", enabled);
+        nodeEl.classList.toggle("is-inactive", !enabled);
+      });
+
+      this.lastStateMap = new Map(stateMap.entries());
+    }
+
+    resolveActiveEntry(missionSeconds) {
+      if (this.engineTimelineEntries.length === 0) {
+        return null;
+      }
+
+      let active = this.engineTimelineEntries[0];
+      for (const entry of this.engineTimelineEntries) {
+        if (entry.time <= missionSeconds) {
+          active = entry;
+        } else {
+          break;
+        }
+      }
+      return active;
+    }
+
+    setVisible(nextVisible, options = {}) {
+      if (this.gauge && typeof this.gauge.setVisible === "function") {
+        this.gauge.setVisible(nextVisible, options);
+      }
+    }
+
+    update(payload = {}) {
+      const telemetryEnabled = Boolean(payload.telemetryEnabled);
+      if (!telemetryEnabled) {
+        return;
+      }
+
+      const telemetryPaused = telemetryEnabled && Boolean(payload.telemetryPaused);
+      const missionSeconds = toNumber(payload.missionSeconds, 0);
+      const hasPauseMissionSeconds = Number.isFinite(payload.telemetryPauseMissionSeconds);
+      const pauseMissionSeconds = hasPauseMissionSeconds
+        ? toNumber(payload.telemetryPauseMissionSeconds, missionSeconds)
+        : missionSeconds;
+      const activeMissionSeconds = telemetryPaused ? pauseMissionSeconds : missionSeconds;
+
+      const presetLibrary = normalizePresetLibrary(payload.enginePresetLibrary || null);
+      const modelName = String(payload.modelName || "");
+      const engineLayout = normalizeEngineLayout(payload.engineLayout || {}, modelName, presetLibrary);
+      const timelineNodes = Array.isArray(payload.timelineNodes) ? payload.timelineNodes : [];
+
+      const signature = [
+        buildPresetLibrarySignature(presetLibrary),
+        buildLayoutSignature(engineLayout),
+        buildTimelineSignature(timelineNodes),
+      ].join("||");
+
+      if (signature !== this.profileSignature) {
+        this.profileSignature = signature;
+        this.engineTimelineEntries = buildEngineTimelineEntries(engineLayout, timelineNodes, presetLibrary);
+      }
+
+      const activeEntry = this.resolveActiveEntry(activeMissionSeconds);
+      if (!activeEntry) {
+        return;
+      }
+
+      if (activeEntry.preset.id !== this.activePresetId) {
+        this.activePresetId = activeEntry.preset.id;
+        this.renderPreset(activeEntry.preset);
+        this.lastStateMap = new Map();
+      }
+
+      this.applyStateMap(activeEntry.stateMap);
+      const enabledCount = Array.from(activeEntry.stateMap.values()).filter(Boolean).length;
+      const totalCount = Math.max(1, activeEntry.stateMap.size);
+      if (this.gauge && typeof this.gauge.setValue === "function") {
+        this.gauge.setValue((enabledCount / totalCount) * 100);
+      }
+    }
+
+    destroy() {
+      if (this.gauge && typeof this.gauge.destroy === "function") {
+        this.gauge.destroy();
+      }
+      this.gauge = null;
+      this.rootEl = null;
+      this.overlayEl = null;
+      this.canvasEl = null;
+      this.metaEl = null;
+      this.nodeElements.clear();
+      this.engineTimelineEntries = [];
+      this.lastStateMap = new Map();
+    }
   }
 
   function normalizeCurve(rawPoints, fallback = 0) {
@@ -119,8 +684,10 @@
       this.lastValues = {};
       this.splitEnabled = false;
       this.separationTime = Number.POSITIVE_INFINITY;
+      this.visible = false;
 
       this.mount();
+      this.setVisible(false, { immediate: true });
     }
 
     mount() {
@@ -147,6 +714,17 @@
         slot.className = "telemetry-gauge-slot";
         sideMount.appendChild(slot);
 
+        if (spec.type === "engine_layout") {
+          const widget = new EngineLayoutWidget({
+            mountEl: slot,
+            label: spec.label,
+            size: spec.size,
+            gaugeCtor: GaugeCtor,
+          });
+          this.entries.push({ spec, type: "engine_layout", widget });
+          continue;
+        }
+
         const gauge = new GaugeCtor({
           mountEl: slot,
           label: spec.label,
@@ -155,7 +733,7 @@
           fractionDigits: spec.fractionDigits,
         });
 
-        this.entries.push({ spec, gauge });
+        this.entries.push({ spec, type: "metric", widget: gauge });
       }
     }
 
@@ -179,8 +757,11 @@
       }
 
       for (const entry of this.entries) {
+        if (entry.type !== "metric") {
+          continue;
+        }
         const metricConfig = metrics?.[entry.spec.metricKey] || null;
-        entry.gauge.setConfig({
+        entry.widget.setConfig({
           label: entry.spec.label,
           unit: metricConfig?.unit || entry.spec.unit,
           maxValue: Number.isFinite(metricConfig?.max_value) ? metricConfig.max_value : entry.spec.maxValue,
@@ -222,9 +803,22 @@
       if (telemetryPaused) {
         const resolvedValues = {};
         for (const entry of this.entries) {
-          const value = this.resolveMetricValue(entry.spec.metricKey, pauseMissionSeconds);
-          resolvedValues[entry.spec.id] = value;
-          entry.gauge.setValue(value);
+          if (entry.type === "metric") {
+            const value = this.resolveMetricValue(entry.spec.metricKey, pauseMissionSeconds);
+            resolvedValues[entry.spec.id] = value;
+            entry.widget.setValue(value);
+          } else {
+            entry.widget.update({
+              missionSeconds,
+              telemetryEnabled,
+              telemetryPaused,
+              telemetryPauseMissionSeconds: pauseMissionSeconds,
+              engineLayout: payload.engineLayout,
+              enginePresetLibrary: payload.enginePresetLibrary,
+              timelineNodes: payload.timelineNodes,
+              modelName: payload.modelName,
+            });
+          }
         }
         this.lastValues = resolvedValues;
         return;
@@ -232,17 +826,48 @@
 
       const resolvedValues = {};
       for (const entry of this.entries) {
-        const value = this.resolveMetricValue(entry.spec.metricKey, missionSeconds);
-        resolvedValues[entry.spec.id] = value;
-        entry.gauge.setValue(value);
+        if (entry.type === "metric") {
+          const value = this.resolveMetricValue(entry.spec.metricKey, missionSeconds);
+          resolvedValues[entry.spec.id] = value;
+          entry.widget.setValue(value);
+        } else {
+          entry.widget.update({
+            missionSeconds,
+            telemetryEnabled,
+            telemetryPaused,
+            telemetryPauseMissionSeconds: pauseMissionSeconds,
+            engineLayout: payload.engineLayout,
+            enginePresetLibrary: payload.enginePresetLibrary,
+            timelineNodes: payload.timelineNodes,
+            modelName: payload.modelName,
+          });
+        }
       }
 
       this.lastValues = resolvedValues;
     }
 
+    setVisible(nextVisible, options = {}) {
+      const visible = Boolean(nextVisible);
+      const immediate = Boolean(options.immediate);
+
+      if (!immediate && visible === this.visible) {
+        return;
+      }
+
+      this.visible = visible;
+      for (const entry of this.entries) {
+        if (entry?.widget && typeof entry.widget.setVisible === "function") {
+          entry.widget.setVisible(visible, { immediate });
+        }
+      }
+    }
+
     destroy() {
       for (const entry of this.entries) {
-        entry.gauge.destroy();
+        if (entry?.widget && typeof entry.widget.destroy === "function") {
+          entry.widget.destroy();
+        }
       }
       this.entries = [];
       this.lastValues = {};

@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "falcon9_stage1",
+      "name": "Falcon 9 B5 Stage 1 (9机)",
+      "engine_count": 9,
+      "background_circles": [
+        {
+          "id": "main_fill",
+          "x": 0,
+          "y": 0,
+          "r": 110,
+          "fill": "rgba(35,44,65,0.35)",
+          "stroke": "none",
+          "stroke_width": 0
+        },
+        {
+          "id": "main_outline",
+          "x": 0,
+          "y": 0,
+          "r": 115,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 4
+        }
+      ],
+      "engines": [
+        {
+          "id": 0,
+          "x": 0,
+          "y": 0,
+          "r": 21
+        },
+        {
+          "id": 1,
+          "x": 26.8,
+          "y": -64.7,
+          "r": 21
+        },
+        {
+          "id": 2,
+          "x": 64.7,
+          "y": -26.8,
+          "r": 21
+        },
+        {
+          "id": 3,
+          "x": 64.7,
+          "y": 26.8,
+          "r": 21
+        },
+        {
+          "id": 4,
+          "x": 26.8,
+          "y": 64.7,
+          "r": 21
+        },
+        {
+          "id": 5,
+          "x": -26.8,
+          "y": 64.7,
+          "r": 21
+        },
+        {
+          "id": 6,
+          "x": -64.7,
+          "y": 26.8,
+          "r": 21
+        },
+        {
+          "id": 7,
+          "x": -64.7,
+          "y": -26.8,
+          "r": 21
+        },
+        {
+          "id": 8,
+          "x": -26.8,
+          "y": -64.7,
+          "r": 21
+        }
+      ]
+    },
+    {
+      "id": "falcon9_stage2",
+      "name": "Falcon 9 B5 Stage 2 (1机)",
+      "engine_count": 1,
+      "background_circles": [
+        {
+          "id": "main_fill",
+          "x": 0,
+          "y": 0,
+          "r": 110,
+          "fill": "rgba(35,44,65,0.35)",
+          "stroke": "none",
+          "stroke_width": 0
+        },
+        {
+          "id": "main_outline",
+          "x": 0,
+          "y": 0,
+          "r": 115,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 4
+        }
+      ],
+      "engines": [
+        {
+          "id": 0,
+          "x": 0,
+          "y": 0,
+          "r": 21
+        }
+      ]
+    },
+    {
+      "id": "cz7a_stage1",
+      "name": "CZ-7A Stage 1 (芯级+助推)",
+      "engine_count": 6,
+      "background_circles": [
+        {
+          "id": "main_fill",
+          "x": 0,
+          "y": 0,
+          "r": 230,
+          "fill": "rgba(35,44,65,0.35)",
+          "stroke": "none",
+          "stroke_width": 0
+        },
+        {
+          "id": "core_outline",
+          "x": 0,
+          "y": 0,
+          "r": 100,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_0",
+          "x": 116,
+          "y": -116,
+          "r": 60,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_1",
+          "x": 116,
+          "y": 116,
+          "r": 60,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_2",
+          "x": -116,
+          "y": 116,
+          "r": 60,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_3",
+          "x": -116,
+          "y": -116,
+          "r": 60,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 3
+        }
+      ],
+      "engines": [
+        {
+          "id": 0,
+          "x": -50,
+          "y": 0,
+          "r": 40
+        },
+        {
+          "id": 1,
+          "x": 50,
+          "y": 0,
+          "r": 40
+        },
+        {
+          "id": 2,
+          "x": 116,
+          "y": -116,
+          "r": 40
+        },
+        {
+          "id": 3,
+          "x": 116,
+          "y": 116,
+          "r": 40
+        },
+        {
+          "id": 4,
+          "x": -116,
+          "y": 116,
+          "r": 40
+        },
+        {
+          "id": 5,
+          "x": -116,
+          "y": -116,
+          "r": 40
+        }
+      ]
+    },
+    {
+      "id": "cz7a_stage2",
+      "name": "CZ-7A Stage 2 (2机)",
+      "engine_count": 2,
+      "background_circles": [
+        {
+          "id": "main_fill",
+          "x": 0,
+          "y": 0,
+          "r": 230,
+          "fill": "rgba(35,44,65,0.35)",
+          "stroke": "none",
+          "stroke_width": 0
+        },
+        {
+          "id": "main_outline",
+          "x": 0,
+          "y": 0,
+          "r": 200,
+          "fill": "none",
+          "stroke": "rgba(128,128,128,0.3)",
+          "stroke_width": 5
+        }
+      ],
+      "engines": [
+        {
+          "id": 0,
+          "x": -100,
+          "y": 0,
+          "r": 63
+        },
+        {
+          "id": 1,
+          "x": 100,
+          "y": 0,
+          "r": 63
+        }
+      ]
+    }
+  ]
+}

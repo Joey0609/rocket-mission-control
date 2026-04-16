@@ -10,6 +10,8 @@
   const TICK_MARK_LENGTH = 6;
   const TICK_STROKE_WIDTH = 2.5;
   const DEFAULT_GAUGE_SCALE = 0.78;
+  const GAUGE_SHOW_TOTAL_MS = 860;
+  const GAUGE_HIDE_TOTAL_MS = 260;
 
   let gaugeSequence = 0;
 
@@ -96,15 +98,20 @@
 
       this.rootEl = null;
       this.svgEl = null;
+      this.backgroundCircle = null;
       this.backgroundArcMain = null;
       this.backgroundArcDanger = null;
       this.progressArcWhite = null;
       this.progressArcRed = null;
       this.startTick = null;
       this.endTick = null;
+      this.textRoot = null;
       this.labelNode = null;
       this.valueNode = null;
       this.unitNode = null;
+      this.animatablePaths = [];
+      this.visibilityState = "hidden";
+      this.visibilityTimer = null;
 
       this.mount();
       this.setConfig({ label: this.label, unit: this.unit, maxValue: this.maxValue, fractionDigits: this.fractionDigits });
@@ -113,7 +120,7 @@
 
     mount() {
       const root = document.createElement("div");
-      root.className = "telemetry-gauge-widget";
+      root.className = "telemetry-gauge-widget telemetry-gauge-hidden";
 
       const svg = createSvgNode("svg", "telemetry-gauge-svg");
       svg.setAttribute("width", String(this.svgSize));
@@ -150,41 +157,48 @@
       backgroundCircle.setAttribute("fill", `url(#${this.gradientId})`);
       backgroundCircle.setAttribute("stroke", "none");
       svg.appendChild(backgroundCircle);
+      this.backgroundCircle = backgroundCircle;
 
-      this.backgroundArcMain = createSvgNode("path", "telemetry-gauge-bg-arc-main");
+      this.backgroundArcMain = createSvgNode("path", "telemetry-gauge-bg-arc-main telemetry-gauge-anim-path");
       this.backgroundArcMain.setAttribute("fill", "none");
       this.backgroundArcMain.setAttribute("stroke-width", String(STROKE_WIDTH));
       this.backgroundArcMain.setAttribute("stroke-linecap", "butt");
+      this.backgroundArcMain.setAttribute("pathLength", "1");
       svg.appendChild(this.backgroundArcMain);
 
-      this.backgroundArcDanger = createSvgNode("path", "telemetry-gauge-bg-arc-danger");
+      this.backgroundArcDanger = createSvgNode("path", "telemetry-gauge-bg-arc-danger telemetry-gauge-anim-path");
       this.backgroundArcDanger.setAttribute("fill", "none");
       this.backgroundArcDanger.setAttribute("stroke-width", String(STROKE_WIDTH));
       this.backgroundArcDanger.setAttribute("stroke-linecap", "butt");
+      this.backgroundArcDanger.setAttribute("pathLength", "1");
       svg.appendChild(this.backgroundArcDanger);
 
-      this.progressArcWhite = createSvgNode("path", "telemetry-gauge-progress-main");
+      this.progressArcWhite = createSvgNode("path", "telemetry-gauge-progress-main telemetry-gauge-anim-path");
       this.progressArcWhite.setAttribute("fill", "none");
       this.progressArcWhite.setAttribute("stroke-width", String(STROKE_WIDTH));
       this.progressArcWhite.setAttribute("stroke-linecap", "butt");
+      this.progressArcWhite.setAttribute("pathLength", "1");
       svg.appendChild(this.progressArcWhite);
 
-      this.progressArcRed = createSvgNode("path", "telemetry-gauge-progress-danger");
+      this.progressArcRed = createSvgNode("path", "telemetry-gauge-progress-danger telemetry-gauge-anim-path");
       this.progressArcRed.setAttribute("fill", "none");
       this.progressArcRed.setAttribute("stroke-width", String(STROKE_WIDTH));
       this.progressArcRed.setAttribute("stroke-linecap", "butt");
+      this.progressArcRed.setAttribute("pathLength", "1");
       svg.appendChild(this.progressArcRed);
 
-      this.startTick = createSvgNode("path", "telemetry-gauge-tick-start");
+      this.startTick = createSvgNode("path", "telemetry-gauge-tick-start telemetry-gauge-anim-path");
       this.startTick.setAttribute("fill", "none");
       this.startTick.setAttribute("stroke-width", String(TICK_STROKE_WIDTH));
       this.startTick.setAttribute("stroke-linecap", "round");
+      this.startTick.setAttribute("pathLength", "1");
       svg.appendChild(this.startTick);
 
-      this.endTick = createSvgNode("path", "telemetry-gauge-tick-end");
+      this.endTick = createSvgNode("path", "telemetry-gauge-tick-end telemetry-gauge-anim-path");
       this.endTick.setAttribute("fill", "none");
       this.endTick.setAttribute("stroke-width", String(TICK_STROKE_WIDTH));
       this.endTick.setAttribute("stroke-linecap", "round");
+      this.endTick.setAttribute("pathLength", "1");
       svg.appendChild(this.endTick);
 
       const textRoot = createSvgNode("text", "telemetry-gauge-text-root");
@@ -209,6 +223,7 @@
       textRoot.appendChild(this.unitNode);
 
       svg.appendChild(textRoot);
+      this.textRoot = textRoot;
 
       root.appendChild(svg);
       this.mountEl.innerHTML = "";
@@ -249,6 +264,17 @@
           TICK_MARK_LENGTH,
         ),
       );
+
+      this.animatablePaths = [
+        this.backgroundArcMain,
+        this.backgroundArcDanger,
+        this.progressArcWhite,
+        this.progressArcRed,
+        this.startTick,
+        this.endTick,
+      ];
+
+      this.setVisible(false, { immediate: true });
     }
 
     setConfig(config = {}) {
@@ -320,7 +346,80 @@
       }
     }
 
+    setVisible(nextVisible, options = {}) {
+      if (!this.rootEl) {
+        return;
+      }
+
+      const visible = Boolean(nextVisible);
+      const immediate = Boolean(options.immediate);
+
+      if (this.visibilityTimer) {
+        clearTimeout(this.visibilityTimer);
+        this.visibilityTimer = null;
+      }
+
+      const clearStateClasses = () => {
+        this.rootEl.classList.remove(
+          "telemetry-gauge-hidden",
+          "telemetry-gauge-visible",
+          "telemetry-gauge-enter",
+          "telemetry-gauge-exit",
+        );
+      };
+
+      if (immediate) {
+        clearStateClasses();
+        this.rootEl.classList.add(visible ? "telemetry-gauge-visible" : "telemetry-gauge-hidden");
+        this.visibilityState = visible ? "visible" : "hidden";
+        return;
+      }
+
+      if (visible) {
+        if (this.visibilityState === "visible" || this.visibilityState === "entering") {
+          return;
+        }
+
+        clearStateClasses();
+        void this.rootEl.offsetWidth;
+        this.rootEl.classList.add("telemetry-gauge-enter");
+        this.visibilityState = "entering";
+        this.visibilityTimer = setTimeout(() => {
+          if (!this.rootEl) {
+            return;
+          }
+          clearStateClasses();
+          this.rootEl.classList.add("telemetry-gauge-visible");
+          this.visibilityState = "visible";
+          this.visibilityTimer = null;
+        }, GAUGE_SHOW_TOTAL_MS);
+        return;
+      }
+
+      if (this.visibilityState === "hidden" || this.visibilityState === "exiting") {
+        return;
+      }
+
+      clearStateClasses();
+      void this.rootEl.offsetWidth;
+      this.rootEl.classList.add("telemetry-gauge-exit");
+      this.visibilityState = "exiting";
+      this.visibilityTimer = setTimeout(() => {
+        if (!this.rootEl) {
+          return;
+        }
+        clearStateClasses();
+        this.rootEl.classList.add("telemetry-gauge-hidden");
+        this.visibilityState = "hidden";
+        this.visibilityTimer = null;
+      }, GAUGE_HIDE_TOTAL_MS);
+    }
+
     destroy() {
+      if (this.visibilityTimer) {
+        clearTimeout(this.visibilityTimer);
+        this.visibilityTimer = null;
+      }
       if (this.rootEl && this.rootEl.parentNode) {
         this.rootEl.parentNode.removeChild(this.rootEl);
       }

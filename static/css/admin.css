@@ -184,6 +184,18 @@ body {
   padding-inline: 0;
 }
 
+.quick-launch-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-launch-row .btn {
+  min-width: 0;
+  width: 100%;
+  padding-inline: 0;
+}
+
 select,
 input,
 textarea,
@@ -392,23 +404,23 @@ textarea {
   padding-inline: 0;
 }
 
-#refreshModelsBtn {
+#openConfigEditorBtn {
   grid-column: 3;
 }
 
-#openConfigEditorBtn {
+#openFuelEditorBtn {
   grid-column: 4;
 }
 
-#openFuelEditorBtn {
+#openTelemetryEditorBtn {
   grid-column: 5;
 }
 
-#openTelemetryEditorBtn {
+#openEngineLayoutBtn {
   grid-column: 6;
 }
 
-#openEngineLayoutBtn {
+#openDashboardEditorBtn {
   grid-column: 7;
 }
 
@@ -457,7 +469,6 @@ textarea {
 
 .qr-panel,
 .theme-panel,
-.engine-panel,
 .confirm-panel {
   position: relative;
   z-index: 1;
@@ -537,6 +548,17 @@ textarea {
   padding: 14px;
 }
 
+.engine-panel {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 94vw);
+  max-height: 92vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px;
+}
+
 .propellant-panel {
   position: relative;
   z-index: 1;
@@ -587,6 +609,167 @@ textarea {
 .telemetry-body {
   min-height: 0;
   overflow: auto;
+}
+
+.engine-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.engine-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.engine-table td,
+.engine-table th {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.engine-table .engine-node-col {
+  min-width: 96px;
+}
+
+.engine-table .engine-event-col {
+  min-width: 220px;
+}
+
+.engine-table .engine-action-col {
+  min-width: 96px;
+}
+
+.engine-table .engine-preview-col {
+  min-width: 180px;
+}
+
+.engine-row-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 58px;
+}
+
+.engine-row-preview svg {
+  width: 170px;
+  height: 54px;
+}
+
+.engine-editor-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.engine-preset-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  padding: 10px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.engine-preset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.engine-preset-items {
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+
+.engine-preset-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-button);
+  color: var(--ink);
+  text-align: left;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.engine-preset-item.active {
+  border-color: color-mix(in srgb, var(--accent) 64%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent) inset;
+}
+
+.engine-preset-editor {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-1) 66%, transparent);
+  padding: 10px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+.engine-preset-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.engine-current-node {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.engine-preset-form {
+  margin: 0;
+  align-items: end;
+}
+
+.engine-preset-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.engine-preview-shell {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #000;
+  padding: 8px;
+  min-height: 200px;
+}
+
+.engine-preview-shell.compact {
+  min-height: 170px;
+}
+
+.engine-preview-stage {
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+}
+
+.engine-preview-stage svg {
+  width: min(420px, 100%);
+  height: auto;
+  display: block;
+}
+
+.engine-preview-stage .engine-node {
+  cursor: pointer;
+}
+
+.engine-preview-stage .engine-node.active {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.46));
 }
 
 #configRawEditor {
@@ -1039,12 +1222,21 @@ textarea {
   }
 
   .model-actions-row select,
-  #refreshModelsBtn,
   #openConfigEditorBtn,
   #openFuelEditorBtn,
   #openTelemetryEditorBtn,
-  #openEngineLayoutBtn {
+  #openEngineLayoutBtn,
+  #openDashboardEditorBtn {
     grid-column: auto;
+  }
+
+  .engine-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .engine-preset-toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .theme-grid {

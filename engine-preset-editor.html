@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>发动机预设离线编辑器</title>
+  <style>
+    :root {
+      --bg: #0e1423;
+      --bg-soft: #121b2e;
+      --panel: #182338;
+      --line: #2f3d59;
+      --text: #e5ebf6;
+      --muted: #9aaac8;
+      --accent: #7cc4ff;
+      --warn: #ffc46b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at 20% 10%, #1e2f4f, var(--bg) 45%), var(--bg);
+      color: var(--text);
+    }
+
+    .shell {
+      max-width: 1700px;
+      margin: 0 auto;
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(150deg, #182742, #121a2d);
+      padding: 14px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+    }
+
+    .title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn,
+    .file-label {
+      border: 1px solid var(--line);
+      background: #182945;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn:hover,
+    .file-label:hover {
+      border-color: #4e6993;
+      background: #20365a;
+    }
+
+    .btn.accent {
+      background: linear-gradient(130deg, #1d4b7a, #23619f);
+      border-color: #4e84bf;
+    }
+
+    .btn.warn {
+      background: linear-gradient(130deg, #7b5123, #a0662a);
+      border-color: #b57a3e;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(520px, 1.35fr) minmax(420px, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--panel) 88%, #0a1020);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .panel h2,
+    .panel h3 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      color: #c8d8f2;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .field {
+      display: grid;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #3a4e74;
+      border-radius: 8px;
+      background: #0f1b31;
+      color: var(--text);
+      padding: 7px 9px;
+      font-size: 13px;
+    }
+
+    textarea {
+      min-height: 280px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      line-height: 1.45;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+      padding: 5px;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #bad0f1;
+      font-weight: 600;
+      text-align: left;
+      letter-spacing: 0.04em;
+    }
+
+    td input {
+      padding: 6px 7px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+
+    .table-wrap {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid #2f4164;
+      border-radius: 8px;
+    }
+
+    .mini {
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .preview-shell {
+      border: 1px solid #354e73;
+      border-radius: 10px;
+      background: #000;
+      min-height: 360px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .preview-shell svg {
+      width: min(92%, 560px);
+      height: auto;
+      aspect-ratio: 16 / 10;
+      display: block;
+    }
+
+    .preview-meta {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .grow {
+      flex: 1;
+    }
+
+    @media (max-width: 1200px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="title">
+        <h1>发动机预设离线编辑器</h1>
+        <p>不依赖当前服务。支持 0.1 精度编辑、实时预览、JSON 导入导出。</p>
+      </div>
+      <div class="actions">
+        <label class="file-label" for="fileInput">导入 JSON 文件</label>
+        <input id="fileInput" type="file" accept=".json,application/json" />
+        <button id="loadDefaultBtn" class="btn">载入默认</button>
+        <button id="copyJsonBtn" class="btn">复制 JSON</button>
+        <button id="downloadBtn" class="btn accent">下载 JSON</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="row">
+          <div class="grow field">
+            <label for="presetSelect">当前预设</label>
+            <select id="presetSelect"></select>
+          </div>
+          <button id="addPresetBtn" class="btn mini">新增预设</button>
+          <button id="deletePresetBtn" class="btn mini warn">删除预设</button>
+        </div>
+
+        <div class="fields">
+          <div class="field">
+            <label for="presetIdInput">预设 ID</label>
+            <input id="presetIdInput" type="text" />
+          </div>
+          <div class="field">
+            <label for="presetNameInput">预设名称</label>
+            <input id="presetNameInput" type="text" />
+          </div>
+          <div class="field">
+            <label for="engineCountInput">发动机数量</label>
+            <input id="engineCountInput" type="number" min="1" step="1" />
+          </div>
+        </div>
+
+        <h3>背景圆</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 18%;">id</th>
+                <th style="width: 9%;">x</th>
+                <th style="width: 9%;">y</th>
+                <th style="width: 9%;">r</th>
+                <th style="width: 17%;">fill</th>
+                <th style="width: 17%;">stroke</th>
+                <th style="width: 9%;">w</th>
+                <th style="width: 8%;">删</th>
+              </tr>
+            </thead>
+            <tbody id="bgTableBody"></tbody>
+          </table>
+        </div>
+        <button id="addBgBtn" class="btn mini">新增背景圆</button>
+
+        <h3>发动机节点</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 18%;">id</th>
+                <th style="width: 16%;">x</th>
+                <th style="width: 16%;">y</th>
+                <th style="width: 16%;">r</th>
+                <th style="width: 10%;">删</th>
+              </tr>
+            </thead>
+            <tbody id="engineTableBody"></tbody>
+          </table>
+        </div>
+        <button id="addEngineBtn" class="btn mini">新增发动机</button>
+      </section>
+
+      <section class="panel">
+        <h2>实时预览（等比例 + 完整包含）</h2>
+        <div id="previewShell" class="preview-shell"></div>
+        <p id="previewMeta" class="preview-meta"></p>
+
+        <h2>JSON 文本</h2>
+        <textarea id="jsonText"></textarea>
+        <div class="row">
+          <button id="applyJsonBtn" class="btn">从文本应用</button>
+          <button id="formatJsonBtn" class="btn">重新格式化文本</button>
+          <span class="muted">提示：数值输入会自动四舍五入到 0.1。</span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_LIBRARY = {
+      version: 1,
+      presets: [
+        {
+          id: "falcon9_stage1",
+          name: "Falcon 9 B5 Stage 1 (9机)",
+          engine_count: 9,
+          background_circles: [
+            { id: "main_fill", x: 0, y: 0, r: 110, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+            { id: "main_outline", x: 0, y: 0, r: 115, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 4 }
+          ],
+          engines: [
+            { id: 0, x: 0, y: 0, r: 21 },
+            { id: 1, x: 26.79, y: -64.67, r: 21 },
+            { id: 2, x: 64.67, y: -26.79, r: 21 },
+            { id: 3, x: 64.67, y: 26.79, r: 21 },
+            { id: 4, x: 26.79, y: 64.67, r: 21 },
+            { id: 5, x: -26.79, y: 64.67, r: 21 },
+            { id: 6, x: -64.67, y: 26.79, r: 21 },
+            { id: 7, x: -64.67, y: -26.79, r: 21 },
+            { id: 8, x: -26.79, y: -64.67, r: 21 }
+          ]
+        }
+      ]
+    };
+
+    const dom = {
+      fileInput: document.getElementById("fileInput"),
+      loadDefaultBtn: document.getElementById("loadDefaultBtn"),
+      copyJsonBtn: document.getElementById("copyJsonBtn"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      presetSelect: document.getElementById("presetSelect"),
+      addPresetBtn: document.getElementById("addPresetBtn"),
+      deletePresetBtn: document.getElementById("deletePresetBtn"),
+      presetIdInput: document.getElementById("presetIdInput"),
+      presetNameInput: document.getElementById("presetNameInput"),
+      engineCountInput: document.getElementById("engineCountInput"),
+      bgTableBody: document.getElementById("bgTableBody"),
+      engineTableBody: document.getElementById("engineTableBody"),
+      addBgBtn: document.getElementById("addBgBtn"),
+      addEngineBtn: document.getElementById("addEngineBtn"),
+      previewShell: document.getElementById("previewShell"),
+      previewMeta: document.getElementById("previewMeta"),
+      jsonText: document.getElementById("jsonText"),
+      applyJsonBtn: document.getElementById("applyJsonBtn"),
+      formatJsonBtn: document.getElementById("formatJsonBtn")
+    };
+
+    const state = {
+      library: normalizeLibrary(DEFAULT_LIBRARY),
+      selectedPresetId: ""
+    };
+
+    function roundToOne(value, fallback = 0) {
+      const parsed = Number.parseFloat(value);
+      if (!Number.isFinite(parsed)) {
+        return fallback;
+      }
+      return Math.round(parsed * 10) / 10;
+    }
+
+    function toInt(value, fallback = 0) {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function sanitizePresetId(rawId, fallback = "preset") {
+      const text = String(rawId || fallback)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "");
+      return text || fallback;
+    }
+
+    function normalizeEngine(item, index) {
+      return {
+        id: Math.max(0, toInt(item?.id, index)),
+        x: roundToOne(item?.x, 0),
+        y: roundToOne(item?.y, 0),
+        r: Math.max(0.1, roundToOne(item?.r, 10))
+      };
+    }
+
+    function normalizeBackgroundCircle(item, index) {
+      return {
+        id: String(item?.id || `bg_${index}`).trim() || `bg_${index}`,
+        x: roundToOne(item?.x, 0),
+        y: roundToOne(item?.y, 0),
+        r: Math.max(0.1, roundToOne(item?.r, 10)),
+        fill: String(item?.fill ?? "none"),
+        stroke: String(item?.stroke ?? "rgba(128,128,128,0.3)"),
+        stroke_width: Math.max(0, roundToOne(item?.stroke_width, 1.5))
+      };
+    }
+
+    function normalizeLibrary(raw) {
+      const source = raw && typeof raw === "object" ? raw : {};
+      const sourcePresets = Array.isArray(source.presets) ? source.presets : [];
+      const presets = sourcePresets.map((preset, index) => {
+        const id = sanitizePresetId(preset?.id, `preset_${index + 1}`);
+        const engines = (Array.isArray(preset?.engines) ? preset.engines : [])
+          .map((item, i) => normalizeEngine(item, i))
+          .sort((a, b) => a.id - b.id);
+        const bgCircles = (Array.isArray(preset?.background_circles) ? preset.background_circles : [])
+          .map((item, i) => normalizeBackgroundCircle(item, i));
+
+        return {
+          id,
+          name: String(preset?.name || `预设 ${index + 1}`),
+          engine_count: Math.max(engines.length || 1, toInt(preset?.engine_count, engines.length || 1)),
+          background_circles: bgCircles,
+          engines: engines.length > 0 ? engines : [{ id: 0, x: 0, y: 0, r: 10 }]
+        };
+      });
+
+      return {
+        version: 1,
+        presets: presets.length > 0 ? presets : normalizeLibrary(DEFAULT_LIBRARY).presets
+      };
+    }
+
+    function getSelectedPreset() {
+      const presets = state.library.presets;
+      if (!Array.isArray(presets) || presets.length === 0) {
+        return null;
+      }
+      const fromId = presets.find((preset) => preset.id === state.selectedPresetId);
+      return fromId || presets[0];
+    }
+
+    function syncSelectedPreset() {
+      const preset = getSelectedPreset();
+      if (!preset) {
+        state.selectedPresetId = "";
+        return null;
+      }
+      state.selectedPresetId = preset.id;
+      return preset;
+    }
+
+    function updateJsonText() {
+      dom.jsonText.value = JSON.stringify(state.library, null, 2);
+    }
+
+    function renderPresetSelect() {
+      const presets = state.library.presets;
+      dom.presetSelect.innerHTML = "";
+
+      presets.forEach((preset) => {
+        const option = document.createElement("option");
+        option.value = preset.id;
+        option.textContent = `${preset.name} (${preset.id})`;
+        dom.presetSelect.appendChild(option);
+      });
+
+      const activePreset = syncSelectedPreset();
+      if (activePreset) {
+        dom.presetSelect.value = activePreset.id;
+      }
+    }
+
+    function bindPresetFields(preset) {
+      dom.presetIdInput.value = preset.id;
+      dom.presetNameInput.value = preset.name;
+      dom.engineCountInput.value = String(preset.engine_count);
+    }
+
+    function createNumberInput(value, step, min, onChange) {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = String(step);
+      input.min = String(min);
+      input.value = Number(value).toFixed(1);
+      input.addEventListener("input", () => {
+        const rounded = roundToOne(input.value, value);
+        input.value = rounded.toFixed(1);
+        onChange(rounded);
+      });
+      return input;
+    }
+
+    function createIntInput(value, min, onChange) {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "1";
+      input.min = String(min);
+      input.value = String(value);
+      input.addEventListener("input", () => {
+        const next = Math.max(min, toInt(input.value, value));
+        input.value = String(next);
+        onChange(next);
+      });
+      return input;
+    }
+
+    function createTextInput(value, onChange) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value;
+      input.addEventListener("input", () => {
+        onChange(input.value);
+      });
+      return input;
+    }
+
+    function renderBackgroundRows(preset) {
+      dom.bgTableBody.innerHTML = "";
+
+      preset.background_circles.forEach((circle, index) => {
+        const row = document.createElement("tr");
+
+        const idCell = document.createElement("td");
+        idCell.appendChild(createTextInput(circle.id, (next) => {
+          circle.id = next || `bg_${index}`;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const xCell = document.createElement("td");
+        xCell.appendChild(createNumberInput(circle.x, 0.1, -99999, (next) => {
+          circle.x = next;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const yCell = document.createElement("td");
+        yCell.appendChild(createNumberInput(circle.y, 0.1, -99999, (next) => {
+          circle.y = next;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const rCell = document.createElement("td");
+        rCell.appendChild(createNumberInput(circle.r, 0.1, 0.1, (next) => {
+          circle.r = Math.max(0.1, next);
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const fillCell = document.createElement("td");
+        fillCell.appendChild(createTextInput(circle.fill, (next) => {
+          circle.fill = next || "none";
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const strokeCell = document.createElement("td");
+        strokeCell.appendChild(createTextInput(circle.stroke, (next) => {
+          circle.stroke = next || "none";
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const widthCell = document.createElement("td");
+        widthCell.appendChild(createNumberInput(circle.stroke_width, 0.1, 0, (next) => {
+          circle.stroke_width = Math.max(0, next);
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const deleteCell = document.createElement("td");
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "btn mini warn";
+        delBtn.textContent = "删";
+        delBtn.addEventListener("click", () => {
+          preset.background_circles.splice(index, 1);
+          renderAll();
+        });
+        deleteCell.appendChild(delBtn);
+
+        row.appendChild(idCell);
+        row.appendChild(xCell);
+        row.appendChild(yCell);
+        row.appendChild(rCell);
+        row.appendChild(fillCell);
+        row.appendChild(strokeCell);
+        row.appendChild(widthCell);
+        row.appendChild(deleteCell);
+        dom.bgTableBody.appendChild(row);
+      });
+    }
+
+    function renderEngineRows(preset) {
+      dom.engineTableBody.innerHTML = "";
+
+      preset.engines.forEach((engine, index) => {
+        const row = document.createElement("tr");
+
+        const idCell = document.createElement("td");
+        idCell.appendChild(createIntInput(engine.id, 0, (next) => {
+          engine.id = next;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const xCell = document.createElement("td");
+        xCell.appendChild(createNumberInput(engine.x, 0.1, -99999, (next) => {
+          engine.x = next;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const yCell = document.createElement("td");
+        yCell.appendChild(createNumberInput(engine.y, 0.1, -99999, (next) => {
+          engine.y = next;
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const rCell = document.createElement("td");
+        rCell.appendChild(createNumberInput(engine.r, 0.1, 0.1, (next) => {
+          engine.r = Math.max(0.1, next);
+          updateJsonText();
+          renderPreview();
+        }));
+
+        const deleteCell = document.createElement("td");
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "btn mini warn";
+        delBtn.textContent = "删";
+        delBtn.addEventListener("click", () => {
+          preset.engines.splice(index, 1);
+          if (preset.engines.length === 0) {
+            preset.engines.push({ id: 0, x: 0, y: 0, r: 10 });
+          }
+          preset.engine_count = Math.max(1, preset.engines.length);
+          renderAll();
+        });
+        deleteCell.appendChild(delBtn);
+
+        row.appendChild(idCell);
+        row.appendChild(xCell);
+        row.appendChild(yCell);
+        row.appendChild(rCell);
+        row.appendChild(deleteCell);
+        dom.engineTableBody.appendChild(row);
+      });
+    }
+
+    function renderPreview() {
+      const preset = getSelectedPreset();
+      if (!preset) {
+        dom.previewShell.innerHTML = "";
+        dom.previewMeta.textContent = "无可用预设";
+        return;
+      }
+
+      const width = 920;
+      const height = 560;
+      const circles = [
+        ...preset.background_circles.map((item) => ({ x: item.x, y: item.y, r: item.r })),
+        ...preset.engines.map((item) => ({ x: item.x, y: item.y, r: item.r }))
+      ];
+
+      const all = circles.length > 0 ? circles : [{ x: 0, y: 0, r: 10 }];
+      const minX = Math.min(...all.map((item) => item.x - item.r));
+      const maxX = Math.max(...all.map((item) => item.x + item.r));
+      const minY = Math.min(...all.map((item) => item.y - item.r));
+      const maxY = Math.max(...all.map((item) => item.y + item.r));
+      const spanW = Math.max(1, maxX - minX);
+      const spanH = Math.max(1, maxY - minY);
+      const padding = 24;
+      const scale = Math.min((width - padding * 2) / spanW, (height - padding * 2) / spanH);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      const bgMarkup = preset.background_circles
+        .map((circle) => {
+          const px = (width / 2) + (circle.x - cx) * scale;
+          const py = (height / 2) + (circle.y - cy) * scale;
+          const pr = Math.max(0.2, circle.r * scale);
+          const sw = Math.max(0, circle.stroke_width * scale);
+          return `<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${pr.toFixed(2)}" fill="${escapeHtml(circle.fill)}" stroke="${escapeHtml(circle.stroke)}" stroke-width="${sw.toFixed(2)}" />`;
+        })
+        .join("");
+
+      const engineMarkup = preset.engines
+        .map((engine) => {
+          const px = (width / 2) + (engine.x - cx) * scale;
+          const py = (height / 2) + (engine.y - cy) * scale;
+          const pr = Math.max(1, engine.r * scale);
+          return [
+            `<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${pr.toFixed(2)}" fill="rgba(241,245,249,0.9)" stroke="rgba(255,255,255,0.95)" stroke-width="1.2" />`,
+            `<text x="${px.toFixed(2)}" y="${(py + 4).toFixed(2)}" text-anchor="middle" fill="#0b1222" font-size="${Math.max(10, pr * 0.5).toFixed(2)}" font-family="Consolas, monospace">${engine.id}</text>`
+          ].join("");
+        })
+        .join("");
+
+      dom.previewShell.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="发动机预设预览">
+          <rect x="0" y="0" width="${width}" height="${height}" fill="#000" />
+          ${bgMarkup}
+          ${engineMarkup}
+        </svg>
+      `;
+
+      dom.previewMeta.textContent = [
+        `预设: ${preset.name} (${preset.id})`,
+        `边界: x=[${minX.toFixed(1)}, ${maxX.toFixed(1)}], y=[${minY.toFixed(1)}, ${maxY.toFixed(1)}]`,
+        `等比缩放: ${scale.toFixed(4)} px/unit`,
+        `图形数量: 背景圆 ${preset.background_circles.length}，发动机 ${preset.engines.length}`
+      ].join("\n");
+    }
+
+    function renderEditor() {
+      const preset = getSelectedPreset();
+      if (!preset) {
+        dom.presetIdInput.value = "";
+        dom.presetNameInput.value = "";
+        dom.engineCountInput.value = "0";
+        dom.bgTableBody.innerHTML = "";
+        dom.engineTableBody.innerHTML = "";
+        return;
+      }
+
+      bindPresetFields(preset);
+      renderBackgroundRows(preset);
+      renderEngineRows(preset);
+      renderPreview();
+    }
+
+    function renderAll() {
+      syncSelectedPreset();
+      renderPresetSelect();
+      renderEditor();
+      updateJsonText();
+    }
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("文件读取失败"));
+        reader.readAsText(file, "utf-8");
+      });
+    }
+
+    async function importJsonFile(file) {
+      const rawText = await readFileAsText(file);
+      const parsed = JSON.parse(rawText);
+      state.library = normalizeLibrary(parsed);
+      state.selectedPresetId = state.library.presets[0]?.id || "";
+      renderAll();
+    }
+
+    function downloadJson() {
+      const text = JSON.stringify(state.library, null, 2);
+      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "engine_preset.edited.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyJson() {
+      const text = JSON.stringify(state.library, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("JSON 已复制到剪贴板");
+      } catch {
+        dom.jsonText.value = text;
+        dom.jsonText.select();
+        document.execCommand("copy");
+        alert("JSON 已复制到剪贴板");
+      }
+    }
+
+    function bindEvents() {
+      dom.fileInput.addEventListener("change", async () => {
+        const file = dom.fileInput.files?.[0];
+        if (!file) {
+          return;
+        }
+        try {
+          await importJsonFile(file);
+        } catch (error) {
+          alert(`导入失败: ${error.message}`);
+        } finally {
+          dom.fileInput.value = "";
+        }
+      });
+
+      dom.loadDefaultBtn.addEventListener("click", () => {
+        state.library = normalizeLibrary(DEFAULT_LIBRARY);
+        state.selectedPresetId = state.library.presets[0]?.id || "";
+        renderAll();
+      });
+
+      dom.copyJsonBtn.addEventListener("click", () => {
+        copyJson().catch(() => {
+          alert("复制失败");
+        });
+      });
+
+      dom.downloadBtn.addEventListener("click", () => {
+        downloadJson();
+      });
+
+      dom.presetSelect.addEventListener("change", () => {
+        state.selectedPresetId = dom.presetSelect.value;
+        renderAll();
+      });
+
+      dom.addPresetBtn.addEventListener("click", () => {
+        const nextIndex = state.library.presets.length + 1;
+        const preset = {
+          id: sanitizePresetId(`preset_${nextIndex}`),
+          name: `新预设 ${nextIndex}`,
+          engine_count: 1,
+          background_circles: [],
+          engines: [{ id: 0, x: 0, y: 0, r: 10 }]
+        };
+        state.library.presets.push(preset);
+        state.selectedPresetId = preset.id;
+        renderAll();
+      });
+
+      dom.deletePresetBtn.addEventListener("click", () => {
+        if (state.library.presets.length <= 1) {
+          alert("至少保留一个预设");
+          return;
+        }
+        const currentId = state.selectedPresetId;
+        state.library.presets = state.library.presets.filter((preset) => preset.id !== currentId);
+        state.selectedPresetId = state.library.presets[0]?.id || "";
+        renderAll();
+      });
+
+      dom.presetIdInput.addEventListener("input", () => {
+        const preset = getSelectedPreset();
+        if (!preset) {
+          return;
+        }
+        preset.id = sanitizePresetId(dom.presetIdInput.value, preset.id);
+        state.selectedPresetId = preset.id;
+        renderAll();
+      });
+
+      dom.presetNameInput.addEventListener("input", () => {
+        const preset = getSelectedPreset();
+        if (!preset) {
+          return;
+        }
+        preset.name = dom.presetNameInput.value || preset.name;
+        renderAll();
+      });
+
+      dom.engineCountInput.addEventListener("input", () => {
+        const preset = getSelectedPreset();
+        if (!preset) {
+          return;
+        }
+        const count = Math.max(preset.engines.length, toInt(dom.engineCountInput.value, preset.engine_count));
+        preset.engine_count = count;
+        dom.engineCountInput.value = String(count);
+        updateJsonText();
+      });
+
+      dom.addBgBtn.addEventListener("click", () => {
+        const preset = getSelectedPreset();
+        if (!preset) {
+          return;
+        }
+        const idx = preset.background_circles.length + 1;
+        preset.background_circles.push({
+          id: `bg_${idx}`,
+          x: 0,
+          y: 0,
+          r: 60,
+          fill: "none",
+          stroke: "rgba(128,128,128,0.3)",
+          stroke_width: 1.5
+        });
+        renderAll();
+      });
+
+      dom.addEngineBtn.addEventListener("click", () => {
+        const preset = getSelectedPreset();
+        if (!preset) {
+          return;
+        }
+        const nextId = preset.engines.reduce((max, item) => Math.max(max, item.id), -1) + 1;
+        preset.engines.push({ id: nextId, x: 0, y: 0, r: 10 });
+        preset.engine_count = Math.max(preset.engine_count, preset.engines.length);
+        renderAll();
+      });
+
+      dom.applyJsonBtn.addEventListener("click", () => {
+        try {
+          const parsed = JSON.parse(dom.jsonText.value);
+          state.library = normalizeLibrary(parsed);
+          state.selectedPresetId = state.library.presets[0]?.id || "";
+          renderAll();
+        } catch (error) {
+          alert(`JSON 解析失败: ${error.message}`);
+        }
+      });
+
+      dom.formatJsonBtn.addEventListener("click", () => {
+        try {
+          const parsed = JSON.parse(dom.jsonText.value);
+          state.library = normalizeLibrary(parsed);
+          state.selectedPresetId = getSelectedPreset()?.id || state.library.presets[0]?.id || "";
+          renderAll();
+        } catch (error) {
+          alert(`JSON 解析失败: ${error.message}`);
+        }
+      });
+    }
+
+    bindEvents();
+    state.selectedPresetId = state.library.presets[0]?.id || "";
+    renderAll();
+  </script>
+</body>
+</html>

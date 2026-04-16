@@ -1,0 +1,980 @@
+{
+  "version": 2,
+  "model_id": "FALCON9",
+  "name": "Falcon 9",
+  "stages": [
+    {
+      "id": "stg_f9_fuel",
+      "name": "燃料加注",
+      "start_time": -3600,
+      "end_time": -60,
+      "description": "正在加注液氧和煤油"
+    },
+    {
+      "id": "evt_f9_countdown",
+      "name": "倒计时开始",
+      "start_time": -60,
+      "end_time": 0,
+      "description": "主倒计时启动"
+    },
+    {
+      "id": "stg_f9_stage1",
+      "name": "一级工作段",
+      "start_time": 0,
+      "end_time": 150,
+      "description": "第一级发动机工作"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_f9_ignition",
+      "name": "主发动机点火",
+      "time": -3,
+      "description": "9台Merlin发动机点火"
+    },
+    {
+      "id": "evt_f9_pitch",
+      "name": "程序转弯",
+      "time": 13,
+      "description": "火箭开始程序转弯"
+    },
+    {
+      "id": "evt_f9_maxq",
+      "name": "Max Q",
+      "time": 62,
+      "description": "最大动压点"
+    },
+    {
+      "id": "evt_f9_stage_sep",
+      "name": "一级分离",
+      "time": 150,
+      "description": "第一级完成工作"
+    },
+    {
+      "id": "evt_f9_second_ignition",
+      "name": "二次点火",
+      "time": 378,
+      "description": "真空 Merlin 发动机点火"
+    },
+    {
+      "id": "evt_f9_fairing_sep",
+      "name": "整流罩分离",
+      "time": 510,
+      "description": "有效载荷整流罩释放"
+    },
+    {
+      "id": "evt_f9_seco",
+      "name": "二级熄火",
+      "time": 540,
+      "description": "上面级发动机停止"
+    },
+    {
+      "id": "evt_f9_payload",
+      "name": "有效载荷部署",
+      "time": 600,
+      "description": "任务完成"
+    }
+  ],
+  "observation_points": [
+    {
+      "id": "obs_f9_arm",
+      "name": "摆杆摆开",
+      "time": -95,
+      "new_countdown": 95,
+      "description": "观察到摆杆已打开"
+    }
+  ],
+  "rocket_meta": {
+    "mission_name": "",
+    "payload": "",
+    "recovery_capable": true,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": true,
+      "count": 4,
+      "fuels": [
+        {
+          "phase": "液体",
+          "oxidizer": "液氧",
+          "fuel": "煤油"
+        }
+      ]
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {
+      "event:evt_f9_ignition": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_pitch": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_maxq": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_stage_sep": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_second_ignition": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_fairing_sep": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_seco": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "event:evt_f9_payload": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "stage:stg_f9_fuel:start": {
+        "stage1_0": 0,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "observation:obs_f9_arm": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "stage:evt_f9_countdown:start": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "stage:stg_f9_stage1:start": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      }
+    },
+    "curves": {
+      "stage1_0": [
+        {
+          "time": -3600,
+          "value": 0
+        },
+        {
+          "time": -95,
+          "value": 100
+        },
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 0,
+          "value": 100
+        },
+        {
+          "time": 13,
+          "value": 100
+        },
+        {
+          "time": 62,
+          "value": 100
+        },
+        {
+          "time": 150,
+          "value": 0
+        },
+        {
+          "time": 378,
+          "value": 0
+        },
+        {
+          "time": 510,
+          "value": 0
+        },
+        {
+          "time": 540,
+          "value": 0
+        },
+        {
+          "time": 600,
+          "value": 0
+        }
+      ],
+      "stage2_0": [
+        {
+          "time": -3600,
+          "value": 100
+        },
+        {
+          "time": -95,
+          "value": 100
+        },
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 0,
+          "value": 100
+        },
+        {
+          "time": 13,
+          "value": 100
+        },
+        {
+          "time": 62,
+          "value": 100
+        },
+        {
+          "time": 150,
+          "value": 100
+        },
+        {
+          "time": 378,
+          "value": 100
+        },
+        {
+          "time": 510,
+          "value": 100
+        },
+        {
+          "time": 540,
+          "value": 100
+        },
+        {
+          "time": 600,
+          "value": 100
+        }
+      ],
+      "booster_0": [
+        {
+          "time": -3600,
+          "value": 100
+        },
+        {
+          "time": -95,
+          "value": 100
+        },
+        {
+          "time": -60,
+          "value": 100
+        },
+        {
+          "time": -3,
+          "value": 100
+        },
+        {
+          "time": 0,
+          "value": 100
+        },
+        {
+          "time": 13,
+          "value": 100
+        },
+        {
+          "time": 62,
+          "value": 100
+        },
+        {
+          "time": 150,
+          "value": 100
+        },
+        {
+          "time": 378,
+          "value": 100
+        },
+        {
+          "time": 510,
+          "value": 100
+        },
+        {
+          "time": 540,
+          "value": 100
+        },
+        {
+          "time": 600,
+          "value": 100
+        }
+      ]
+    }
+  },
+  "telemetry_editor": {
+    "version": 1,
+    "node_values": {
+      "event:__telemetry_t0__": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_pitch": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_maxq": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_stage_sep": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_second_ignition": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_fairing_sep": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_seco": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:evt_f9_payload": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      }
+    },
+    "curves": {
+      "altitude_km": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ]
+      },
+      "speed_mps": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ]
+      },
+      "accel_g": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ]
+      },
+      "angular_velocity_dps": {
+        "stage1": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ],
+        "upper": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 13,
+            "value": 0
+          },
+          {
+            "time": 62,
+            "value": 0
+          },
+          {
+            "time": 150,
+            "value": 0
+          },
+          {
+            "time": 378,
+            "value": 0
+          },
+          {
+            "time": 510,
+            "value": 0
+          },
+          {
+            "time": 540,
+            "value": 0
+          },
+          {
+            "time": 600,
+            "value": 0
+          }
+        ]
+      }
+    }
+  },
+  "engine_layout": {
+    "version": 3,
+    "node_configs": {
+      "event:evt_f9_ignition": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          },
+          {
+            "id": 4,
+            "enabled": true
+          },
+          {
+            "id": 5,
+            "enabled": true
+          },
+          {
+            "id": 6,
+            "enabled": true
+          },
+          {
+            "id": 7,
+            "enabled": true
+          },
+          {
+            "id": 8,
+            "enabled": true
+          }
+        ]
+      },
+      "event:evt_f9_pitch": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          },
+          {
+            "id": 4,
+            "enabled": true
+          },
+          {
+            "id": 5,
+            "enabled": true
+          },
+          {
+            "id": 6,
+            "enabled": true
+          },
+          {
+            "id": 7,
+            "enabled": true
+          },
+          {
+            "id": 8,
+            "enabled": true
+          }
+        ]
+      },
+      "event:evt_f9_maxq": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          },
+          {
+            "id": 4,
+            "enabled": true
+          },
+          {
+            "id": 5,
+            "enabled": true
+          },
+          {
+            "id": 6,
+            "enabled": true
+          },
+          {
+            "id": 7,
+            "enabled": true
+          },
+          {
+            "id": 8,
+            "enabled": true
+          }
+        ]
+      },
+      "event:evt_f9_stage_sep": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
+          }
+        ]
+      },
+      "event:evt_f9_second_ignition": {
+        "preset_id": "falcon9_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          }
+        ]
+      },
+      "event:evt_f9_fairing_sep": {
+        "preset_id": "falcon9_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          }
+        ]
+      },
+      "event:evt_f9_seco": {
+        "preset_id": "falcon9_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          }
+        ]
+      },
+      "event:evt_f9_payload": {
+        "preset_id": "falcon9_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 {
   "version": 2,
-  "name": "长八甲",
+  "model_id": "LM8A",
+  "name": "长征八号甲",
   "stages": [
     {
       "id": "stg_l8_fuel",
@@ -81,23 +82,28 @@
     {
       "id": "obs_l8_pressurize",
       "name": "停止增压",
+      "time": -80,
       "new_countdown": 80,
       "description": "卸压阀关闭，停止冒出白气"
     },
     {
       "id": "obs_l8_disconnect",
       "name": "补加口脱离",
+      "time": -60,
       "new_countdown": 60,
       "description": "地面补加口脱离"
     },
     {
       "id": "obs_l8_arm",
       "name": "摆杆摆开",
+      "time": -20,
       "new_countdown": 20,
       "description": "摆杆摆开确认"
     }
   ],
   "rocket_meta": {
+    "mission_name": "",
+    "payload": "",
     "recovery_capable": false,
     "recovery_enabled": false,
     "stage_count": 2,
@@ -140,8 +146,37 @@
     "node_values": {},
     "curves": {}
   },
-  "engine_layout": {
+  "telemetry_editor": {
     "version": 1,
-    "reserved": true
+    "node_values": {},
+    "curves": {
+      "altitude_km": {
+        "stage1": [],
+        "upper": []
+      },
+      "speed_mps": {
+        "stage1": [],
+        "upper": []
+      },
+      "accel_g": {
+        "stage1": [],
+        "upper": []
+      },
+      "angular_velocity_dps": {
+        "stage1": [],
+        "upper": []
+      }
+    }
+  },
+  "engine_layout": {
+    "version": 2,
+    "presets": [
+      {
+        "id": "preset_default",
+        "name": "默认预设",
+        "engine_count": 4
+      }
+    ],
+    "node_configs": {}
   }
 }

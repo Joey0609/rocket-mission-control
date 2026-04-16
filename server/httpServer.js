@@ -445,24 +445,282 @@ function normalizeTelemetryEditor(raw) {
   };
 }
 
-function normalizeEngineLayout(raw) {
-  if (!raw || typeof raw !== "object") {
-    return { version: 1, reserved: true };
+const MODEL_FILE_ID_ALIASES = {
+  "长八甲": "LM8A",
+  "长征八甲": "LM8A",
+};
+
+const SYSTEM_CONFIG_FILE_NAMES = new Set(["app-settings.json", "engine_preset.json"]);
+
+const DEFAULT_ENGINE_PRESET_LIBRARY = {
+  version: 1,
+  presets: [
+    {
+      id: "falcon9_stage1",
+      name: "Falcon 9 B5 Stage 1 (9机)",
+      engine_count: 9,
+      background_circles: [
+        { id: "main_fill", x: 0, y: 0, r: 110, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+        { id: "main_outline", x: 0, y: 0, r: 115, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 4 },
+      ],
+      engines: [
+        { id: 0, x: 0, y: 0, r: 21 },
+        { id: 1, x: 26.79, y: -64.67, r: 21 },
+        { id: 2, x: 64.67, y: -26.79, r: 21 },
+        { id: 3, x: 64.67, y: 26.79, r: 21 },
+        { id: 4, x: 26.79, y: 64.67, r: 21 },
+        { id: 5, x: -26.79, y: 64.67, r: 21 },
+        { id: 6, x: -64.67, y: 26.79, r: 21 },
+        { id: 7, x: -64.67, y: -26.79, r: 21 },
+        { id: 8, x: -26.79, y: -64.67, r: 21 },
+      ],
+    },
+    {
+      id: "falcon9_stage2",
+      name: "Falcon 9 B5 Stage 2 (1机)",
+      engine_count: 1,
+      background_circles: [
+        { id: "main_fill", x: 0, y: 0, r: 110, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+        { id: "main_outline", x: 0, y: 0, r: 115, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 4 },
+      ],
+      engines: [
+        { id: 0, x: 0, y: 0, r: 21 },
+      ],
+    },
+    {
+      id: "cz7a_stage1",
+      name: "CZ-7A Stage 1 (芯级+助推)",
+      engine_count: 6,
+      background_circles: [
+        { id: "main_fill", x: 0, y: 0, r: 230, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+        { id: "core_outline", x: 0, y: 0, r: 100, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+        { id: "booster_outline_0", x: 115.97, y: -115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+        { id: "booster_outline_1", x: 115.97, y: 115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+        { id: "booster_outline_2", x: -115.97, y: 115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+        { id: "booster_outline_3", x: -115.97, y: -115.97, r: 60, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 3 },
+      ],
+      engines: [
+        { id: 0, x: -50, y: 0, r: 40 },
+        { id: 1, x: 50, y: 0, r: 40 },
+        { id: 2, x: 115.97, y: -115.97, r: 40 },
+        { id: 3, x: 115.97, y: 115.97, r: 40 },
+        { id: 4, x: -115.97, y: 115.97, r: 40 },
+        { id: 5, x: -115.97, y: -115.97, r: 40 },
+      ],
+    },
+    {
+      id: "cz7a_stage2",
+      name: "CZ-7A Stage 2 (2机)",
+      engine_count: 2,
+      background_circles: [
+        { id: "main_fill", x: 0, y: 0, r: 230, fill: "rgba(35,44,65,0.35)", stroke: "none", stroke_width: 0 },
+        { id: "main_outline", x: 0, y: 0, r: 200, fill: "none", stroke: "rgba(128,128,128,0.3)", stroke_width: 5 },
+      ],
+      engines: [
+        { id: 0, x: -100, y: 0, r: 21 },
+        { id: 1, x: 100, y: 0, r: 21 },
+      ],
+    },
+  ],
+};
+
+function sanitizeModelId(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "")
+    .toUpperCase();
+}
+
+function deriveModelId(modelName, explicitId) {
+  const explicit = sanitizeModelId(explicitId);
+  if (explicit) {
+    return explicit;
   }
+
+  const text = String(modelName || "").trim();
+  if (!text) {
+    return `MODEL_${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  if (MODEL_FILE_ID_ALIASES[text]) {
+    return MODEL_FILE_ID_ALIASES[text];
+  }
+
+  const compactText = text.replace(/\s+/g, "");
+  if (MODEL_FILE_ID_ALIASES[compactText]) {
+    return MODEL_FILE_ID_ALIASES[compactText];
+  }
+
+  const ascii = sanitizeModelId(text);
+  if (ascii) {
+    return ascii;
+  }
+
+  return `MODEL_${Date.now().toString(36).toUpperCase()}`;
+}
+
+function normalizeEnginePresetNode(rawNode, fallbackId = 0) {
+  const nodeId = Math.max(0, toInt(rawNode?.id, fallbackId));
+  return {
+    id: nodeId,
+    x: toNumber(rawNode?.x, 0),
+    y: toNumber(rawNode?.y, 0),
+    r: Math.max(2, toNumber(rawNode?.r, 10)),
+  };
+}
+
+function normalizeEngineBackgroundCircle(rawCircle, fallbackId = 0) {
+  return {
+    id: String(rawCircle?.id || `bg_${fallbackId}`).trim() || `bg_${fallbackId}`,
+    x: toNumber(rawCircle?.x, 0),
+    y: toNumber(rawCircle?.y, 0),
+    r: Math.max(2, toNumber(rawCircle?.r, 10)),
+    fill: String(rawCircle?.fill ?? "none"),
+    stroke: String(rawCircle?.stroke ?? "rgba(128,128,128,0.3)"),
+    stroke_width: Math.max(0, toNumber(rawCircle?.stroke_width, 1.5)),
+  };
+}
+
+function normalizeEnginePreset(raw, index) {
+  const rawId = String(raw?.id || `preset_${index + 1}`)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "");
+  const id = rawId || `preset_${index + 1}`;
+
+  const sourceNodes = Array.isArray(raw?.engines) ? raw.engines : [];
+  let engines = sourceNodes.map((node, nodeIndex) => normalizeEnginePresetNode(node, nodeIndex));
+  if (engines.length === 0) {
+    engines = [{ id: 0, x: 0, y: 0, r: 10 }];
+  }
+
+  const deduped = new Map();
+  for (const node of engines) {
+    deduped.set(node.id, node);
+  }
+  engines = Array.from(deduped.values()).sort((a, b) => a.id - b.id);
+
+  const sourceBackgroundCircles = Array.isArray(raw?.background_circles) ? raw.background_circles : [];
+  const backgroundCircleMap = new Map();
+  sourceBackgroundCircles.forEach((item, bgIndex) => {
+    const normalized = normalizeEngineBackgroundCircle(item, bgIndex);
+    backgroundCircleMap.set(normalized.id, normalized);
+  });
+  const backgroundCircles = Array.from(backgroundCircleMap.values());
+
+  return {
+    id,
+    name: String(raw?.name || `预设 ${index + 1}`).trim() || `预设 ${index + 1}`,
+    engine_count: Math.max(engines.length, toInt(raw?.engine_count, engines.length)),
+    background_circles: backgroundCircles,
+    engines,
+  };
+}
+
+function normalizeEnginePresetLibrary(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const sourcePresets = Array.isArray(source.presets) ? source.presets : [];
+  const normalized = sourcePresets.map((preset, index) => normalizeEnginePreset(preset, index));
+
+  const deduped = [];
+  const seenIds = new Set();
+  for (const preset of normalized) {
+    if (seenIds.has(preset.id)) {
+      continue;
+    }
+    seenIds.add(preset.id);
+    deduped.push(preset);
+  }
+
+  if (deduped.length === 0) {
+    return normalizeEnginePresetLibrary(DEFAULT_ENGINE_PRESET_LIBRARY);
+  }
+
   return {
     version: 1,
-    reserved: true,
-    ...raw,
+    presets: deduped,
+  };
+}
+
+function normalizeEngineState(rawState, fallbackId = 0) {
+  return {
+    id: Math.max(0, toInt(rawState?.id, fallbackId)),
+    enabled: Boolean(rawState?.enabled),
+  };
+}
+
+function guessPresetIdByModelName(modelName) {
+  const text = String(modelName || "").toLowerCase();
+  if (text.includes("falcon") && text.includes("9")) {
+    return "falcon9_stage1";
+  }
+  if (text.includes("长八") || text.includes("cz-7") || text.includes("cz7")) {
+    return "cz7a_stage1";
+  }
+  return "falcon9_stage1";
+}
+
+function normalizeEngineNodeConfig(raw, defaultPresetId) {
+  const presetId = String(raw?.preset_id || defaultPresetId || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "");
+
+  const engineStates = [];
+  if (Array.isArray(raw?.engine_states)) {
+    for (const state of raw.engine_states) {
+      engineStates.push(normalizeEngineState(state, engineStates.length));
+    }
+  } else if (Array.isArray(raw?.active_ids)) {
+    for (const id of raw.active_ids) {
+      const normalizedId = Math.max(0, toInt(id, -1));
+      if (normalizedId >= 0) {
+        engineStates.push({ id: normalizedId, enabled: true });
+      }
+    }
+  }
+
+  const deduped = new Map();
+  for (const state of engineStates) {
+    deduped.set(state.id, { id: state.id, enabled: Boolean(state.enabled) });
+  }
+
+  return {
+    preset_id: presetId,
+    engine_states: Array.from(deduped.values()).sort((a, b) => a.id - b.id),
+  };
+}
+
+function normalizeEngineLayout(raw, modelName) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const defaultPresetId = guessPresetIdByModelName(modelName);
+  const nodeConfigs = {};
+  const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+    ? source.node_configs
+    : {};
+
+  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+    if (!nodeKey) {
+      continue;
+    }
+    nodeConfigs[nodeKey] = normalizeEngineNodeConfig(config, defaultPresetId);
+  }
+
+  return {
+    version: 3,
+    node_configs: nodeConfigs,
   };
 }
 
 function normalizeModel(raw) {
   const modelName = String(raw?.name || "未命名型号").trim() || "未命名型号";
+  const modelId = deriveModelId(modelName, raw?.model_id || raw?.id);
   const stages = normalizeStages(raw?.stages || []);
   const events = normalizeEvents(raw?.events || []);
   const observation_points = normalizeObservations(raw?.observation_points || []);
   return {
     version: 2,
+    model_id: modelId,
     name: modelName,
     stages,
     events,
@@ -470,7 +728,7 @@ function normalizeModel(raw) {
     rocket_meta: normalizeRocketMeta(raw?.rocket_meta || {}),
     fuel_editor: normalizeFuelEditor(raw?.fuel_editor || {}),
     telemetry_editor: normalizeTelemetryEditor(raw?.telemetry_editor || {}),
-    engine_layout: normalizeEngineLayout(raw?.engine_layout || {}),
+    engine_layout: normalizeEngineLayout(raw?.engine_layout || {}, modelName),
   };
 }
 
@@ -489,10 +747,12 @@ class ModelStore {
     this.reload();
   }
 
-  reload() {
-    this.models.clear();
+  modelFilePath(modelId) {
+    return path.join(this.configRoot, `${modelId}.json`);
+  }
+
+  migrateLegacyFoldersToFlatFiles() {
     if (!fs.existsSync(this.configRoot)) {
-      fs.mkdirSync(this.configRoot, { recursive: true });
       return;
     }
 
@@ -500,13 +760,51 @@ class ModelStore {
       if (!entry.isDirectory()) {
         continue;
       }
-      const filePath = path.join(this.configRoot, entry.name, "config.json");
-      if (!fs.existsSync(filePath)) {
+
+      const legacyConfigPath = path.join(this.configRoot, entry.name, "config.json");
+      if (!fs.existsSync(legacyConfigPath)) {
         continue;
       }
+
+      try {
+        const raw = JSON.parse(fs.readFileSync(legacyConfigPath, "utf-8"));
+        const model = normalizeModel(raw);
+        const targetPath = this.modelFilePath(model.model_id);
+        if (!fs.existsSync(targetPath)) {
+          fs.writeFileSync(targetPath, JSON.stringify(model, null, 2), "utf-8");
+        }
+        fs.rmSync(path.join(this.configRoot, entry.name), { recursive: true, force: true });
+      } catch (error) {
+        console.warn(`[WARN] 遗留配置迁移失败 ${legacyConfigPath}: ${error.message}`);
+      }
+    }
+  }
+
+  reload() {
+    this.models.clear();
+    if (!fs.existsSync(this.configRoot)) {
+      fs.mkdirSync(this.configRoot, { recursive: true });
+      return;
+    }
+
+    this.migrateLegacyFoldersToFlatFiles();
+
+    for (const entry of fs.readdirSync(this.configRoot, { withFileTypes: true })) {
+      if (!entry.isFile()) {
+        continue;
+      }
+      if (!entry.name.toLowerCase().endsWith(".json")) {
+        continue;
+      }
+      if (SYSTEM_CONFIG_FILE_NAMES.has(entry.name.toLowerCase())) {
+        continue;
+      }
+      const filePath = path.join(this.configRoot, entry.name);
       try {
         const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
         const model = normalizeModel(raw);
+        const fileId = path.basename(entry.name, path.extname(entry.name));
+        model.model_id = deriveModelId(model.name, fileId || model.model_id);
         this.models.set(model.name, model);
       } catch (error) {
         console.warn(`[WARN] 无法解析配置 ${filePath}: ${error.message}`);
@@ -523,24 +821,29 @@ class ModelStore {
   }
 
   save(raw) {
+    const draftName = String(raw?.name || "").trim();
+    const previous = draftName ? this.models.get(draftName) : null;
     const model = normalizeModel(raw);
-    const modelDir = path.join(this.configRoot, model.name);
-    fs.mkdirSync(modelDir, { recursive: true });
-    const filePath = path.join(modelDir, "config.json");
+    if (!raw?.model_id && previous?.model_id) {
+      model.model_id = previous.model_id;
+    }
+
+    const filePath = this.modelFilePath(model.model_id);
     fs.writeFileSync(filePath, JSON.stringify(model, null, 2), "utf-8");
     this.models.set(model.name, model);
     return model;
   }
 
   delete(name) {
-    if (!this.models.has(name)) {
+    const model = this.models.get(name);
+    if (!model) {
       return false;
     }
     this.models.delete(name);
 
-    const modelDir = path.join(this.configRoot, name);
-    if (fs.existsSync(modelDir)) {
-      fs.rmSync(modelDir, { recursive: true, force: true });
+    const filePath = this.modelFilePath(model.model_id || deriveModelId(name));
+    if (fs.existsSync(filePath)) {
+      fs.rmSync(filePath, { force: true });
     }
     return true;
   }
@@ -589,6 +892,44 @@ class AppSettingsStore {
   }
 }
 
+class EnginePresetStore {
+  constructor(filePath) {
+    this.filePath = filePath;
+    this.library = normalizeEnginePresetLibrary(DEFAULT_ENGINE_PRESET_LIBRARY);
+    this.reload();
+  }
+
+  reload() {
+    const dir = path.dirname(this.filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (!fs.existsSync(this.filePath)) {
+      this.library = normalizeEnginePresetLibrary(DEFAULT_ENGINE_PRESET_LIBRARY);
+      this.save();
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(this.filePath, "utf-8"));
+      this.library = normalizeEnginePresetLibrary(raw);
+      this.save();
+    } catch {
+      this.library = normalizeEnginePresetLibrary(DEFAULT_ENGINE_PRESET_LIBRARY);
+      this.save();
+    }
+  }
+
+  save() {
+    fs.writeFileSync(this.filePath, JSON.stringify(this.library, null, 2), "utf-8");
+  }
+
+  getAll() {
+    return JSON.parse(JSON.stringify(this.library));
+  }
+}
+
 class MissionEngine {
   constructor(store) {
     this.store = store;
@@ -602,7 +943,7 @@ class MissionEngine {
     this.holdActive = false;
     this.holdStartedAt = null;
     this.holdAccumulatedMs = 0;
-    this.telemetryEnabled = false;
+    this.telemetryEnabled = true;
     this.telemetryPaused = false;
     this.telemetryPauseMissionMs = 0;
   }
@@ -1023,6 +1364,7 @@ function startServer(options = {}) {
   const app = express();
   const store = new ModelStore(path.join(rootDir, "config"));
   const appSettings = new AppSettingsStore(path.join(rootDir, "config", "app-settings.json"));
+  const enginePresets = new EnginePresetStore(path.join(rootDir, "config", "engine_preset.json"));
   const engine = new MissionEngine(store);
 
   const modelNames = Object.keys(store.all());
@@ -1148,7 +1490,12 @@ function startServer(options = {}) {
   const streamClients = new Set();
 
   function buildStateSnapshot() {
-    return engine.snapshot({ default_theme: appSettings.get().default_theme });
+    const activeModel = engine.model;
+    return engine.snapshot({
+      default_theme: appSettings.get().default_theme,
+      engine_layout: normalizeEngineLayout(activeModel?.engine_layout || {}, activeModel?.name || ""),
+      engine_preset_library: enginePresets.getAll(),
+    });
   }
 
   function buildStatePayload() {
@@ -1300,6 +1647,10 @@ function startServer(options = {}) {
 
   app.get("/api/models", requireAdminApi, (req, res) => {
     res.json(store.all());
+  });
+
+  app.get("/api/engine_presets", requireAdminApi, (req, res) => {
+    res.json({ success: true, ...enginePresets.getAll() });
   });
 
   app.post("/api/select_model", requireAdminApi, (req, res) => {

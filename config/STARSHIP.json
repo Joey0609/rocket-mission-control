@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "model_id": "STARSHIP",
   "name": "Starship",
   "stages": [
     {
@@ -66,17 +67,21 @@
     {
       "id": "obs_ss_arm",
       "name": "摆杆摆开",
+      "time": -95,
       "new_countdown": 95,
       "description": "观察到摆杆已打开"
     },
     {
       "id": "obs_ss_ignition",
       "name": "点火确认",
+      "time": -5,
       "new_countdown": 5,
       "description": "观察到发动机已点火"
     }
   ],
   "rocket_meta": {
+    "mission_name": "",
+    "payload": "",
     "recovery_capable": true,
     "recovery_enabled": false,
     "stage_count": 2,
@@ -113,8 +118,37 @@
     "node_values": {},
     "curves": {}
   },
-  "engine_layout": {
+  "telemetry_editor": {
     "version": 1,
-    "reserved": true
+    "node_values": {},
+    "curves": {
+      "altitude_km": {
+        "stage1": [],
+        "upper": []
+      },
+      "speed_mps": {
+        "stage1": [],
+        "upper": []
+      },
+      "accel_g": {
+        "stage1": [],
+        "upper": []
+      },
+      "angular_velocity_dps": {
+        "stage1": [],
+        "upper": []
+      }
+    }
+  },
+  "engine_layout": {
+    "version": 2,
+    "presets": [
+      {
+        "id": "preset_default",
+        "name": "默认预设",
+        "engine_count": 33
+      }
+    ],
+    "node_configs": {}
   }
 }
