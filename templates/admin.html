@@ -133,13 +133,11 @@
           </div>
           <div class="preview-action-group hidden" data-preview-actions="obs">
             <button class="btn" id="openObsSettingsBtn">设置</button>
-            <button class="btn" id="openObsExportBtn">导出</button>
             <button class="btn" id="copyObsUrlBtn">复制页面地址</button>
             <button class="btn" id="openObsPageBtn">在新标签页打开</button>
           </div>
           <div class="preview-action-group hidden" data-preview-actions="video">
             <button class="btn" id="openVideoSettingsBtn">设置</button>
-            <button class="btn" id="openVideoExportBtn">导出</button>
             <button class="btn" id="copyVideoUrlBtn">复制页面地址</button>
             <button class="btn" id="openVideoPageBtn">在新标签页打开</button>
           </div>
@@ -248,61 +246,6 @@
         </div>
         <div class="modal-actions-right">
           <button class="btn accent" id="savePreviewConfigBtn">保存设置</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="preview-export-modal hidden" id="previewExportModal" role="dialog" aria-modal="true" aria-label="导出设置">
-    <div class="config-backdrop" id="previewExportBackdrop"></div>
-    <div class="preview-export-panel panel">
-      <div class="config-head">
-        <h3 id="previewExportTitle">导出设置</h3>
-      </div>
-
-      <div class="preview-export-body">
-        <div class="preview-config-grid">
-          <label>
-            开始时间 (秒)
-            <input id="exportStartInput" type="number" step="0.001" value="-60">
-          </label>
-          <label>
-            结束时间 (秒)
-            <input id="exportEndInput" type="number" step="0.001" value="120">
-          </label>
-          <label>
-            帧率
-            <select id="exportFpsSelect">
-              <option value="24">24 FPS</option>
-              <option value="30" selected>30 FPS</option>
-              <option value="60">60 FPS</option>
-            </select>
-          </label>
-          <label>
-            格式
-            <select id="exportFormatSelect">
-              <option value="webm" selected>WEBM (支持透明)</option>
-              <option value="mov">MOV (浏览器支持受限)</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="preview-export-progress">
-          <div class="preview-export-progress-track">
-            <div class="preview-export-progress-fill" id="previewExportProgressFill"></div>
-          </div>
-          <div class="preview-export-progress-text" id="previewExportProgressText">准备导出</div>
-        </div>
-        <p class="hint" id="previewExportHint">导出时会按时间轴重绘画面，视频模式将包含背景视频。</p>
-      </div>
-
-      <div class="modal-actions">
-        <div class="modal-actions-left">
-          <button class="btn" id="closePreviewExportBtn">关闭</button>
-        </div>
-        <div class="modal-actions-right">
-          <button class="btn warning" id="cancelPreviewExportBtn">取消导出</button>
-          <button class="btn accent" id="startPreviewExportBtn">开始导出</button>
         </div>
       </div>
     </div>

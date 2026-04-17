@@ -35,8 +35,6 @@
 
     openObsSettingsBtn: document.getElementById("openObsSettingsBtn"),
     openVideoSettingsBtn: document.getElementById("openVideoSettingsBtn"),
-    openObsExportBtn: document.getElementById("openObsExportBtn"),
-    openVideoExportBtn: document.getElementById("openVideoExportBtn"),
 
     previewConfigModal: document.getElementById("previewConfigModal"),
     previewConfigBackdrop: document.getElementById("previewConfigBackdrop"),
@@ -53,20 +51,6 @@
     videoMetaHint: document.getElementById("videoMetaHint"),
     closePreviewConfigBtn: document.getElementById("closePreviewConfigBtn"),
     savePreviewConfigBtn: document.getElementById("savePreviewConfigBtn"),
-
-    previewExportModal: document.getElementById("previewExportModal"),
-    previewExportBackdrop: document.getElementById("previewExportBackdrop"),
-    previewExportTitle: document.getElementById("previewExportTitle"),
-    exportStartInput: document.getElementById("exportStartInput"),
-    exportEndInput: document.getElementById("exportEndInput"),
-    exportFpsSelect: document.getElementById("exportFpsSelect"),
-    exportFormatSelect: document.getElementById("exportFormatSelect"),
-    previewExportProgressFill: document.getElementById("previewExportProgressFill"),
-    previewExportProgressText: document.getElementById("previewExportProgressText"),
-    previewExportHint: document.getElementById("previewExportHint"),
-    closePreviewExportBtn: document.getElementById("closePreviewExportBtn"),
-    cancelPreviewExportBtn: document.getElementById("cancelPreviewExportBtn"),
-    startPreviewExportBtn: document.getElementById("startPreviewExportBtn"),
   };
 
   if (!dom.previewFrame || !dom.previewModeSwitch || !dom.previewModeThumb || !dom.previewStage) {
@@ -77,8 +61,6 @@
     mode: "visitor",
     themeId: "",
     configMode: "obs",
-    exportMode: "obs",
-    exportBusy: false,
     obsResolutionPresetId: DEFAULT_PRESET_ID,
     obsResolution: {
       width: 1920,
@@ -434,42 +416,6 @@
     dom.previewConfigModal.classList.add("hidden");
   }
 
-  function openPreviewExport(mode) {
-    state.exportMode = mode === "video" ? "video" : "obs";
-    dom.previewExportTitle.textContent = state.exportMode === "video" ? "导出视频页面" : "导出 OBS 页面";
-    dom.previewExportHint.textContent = state.exportMode === "video"
-      ? "视频模式会同步本地视频背景与时间轴校正参数。"
-      : "OBS 模式会导出透明背景画面（取决于浏览器编码器支持）。";
-    setExportProgress(0, "准备导出");
-    dom.previewExportModal.classList.remove("hidden");
-    setExportBusy(false);
-  }
-
-  function closePreviewExport() {
-    if (state.exportBusy) {
-      return;
-    }
-    dom.previewExportModal.classList.add("hidden");
-  }
-
-  function setExportBusy(busy) {
-    state.exportBusy = Boolean(busy);
-    dom.exportStartInput.disabled = state.exportBusy;
-    dom.exportEndInput.disabled = state.exportBusy;
-    dom.exportFpsSelect.disabled = state.exportBusy;
-    dom.exportFormatSelect.disabled = state.exportBusy;
-    dom.closePreviewExportBtn.disabled = state.exportBusy;
-    dom.startPreviewExportBtn.disabled = state.exportBusy;
-    dom.cancelPreviewExportBtn.disabled = false;
-    dom.cancelPreviewExportBtn.textContent = state.exportBusy ? "取消导出" : "关闭";
-  }
-
-  function setExportProgress(progress, text) {
-    const value = Math.max(0, Math.min(100, toNumber(progress, 0)));
-    dom.previewExportProgressFill.style.width = `${value.toFixed(1)}%`;
-    dom.previewExportProgressText.textContent = text || `导出进度 ${value.toFixed(1)}%`;
-  }
-
   function getVideoDurationForSync() {
     if (Number.isFinite(state.video.duration) && state.video.duration > 0) {
       return state.video.duration;
@@ -707,56 +653,6 @@
     window.open(url, "_blank", "noopener");
   }
 
-  function startExport() {
-    const startSeconds = toNumber(dom.exportStartInput.value, Number.NaN);
-    const endSeconds = toNumber(dom.exportEndInput.value, Number.NaN);
-    const fps = clampInt(dom.exportFpsSelect.value, 1, 120, 30);
-    const format = String(dom.exportFormatSelect.value || "webm").toLowerCase();
-
-    if (state.mode !== state.exportMode) {
-      notify("请保持当前预览模式后再导出", "error");
-      return;
-    }
-
-    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds <= startSeconds) {
-      notify("导出时间范围无效", "error");
-      return;
-    }
-
-    if (state.exportMode === "video" && !state.video.file) {
-      notify("请先在视频设置里选择本地视频", "error");
-      return;
-    }
-
-    const ok = postToPreviewFrame("mission-preview:export", {
-      mode: state.exportMode,
-      startSeconds,
-      endSeconds,
-      fps,
-      format,
-    });
-
-    if (!ok) {
-      notify("预览页面尚未加载完成", "error");
-      return;
-    }
-
-    setExportBusy(true);
-    setExportProgress(0, "导出已开始");
-  }
-
-  function cancelExport() {
-    if (!state.exportBusy) {
-      closePreviewExport();
-      return;
-    }
-
-    postToPreviewFrame("mission-preview:export-cancel", {
-      mode: state.exportMode,
-    });
-    setExportProgress(0, "正在取消导出...");
-  }
-
   function handleFrameMessage(event) {
     if (event.origin !== window.location.origin) {
       return;
@@ -790,33 +686,6 @@
       return;
     }
 
-    if (data.type === "mission-preview:export-progress") {
-      const payload = data.payload || {};
-      setExportProgress(payload.progress, payload.text || "正在导出");
-      return;
-    }
-
-    if (data.type === "mission-preview:export-finished") {
-      const payload = data.payload || {};
-      setExportBusy(false);
-      setExportProgress(100, payload.text || "导出完成");
-      notify(payload.text || "导出完成", "success");
-      return;
-    }
-
-    if (data.type === "mission-preview:export-cancelled") {
-      setExportBusy(false);
-      setExportProgress(0, "导出已取消");
-      notify("导出已取消", "info");
-      return;
-    }
-
-    if (data.type === "mission-preview:export-error") {
-      const payload = data.payload || {};
-      setExportBusy(false);
-      setExportProgress(0, payload.message || "导出失败");
-      notify(payload.message || "导出失败", "error");
-    }
   }
 
   function bindEvents() {
@@ -924,25 +793,6 @@
     }
     if (dom.videoMissionEndInput) {
       dom.videoMissionEndInput.addEventListener("input", () => syncVideoCalibration("end"));
-    }
-
-    if (dom.openObsExportBtn) {
-      dom.openObsExportBtn.addEventListener("click", () => openPreviewExport("obs"));
-    }
-    if (dom.openVideoExportBtn) {
-      dom.openVideoExportBtn.addEventListener("click", () => openPreviewExport("video"));
-    }
-    if (dom.previewExportBackdrop) {
-      dom.previewExportBackdrop.addEventListener("click", closePreviewExport);
-    }
-    if (dom.closePreviewExportBtn) {
-      dom.closePreviewExportBtn.addEventListener("click", closePreviewExport);
-    }
-    if (dom.cancelPreviewExportBtn) {
-      dom.cancelPreviewExportBtn.addEventListener("click", cancelExport);
-    }
-    if (dom.startPreviewExportBtn) {
-      dom.startPreviewExportBtn.addEventListener("click", startExport);
     }
 
     dom.previewFrame.addEventListener("load", () => {

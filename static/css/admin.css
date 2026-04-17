@@ -147,8 +147,7 @@ body {
   background: var(--surface-3);
 }
 
-.preview-config-modal,
-.preview-export-modal {
+.preview-config-modal {
   position: fixed;
   inset: 0;
   z-index: 42;
@@ -156,8 +155,7 @@ body {
   place-items: center;
 }
 
-.preview-config-panel,
-.preview-export-panel {
+.preview-config-panel {
   position: relative;
   z-index: 1;
   width: min(740px, 94vw);
@@ -168,8 +166,7 @@ body {
   padding: 14px;
 }
 
-.preview-config-body,
-.preview-export-body {
+.preview-config-body {
   display: grid;
   gap: 12px;
 }
@@ -197,35 +194,6 @@ body {
   gap: 6px;
   color: var(--muted);
   font-size: 12px;
-}
-
-.preview-export-progress {
-  display: grid;
-  gap: 8px;
-}
-
-.preview-export-progress-track {
-  position: relative;
-  height: 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-1) 84%, transparent);
-  overflow: hidden;
-}
-
-.preview-export-progress-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 0%;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 72%, #2a866f), color-mix(in srgb, var(--warn) 62%, #d99235));
-  transition: width 180ms linear;
-}
-
-.preview-export-progress-text {
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .panel {

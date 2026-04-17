@@ -16,6 +16,10 @@
   const VIDEO_FILE_DB_NAME = "mission-viewer-video-files";
   const VIDEO_FILE_STORE_NAME = "assets";
   const VIDEO_FILE_STORE_KEY = "selected-video";
+  const EXPORT_FREEZE_CLASS = "mission-exporting";
+  const CANVAS_RECORD_BUNDLE_SRC = "/static/js/vendor/canvas-record.bundle.js";
+
+  let canvasRecordRuntimePromise = null;
 
   const bridge = window.MissionViewerBridge || null;
   if (!bridge) {
@@ -79,6 +83,34 @@
     return new Promise((resolve) => {
       window.requestAnimationFrame(() => resolve());
     });
+  }
+
+  function getExportFrameRect() {
+    const layoutRoot = document.getElementById("viewerLayoutRoot") || document.querySelector(".viewer-layout-root");
+    if (layoutRoot) {
+      const rect = layoutRoot.getBoundingClientRect();
+      if (Number.isFinite(rect.width) && rect.width > 0 && Number.isFinite(rect.height) && rect.height > 0) {
+        return rect;
+      }
+    }
+
+    return {
+      left: 0,
+      top: 0,
+      width: window.innerWidth || document.documentElement.clientWidth || 1,
+      height: window.innerHeight || document.documentElement.clientHeight || 1,
+    };
+  }
+
+  function setExportFreeze(active, restorePlayback = false) {
+    document.body.classList.toggle(EXPORT_FREEZE_CLASS, Boolean(active));
+    if (nodes.videoBackground) {
+      if (active) {
+        nodes.videoBackground.pause();
+      } else if (restorePlayback && state.mode === "video") {
+        nodes.videoBackground.play().catch(() => {});
+      }
+    }
   }
 
   function postToParent(type, payload = {}) {
@@ -446,7 +478,7 @@
     return clone;
   }
 
-  async function drawSvgElement(ctx, svgEl, targetRect, scaleX, scaleY) {
+  async function drawSvgElement(ctx, svgEl, targetRect, scaleX, scaleY, frameRect) {
     if (!svgEl || !targetRect) {
       return;
     }
@@ -477,8 +509,8 @@
 
       ctx.drawImage(
         image,
-        targetRect.left * scaleX,
-        targetRect.top * scaleY,
+        (targetRect.left - frameRect.left) * scaleX,
+        (targetRect.top - frameRect.top) * scaleY,
         Math.max(1, targetRect.width * scaleX),
         Math.max(1, targetRect.height * scaleY),
       );
@@ -487,13 +519,13 @@
     }
   }
 
-  function drawOverlayText(ctx, canvasWidth, canvasHeight) {
+  function drawOverlayText(ctx, canvasWidth, canvasHeight, frameRect) {
     if (!nodes.overlayRoot || !nodes.overlaySign || !nodes.overlayTime || !nodes.overlayLine) {
       return;
     }
 
-    const scaleX = canvasWidth / Math.max(1, window.innerWidth);
-    const scaleY = canvasHeight / Math.max(1, window.innerHeight);
+    const scaleX = canvasWidth / Math.max(1, frameRect.width);
+    const scaleY = canvasHeight / Math.max(1, frameRect.height);
 
     const signRect = nodes.overlaySign.getBoundingClientRect();
     const timeRect = nodes.overlayTime.getBoundingClientRect();
@@ -511,8 +543,8 @@
     ctx.textAlign = "left";
     ctx.fillText(
       String(nodes.overlaySign.textContent || ""),
-      signRect.left * scaleX,
-      (signRect.top + signRect.height * 0.5) * scaleY,
+      (signRect.left - frameRect.left) * scaleX,
+      (signRect.top - frameRect.top + signRect.height * 0.5) * scaleY,
     );
 
     ctx.fillStyle = timeStyle.color || "#fff";
@@ -520,8 +552,8 @@
     ctx.textAlign = "left";
     ctx.fillText(
       String(nodes.overlayTime.textContent || ""),
-      timeRect.left * scaleX,
-      (timeRect.top + timeRect.height * 0.5) * scaleY,
+      (timeRect.left - frameRect.left) * scaleX,
+      (timeRect.top - frameRect.top + timeRect.height * 0.5) * scaleY,
     );
 
     ctx.fillStyle = lineStyle.color || "rgba(245,245,244,0.8)";
@@ -529,8 +561,8 @@
     ctx.textAlign = "center";
     ctx.fillText(
       String(nodes.overlayLine.textContent || "").trim(),
-      (lineRect.left + lineRect.width * 0.5) * scaleX,
-      (lineRect.top + lineRect.height * 0.5) * scaleY,
+      (lineRect.left - frameRect.left + lineRect.width * 0.5) * scaleX,
+      (lineRect.top - frameRect.top + lineRect.height * 0.5) * scaleY,
     );
 
     ctx.restore();
@@ -570,8 +602,9 @@
   }
 
   async function drawExportFrame(ctx, canvas) {
-    const scaleX = canvas.width / Math.max(1, window.innerWidth);
-    const scaleY = canvas.height / Math.max(1, window.innerHeight);
+    const frameRect = getExportFrameRect();
+    const scaleX = canvas.width / Math.max(1, frameRect.width);
+    const scaleY = canvas.height / Math.max(1, frameRect.height);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -581,20 +614,20 @@
 
     const timelineSvg = document.querySelector(".mission-timeline-svg");
     if (timelineSvg) {
-      await drawSvgElement(ctx, timelineSvg, timelineSvg.getBoundingClientRect(), scaleX, scaleY);
+      await drawSvgElement(ctx, timelineSvg, timelineSvg.getBoundingClientRect(), scaleX, scaleY, frameRect);
     }
 
     const gaugeSvgs = Array.from(document.querySelectorAll(".telemetry-gauge-svg"));
     for (const svg of gaugeSvgs) {
-      await drawSvgElement(ctx, svg, svg.getBoundingClientRect(), scaleX, scaleY);
+      await drawSvgElement(ctx, svg, svg.getBoundingClientRect(), scaleX, scaleY, frameRect);
     }
 
     const engineSvgs = Array.from(document.querySelectorAll(".telemetry-engine-svg"));
     for (const svg of engineSvgs) {
-      await drawSvgElement(ctx, svg, svg.getBoundingClientRect(), scaleX, scaleY);
+      await drawSvgElement(ctx, svg, svg.getBoundingClientRect(), scaleX, scaleY, frameRect);
     }
 
-    drawOverlayText(ctx, canvas.width, canvas.height);
+    drawOverlayText(ctx, canvas.width, canvas.height, frameRect);
   }
 
   function chooseRecorderMime(format) {
@@ -630,6 +663,170 @@
     return "";
   }
 
+  function downloadBlob(blob, fileName) {
+    const outputUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = outputUrl;
+    anchor.download = fileName;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(outputUrl);
+    }, 30_000);
+  }
+
+  function isCanvasRecordRuntime(runtime) {
+    return Boolean(runtime && typeof runtime.WebCodecsEncoder === "function" && runtime.VP && typeof runtime.VP.getCodec === "function");
+  }
+
+  function normalizeCanvasRecordRuntime(runtimeModule) {
+    const runtime = runtimeModule?.default && !runtimeModule.WebCodecsEncoder ? runtimeModule.default : runtimeModule;
+    if (!isCanvasRecordRuntime(runtime)) {
+      throw new Error("canvas-record 导出库已加载，但运行时初始化失败");
+    }
+
+    return runtime;
+  }
+
+  function getVp9LevelForDimensions(width, height) {
+    if (width >= 2560 || height >= 1440) {
+      return "5.2";
+    }
+
+    if (width >= 1920 || height >= 1080) {
+      return "5.1";
+    }
+
+    if (width >= 1280 || height >= 720) {
+      return "4.1";
+    }
+
+    return "3.1";
+  }
+
+  function buildWebmEncoderCandidate(runtime, width, height, frameRate, transparent, bitrate, level) {
+    const codec = runtime.VP.getCodec({
+      name: "VP9",
+      profile: 0,
+      level,
+      bitDepth: 8,
+    });
+
+    return {
+      codec,
+      width,
+      height,
+      framerate: frameRate,
+      bitrate,
+      bitrateMode: "variable",
+      latencyMode: "quality",
+      alpha: transparent ? "keep" : "discard",
+    };
+  }
+
+  function normalizeEvenDimension(value) {
+    return Math.max(2, Math.floor(value / 2) * 2);
+  }
+
+  function buildExportResolutionCandidates(width, height) {
+    const aspectRatio = width / Math.max(1, height);
+    const targetHeights = [height, 900, 720, 540, 480, 360];
+    const candidates = [];
+
+    for (const targetHeight of targetHeights) {
+      const scaledWidth = Math.round(targetHeight * aspectRatio);
+      const candidateWidth = normalizeEvenDimension(Math.min(width, scaledWidth));
+      const candidateHeight = normalizeEvenDimension(Math.min(height, targetHeight));
+      if (candidateWidth > 0 && candidateHeight > 0) {
+        candidates.push({ width: candidateWidth, height: candidateHeight });
+      }
+    }
+
+    const seen = new Set();
+    return candidates.filter((candidate) => {
+      const key = `${candidate.width}x${candidate.height}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async function createWebmEncoderOptions(runtime, width, height, frameRate, transparent) {
+    const sizeCandidates = buildExportResolutionCandidates(width, height);
+
+    for (const sizeCandidate of sizeCandidates) {
+      const preferredLevel = getVp9LevelForDimensions(sizeCandidate.width, sizeCandidate.height);
+      const levelCandidates = transparent
+        ? [preferredLevel, "5.2", "6.2"]
+        : [preferredLevel, "4.1", "5.1"];
+      const bitrateCandidates = transparent
+        ? [8_000_000, 6_000_000, 4_000_000]
+        : [13_000_000, 10_000_000, 8_000_000];
+
+      for (const level of levelCandidates) {
+        for (const bitrate of bitrateCandidates) {
+          const candidate = buildWebmEncoderCandidate(
+            runtime,
+            sizeCandidate.width,
+            sizeCandidate.height,
+            frameRate,
+            transparent,
+            bitrate,
+            level,
+          );
+          const support = await VideoEncoder.isConfigSupported(candidate);
+          if (support?.supported) {
+            return {
+              width: sizeCandidate.width,
+              height: sizeCandidate.height,
+              encoderOptions: candidate,
+            };
+          }
+        }
+      }
+    }
+
+    throw new Error("当前浏览器不支持该分辨率下的 VP9 WebM 导出，请降低分辨率或更换浏览器");
+  }
+
+  async function ensureCanvasRecordRuntime() {
+    if (!canvasRecordRuntimePromise) {
+      canvasRecordRuntimePromise = import(CANVAS_RECORD_BUNDLE_SRC)
+        .then((runtimeModule) => normalizeCanvasRecordRuntime(runtimeModule))
+        .catch((error) => {
+          canvasRecordRuntimePromise = null;
+          throw error;
+        });
+    }
+
+    return canvasRecordRuntimePromise;
+  }
+
+  function toBlobFromRecorderOutput(output) {
+    if (!output) {
+      throw new Error("canvas-record 未返回可下载数据");
+    }
+
+    if (output instanceof Blob) {
+      return output;
+    }
+
+    if (Array.isArray(output)) {
+      return new Blob(output, { type: "video/webm" });
+    }
+
+    if (output instanceof ArrayBuffer || ArrayBuffer.isView(output)) {
+      return new Blob([output], { type: "video/webm" });
+    }
+
+    throw new Error("canvas-record 返回了不支持的导出数据类型");
+  }
+
   async function runExport(payload) {
     if (state.exportBusy) {
       throw new Error("当前已有导出任务在运行");
@@ -648,13 +845,11 @@
       throw new Error("视频模式尚未加载本地视频");
     }
 
-    const mimeType = chooseRecorderMime(format);
-    if (!mimeType) {
-      if (format === "mov") {
-        throw new Error("当前浏览器不支持 MOV 导出，请使用 WEBM");
-      }
-      throw new Error("当前浏览器不支持可用的视频编码器");
-    }
+    const frameCount = Math.max(1, Math.round((endSeconds - startSeconds) * fps));
+    const frameDurationUs = Math.max(1, Math.round(1_000_000 / fps));
+    const outputExt = format === "mov" ? "mov" : "webm";
+    const fileName = `${state.mode}-export-${Date.now()}.${outputExt}`;
+    const wasVideoPlayingBeforeExport = Boolean(nodes.videoBackground && !nodes.videoBackground.paused);
 
     state.exportBusy = true;
     state.exportCancelled = false;
@@ -669,82 +864,142 @@
       throw new Error("无法创建导出画布");
     }
 
-    const stream = canvas.captureStream(fps);
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
-
-    const stopped = new Promise((resolve) => {
-      recorder.onstop = resolve;
-    });
-
-    recorder.start();
+    setExportFreeze(true);
 
     try {
-      const frameCount = Math.max(1, Math.floor((endSeconds - startSeconds) * fps));
-
-      for (let index = 0; index <= frameCount; index += 1) {
-        if (state.exportCancelled) {
-          break;
-        }
-
-        const missionSeconds = startSeconds + (index / fps);
-        bridge.setManualMissionSeconds?.(missionSeconds);
-
-        await waitAnimationFrame();
-        if (state.mode === "video") {
-          await seekVideoToMissionTime(missionSeconds);
-        }
-        await drawExportFrame(ctx, canvas);
-
-        const progress = ((index + 1) / (frameCount + 1)) * 100;
-        postToParent("mission-preview:export-progress", {
-          progress,
-          text: `导出中 ${progress.toFixed(1)}%`,
+      if (format === "webm") {
+        const runtime = await ensureCanvasRecordRuntime();
+        const webmSettings = await createWebmEncoderOptions(
+          runtime,
+          canvas.width,
+          canvas.height,
+          fps,
+          state.mode === "obs",
+        );
+        canvas.width = webmSettings.width;
+        canvas.height = webmSettings.height;
+        const encoder = new runtime.WebCodecsEncoder({
+          encoderOptions: webmSettings.encoderOptions,
         });
 
-        await waitMs(1000 / fps);
+        await encoder.init({
+          width: canvas.width,
+          height: canvas.height,
+          frameRate: fps,
+          extension: "webm",
+          target: "in-browser",
+        });
+
+        for (let index = 0; index < frameCount; index += 1) {
+          if (state.exportCancelled) {
+            break;
+          }
+
+          const missionSeconds = startSeconds + (index / fps);
+          bridge.setManualMissionSeconds?.(missionSeconds);
+
+          if (state.mode === "video") {
+            await seekVideoToMissionTime(missionSeconds);
+          }
+          await waitAnimationFrame();
+          await drawExportFrame(ctx, canvas);
+
+          const videoFrame = new VideoFrame(canvas, {
+            timestamp: index * frameDurationUs,
+            duration: frameDurationUs,
+          });
+          await encoder.encode(videoFrame, index);
+
+          const progress = ((index + 1) / frameCount) * 100;
+          postToParent("mission-preview:export-progress", {
+            progress,
+            text: `导出中 ${progress.toFixed(1)}%`,
+          });
+        }
+
+        const encodedOutput = await encoder.stop();
+        await encoder.dispose?.();
+
+        if (state.exportCancelled) {
+          state.exportCancelled = false;
+          postToParent("mission-preview:export-cancelled", {
+            mode: state.mode,
+          });
+          return;
+        }
+
+        const blob = toBlobFromRecorderOutput(encodedOutput);
+        downloadBlob(blob, fileName);
+      } else {
+        const mimeType = chooseRecorderMime(format);
+        if (!mimeType) {
+          if (format === "mov") {
+            throw new Error("当前浏览器不支持 MOV 导出，请使用 WEBM");
+          }
+          throw new Error("当前浏览器不支持可用的视频编码器");
+        }
+
+        const stream = canvas.captureStream(fps);
+        const recorder = new MediaRecorder(stream, { mimeType });
+        const chunks = [];
+
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
+
+        const stopped = new Promise((resolve) => {
+          recorder.onstop = resolve;
+        });
+
+        recorder.start();
+
+        for (let index = 0; index < frameCount; index += 1) {
+          if (state.exportCancelled) {
+            break;
+          }
+
+          const missionSeconds = startSeconds + (index / fps);
+          bridge.setManualMissionSeconds?.(missionSeconds);
+
+          if (state.mode === "video") {
+            await seekVideoToMissionTime(missionSeconds);
+          }
+          await waitAnimationFrame();
+          await drawExportFrame(ctx, canvas);
+
+          const progress = ((index + 1) / frameCount) * 100;
+          postToParent("mission-preview:export-progress", {
+            progress,
+            text: `导出中 ${progress.toFixed(1)}%`,
+          });
+
+          await waitMs(1000 / fps);
+        }
+
+        recorder.stop();
+        await stopped;
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (state.exportCancelled) {
+          state.exportCancelled = false;
+          postToParent("mission-preview:export-cancelled", {
+            mode: state.mode,
+          });
+          return;
+        }
+
+        const blobType = mimeType || (outputExt === "mov" ? "video/quicktime" : "video/webm");
+        const blob = new Blob(chunks, { type: blobType });
+        downloadBlob(blob, fileName);
       }
     } finally {
       bridge.clearManualMissionSeconds?.();
-      recorder.stop();
-      await stopped;
-      stream.getTracks().forEach((track) => track.stop());
-    }
-
-    if (state.exportCancelled) {
+      setExportFreeze(false, wasVideoPlayingBeforeExport);
       state.exportBusy = false;
-      state.exportCancelled = false;
-      postToParent("mission-preview:export-cancelled", {
-        mode: state.mode,
-      });
-      return;
     }
 
-    const ext = format === "mov" ? "mov" : "webm";
-    const blobType = mimeType || (ext === "mov" ? "video/quicktime" : "video/webm");
-    const blob = new Blob(chunks, { type: blobType });
-    const outputUrl = URL.createObjectURL(blob);
-
-    const fileName = `${state.mode}-export-${Date.now()}.${ext}`;
-    const anchor = document.createElement("a");
-    anchor.href = outputUrl;
-    anchor.download = fileName;
-    anchor.rel = "noopener";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    window.setTimeout(() => {
-      URL.revokeObjectURL(outputUrl);
-    }, 30_000);
-
-    state.exportBusy = false;
     postToParent("mission-preview:export-finished", {
       mode: state.mode,
       fileName,

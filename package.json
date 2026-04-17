@@ -8,7 +8,11 @@
     "start:server": "node ./server/index.js"
   },
   "dependencies": {
+    "canvas-record": "^5.5.1",
     "express": "^4.21.2",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
   }
 }
