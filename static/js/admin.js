@@ -444,8 +444,17 @@ function applyTheme(themeId, refreshPreview = true) {
   currentThemeId = window.MissionThemes.apply(themeId);
   const themeMeta = window.MissionThemes.get(currentThemeId);
   setTextIfChanged(dom.openThemeModalBtn, `主题: ${themeMeta.name}`);
+
+  window.dispatchEvent(new CustomEvent("mission-admin-theme-change", {
+    detail: { themeId: currentThemeId },
+  }));
+
   if (refreshPreview && dom.previewFrame) {
-    dom.previewFrame.src = `/visitor?embed=1&theme=${encodeURIComponent(currentThemeId)}&t=${Date.now()}`;
+    if (window.AdminPreviewController && typeof window.AdminPreviewController.refresh === "function") {
+      window.AdminPreviewController.refresh({ themeId: currentThemeId, withCacheBust: true });
+    } else {
+      dom.previewFrame.src = `/visitor?embed=1&theme=${encodeURIComponent(currentThemeId)}&t=${Date.now()}`;
+    }
   }
 }
 
@@ -1103,19 +1112,23 @@ function bindEvents() {
     saveDefaultTheme().catch((error) => toast(error.message, "error"));
   });
 
-  dom.copyVisitorUrlBtn.addEventListener("click", async () => {
-    const url = await getVisitorUrl();
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("游客地址已复制", "success");
-    } catch {
-      toast("复制失败，请手动复制", "error");
-    }
-  });
+  if (dom.copyVisitorUrlBtn) {
+    dom.copyVisitorUrlBtn.addEventListener("click", async () => {
+      const url = await getVisitorUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        toast("游客地址已复制", "success");
+      } catch {
+        toast("复制失败，请手动复制", "error");
+      }
+    });
+  }
 
-  dom.showVisitorQrBtn.addEventListener("click", () => {
-    openQrModal().catch((error) => toast(error.message, "error"));
-  });
+  if (dom.showVisitorQrBtn) {
+    dom.showVisitorQrBtn.addEventListener("click", () => {
+      openQrModal().catch((error) => toast(error.message, "error"));
+    });
+  }
 
   dom.unsavedConfirmBackdrop.addEventListener("click", closeUnsavedConfirmDialog);
   dom.unsavedConfirmCancelBtn.addEventListener("click", () => runPendingUnsavedCloseAction("cancel"));
@@ -1126,12 +1139,18 @@ function bindEvents() {
     runPendingUnsavedCloseAction("save").catch((error) => toast(error.message, "error"));
   });
 
-  dom.closeQrBtn.addEventListener("click", closeQrModal);
-  dom.qrBackdrop.addEventListener("click", closeQrModal);
+  if (dom.closeQrBtn) {
+    dom.closeQrBtn.addEventListener("click", closeQrModal);
+  }
+  if (dom.qrBackdrop) {
+    dom.qrBackdrop.addEventListener("click", closeQrModal);
+  }
 
-  dom.reloadPreviewBtn.addEventListener("click", () => {
-    applyTheme(currentThemeId, true);
-  });
+  if (dom.reloadPreviewBtn) {
+    dom.reloadPreviewBtn.addEventListener("click", () => {
+      applyTheme(currentThemeId, true);
+    });
+  }
 
   dom.logoutBtn.addEventListener("click", async () => {
     try {

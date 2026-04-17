@@ -2,6 +2,83 @@ body {
   overflow-x: hidden;
 }
 
+html.viewer-mode-obs,
+html.viewer-mode-obs body {
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
+}
+
+body.viewer-mode-obs,
+body.viewer-mode-video {
+  background: transparent !important;
+}
+
+.mode-video-background {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  pointer-events: none;
+  background: transparent;
+}
+
+body.viewer-mode-video .mode-video-background {
+  display: block !important;
+}
+
+body.viewer-mode-obs .mode-video-background {
+  display: none !important;
+}
+
+body.viewer-mode-obs .nebula,
+body.viewer-mode-obs .grid-overlay,
+body.viewer-mode-video .nebula,
+body.viewer-mode-video .grid-overlay {
+  display: none;
+}
+
+body.viewer-mode-obs .visitor-shell,
+body.viewer-mode-video .visitor-shell {
+  display: none;
+}
+
+body.viewer-mode-obs .timeline-side-bg,
+body.viewer-mode-video .timeline-side-bg,
+body.viewer-mode-obs .timeline-gradient-bar,
+body.viewer-mode-video .timeline-gradient-bar {
+  display: none;
+}
+
+body.viewer-mode-obs .timeline-fixed-layer,
+body.viewer-mode-video .timeline-fixed-layer {
+  z-index: 36;
+}
+
+body.viewer-mode-obs .mission-overlay,
+body.viewer-mode-video .mission-overlay {
+  width: min(42rem, 96vw);
+  bottom: 20px;
+  z-index: 52;
+}
+
+body.viewer-mode-obs .mission-overlay-line,
+body.viewer-mode-video .mission-overlay-line {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+body.viewer-mode-obs .theme-btn,
+body.viewer-mode-video .theme-btn {
+  display: none !important;
+}
+
+body.viewer-mode-obs .theme-modal,
+body.viewer-mode-video .theme-modal {
+  display: none !important;
+}
+
 .nebula,
 .grid-overlay {
   position: fixed;
@@ -57,6 +134,7 @@ body {
   font-size: 12px;
   letter-spacing: 0.24em;
   color: var(--muted);
+  font-family: var(--font-saira);
 }
 
 .copyright {
@@ -67,6 +145,13 @@ body {
 .hero h1 {
   margin: 10px 0 4px;
   font-size: clamp(24px, 4vw, 44px);
+  font-family: var(--font-ui);
+}
+
+#modelName,
+#payloadName,
+#missionClock {
+  font-family: var(--font-saira);
 }
 
 .hero-title {
@@ -103,7 +188,7 @@ body {
   background: var(--surface-button);
   color: var(--ink);
   cursor: pointer;
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-saira);
 }
 
 .btn.accent {
@@ -135,6 +220,7 @@ body {
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
+  font-family: var(--font-saira);
 }
 
 .pulse-card {
@@ -218,6 +304,39 @@ body {
   opacity: 1;
   transition: opacity 280ms ease;
   will-change: opacity;
+}
+
+.timeline-side-cover {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(32vw, 520px);
+  height: 160px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-18px) scale(1);
+  /* filter: blur(1px); */
+  transition: opacity 260ms ease, transform 260ms ease;
+  will-change: opacity, transform;
+}
+
+.timeline-side-right .timeline-side-cover {
+  left: auto;
+  right: 0;
+  transform: translateX(18px) scale(1);
+}
+
+.timeline-side:not(.telemetry-panel-hidden) .timeline-side-cover {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.timeline-side-cover svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  shape-rendering: geometricPrecision;
 }
 
 .timeline-side .timeline-side-bg {
@@ -339,7 +458,7 @@ body {
 
 .telemetry-engine-label,
 .telemetry-engine-meta {
-  font-family: "Saira", "Orbitron", "Noto Sans SC", sans-serif;
+  font-family: var(--font-saira);
   font-size: 10px;
   letter-spacing: 0.12em;
   color: rgba(232, 235, 240, 0.88);
@@ -446,7 +565,7 @@ body {
 
 .telemetry-gauge-text-root {
   fill: currentColor;
-  font-family: "Saira", "Orbitron", "Noto Sans SC", sans-serif;
+  font-family: var(--font-saira);
   user-select: none;
 }
 
@@ -546,7 +665,7 @@ body {
   gap: 2px;
   text-align: center;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-saira);
 }
 
 .mission-overlay-clock {
@@ -582,11 +701,11 @@ body {
   font-size: var(--overlay-prefix-font-size);
   color: rgba(245, 245, 244, 0.7);
   font-weight: 500;
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-saira);
 }
 
 .mission-overlay-time {
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-saira);
   font-size: var(--overlay-time-font-size);
   color: rgb(255, 255, 255);
   font-weight: 400;

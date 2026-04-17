@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>任务控制台</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/admin.css">
   <link rel="stylesheet" href="/static/css/notification.css">
@@ -22,10 +19,6 @@
           <h1>管理员控制台</h1>
           <div class="head-actions">
             <button class="btn" id="openThemeModalBtn">主题</button>
-            <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
-            <button class="btn icon-btn" id="showVisitorQrBtn" title="游客二维码" aria-label="游客二维码">
-              <span class="icon-mask" style="--icon-url: url('/assets/qrcode.svg');" aria-hidden="true"></span>
-            </button>
             <button class="btn icon-btn" id="reloadPreviewBtn" title="刷新预览" aria-label="刷新预览">
               <span class="icon-mask" style="--icon-url: url('/assets/refresh.svg');" aria-hidden="true"></span>
             </button>
@@ -121,10 +114,40 @@
 
     <section class="preview-col">
       <header class="preview-head">
-        <h2>游客页预览</h2>
-        <a href="/" target="_blank">新标签打开游客页</a>
+        <div class="preview-head-left">
+          <h2>预览</h2>
+          <div class="preview-mode-switch" id="previewModeSwitch" role="tablist" aria-label="预览模式切换">
+            <span class="preview-mode-thumb" id="previewModeThumb" aria-hidden="true"></span>
+            <button class="preview-mode-btn active" id="previewModeVisitorBtn" data-preview-mode="visitor" role="tab" aria-selected="true">游客页</button>
+            <button class="preview-mode-btn" id="previewModeObsBtn" data-preview-mode="obs" role="tab" aria-selected="false">OBS</button>
+            <button class="preview-mode-btn" id="previewModeVideoBtn" data-preview-mode="video" role="tab" aria-selected="false">视频</button>
+          </div>
+        </div>
+        <div class="preview-head-actions">
+          <div class="preview-action-group" data-preview-actions="visitor">
+            <button class="btn" id="copyVisitorUrlBtn">复制游客地址</button>
+            <button class="btn icon-btn" id="showVisitorQrBtn" title="游客二维码" aria-label="游客二维码">
+              <span class="icon-mask" style="--icon-url: url('/assets/qrcode.svg');" aria-hidden="true"></span>
+            </button>
+            <button class="btn" id="openVisitorPreviewBtn">新标签页打开</button>
+          </div>
+          <div class="preview-action-group hidden" data-preview-actions="obs">
+            <button class="btn" id="openObsSettingsBtn">设置</button>
+            <button class="btn" id="openObsExportBtn">导出</button>
+            <button class="btn" id="copyObsUrlBtn">复制页面地址</button>
+            <button class="btn" id="openObsPageBtn">在新标签页打开</button>
+          </div>
+          <div class="preview-action-group hidden" data-preview-actions="video">
+            <button class="btn" id="openVideoSettingsBtn">设置</button>
+            <button class="btn" id="openVideoExportBtn">导出</button>
+            <button class="btn" id="copyVideoUrlBtn">复制页面地址</button>
+            <button class="btn" id="openVideoPageBtn">在新标签页打开</button>
+          </div>
+        </div>
       </header>
-      <iframe class="preview-frame" src="/visitor?embed=1" title="游客页预览"></iframe>
+      <div class="preview-stage" id="previewStage">
+        <iframe class="preview-frame" src="/visitor?embed=1" title="任务页面预览"></iframe>
+      </div>
     </section>
   </main>
 
@@ -153,6 +176,120 @@
       <p id="visitorQrText"></p>
       <div class="row">
         <button class="btn" id="closeQrBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-config-modal hidden" id="previewConfigModal" role="dialog" aria-modal="true" aria-label="预览设置">
+    <div class="config-backdrop" id="previewConfigBackdrop"></div>
+    <div class="preview-config-panel panel">
+      <div class="config-head">
+        <h3 id="previewConfigTitle">预览设置</h3>
+      </div>
+
+      <div class="preview-config-body">
+        <section id="obsConfigPane" class="preview-config-pane">
+          <p class="hint">设置 OBS 页面预览分辨率（默认 16:9）。</p>
+          <div class="preview-config-grid">
+            <label>
+              宽度
+              <input id="obsPreviewWidthInput" type="number" min="320" step="1" value="1920">
+            </label>
+            <label>
+              高度
+              <input id="obsPreviewHeightInput" type="number" min="180" step="1" value="1080">
+            </label>
+          </div>
+        </section>
+
+        <section id="videoConfigPane" class="preview-config-pane hidden">
+          <p class="hint">选择本地视频作为背景并校正时间轴映射。</p>
+          <label class="preview-file-picker">
+            选择本地视频
+            <input id="videoSourceInput" type="file" accept="video/*">
+          </label>
+          <p class="hint" id="videoSourceName">未选择视频</p>
+
+          <div class="preview-config-grid">
+            <label>
+              T0 在视频内时间 (秒)
+              <input id="videoT0Input" type="number" step="0.001" value="0">
+            </label>
+            <label>
+              视频开始对应任务时间 (秒)
+              <input id="videoMissionStartInput" type="number" step="0.001" value="0">
+            </label>
+            <label>
+              视频结束对应任务时间 (秒)
+              <input id="videoMissionEndInput" type="number" step="0.001" value="0">
+            </label>
+          </div>
+          <p class="hint" id="videoMetaHint">视频信息：未加载</p>
+        </section>
+      </div>
+
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closePreviewConfigBtn">关闭</button>
+        </div>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="savePreviewConfigBtn">保存设置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-export-modal hidden" id="previewExportModal" role="dialog" aria-modal="true" aria-label="导出设置">
+    <div class="config-backdrop" id="previewExportBackdrop"></div>
+    <div class="preview-export-panel panel">
+      <div class="config-head">
+        <h3 id="previewExportTitle">导出设置</h3>
+      </div>
+
+      <div class="preview-export-body">
+        <div class="preview-config-grid">
+          <label>
+            开始时间 (秒)
+            <input id="exportStartInput" type="number" step="0.001" value="-60">
+          </label>
+          <label>
+            结束时间 (秒)
+            <input id="exportEndInput" type="number" step="0.001" value="120">
+          </label>
+          <label>
+            帧率
+            <select id="exportFpsSelect">
+              <option value="24">24 FPS</option>
+              <option value="30" selected>30 FPS</option>
+              <option value="60">60 FPS</option>
+            </select>
+          </label>
+          <label>
+            格式
+            <select id="exportFormatSelect">
+              <option value="webm" selected>WEBM (支持透明)</option>
+              <option value="mov">MOV (浏览器支持受限)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="preview-export-progress">
+          <div class="preview-export-progress-track">
+            <div class="preview-export-progress-fill" id="previewExportProgressFill"></div>
+          </div>
+          <div class="preview-export-progress-text" id="previewExportProgressText">准备导出</div>
+        </div>
+        <p class="hint" id="previewExportHint">导出时会按时间轴重绘画面，视频模式将包含背景视频。</p>
+      </div>
+
+      <div class="modal-actions">
+        <div class="modal-actions-left">
+          <button class="btn" id="closePreviewExportBtn">关闭</button>
+        </div>
+        <div class="modal-actions-right">
+          <button class="btn warning" id="cancelPreviewExportBtn">取消导出</button>
+          <button class="btn accent" id="startPreviewExportBtn">开始导出</button>
+        </div>
       </div>
     </div>
   </div>
@@ -408,6 +545,7 @@
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
   <script src="/static/js/admin-editors.js"></script>
+  <script src="/static/js/admin-preview.js"></script>
   <script src="/static/js/admin.js"></script>
 </body>
 </html>

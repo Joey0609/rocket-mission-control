@@ -405,6 +405,43 @@
       .join(";");
   }
 
+  function resolveEngineForceOffThreshold(timelineNodes) {
+    const list = Array.isArray(timelineNodes) ? timelineNodes : [];
+
+    let ignitionTimeBeforeT0 = Number.POSITIVE_INFINITY;
+    for (const node of list) {
+      if (String(node?.kind || "") !== "event") {
+        continue;
+      }
+
+      const name = String(node?.name || "").trim().toLowerCase();
+      const id = String(node?.id || "").trim().toLowerCase();
+      const matched = name.includes("点火")
+        || name.includes("ignition")
+        || name.includes("liftoff")
+        || id.includes("ignition")
+        || id.includes("lift_off")
+        || id.includes("liftoff");
+
+      if (!matched) {
+        continue;
+      }
+
+      const eventTime = toNumber(node?.time, 0);
+      if (eventTime < 0) {
+        ignitionTimeBeforeT0 = Math.min(ignitionTimeBeforeT0, eventTime);
+      }
+    }
+
+    // 若 T0 前存在点火，强制关机阈值是“点火前”；否则回退到 T0 前。
+    if (Number.isFinite(ignitionTimeBeforeT0)) {
+      return ignitionTimeBeforeT0;
+    }
+
+    // 未识别到 T0 前点火事件时回退到 T0 前强制关机。
+    return 0;
+  }
+
   class EngineLayoutWidget {
     constructor(options = {}) {
       this.mountEl = options.mountEl || null;
@@ -583,6 +620,20 @@
         this.activePresetId = activeEntry.preset.id;
         this.renderPreset(activeEntry.preset);
         this.lastStateMap = new Map();
+      }
+
+      const forceOffThreshold = resolveEngineForceOffThreshold(timelineNodes);
+      const shouldForceAllOff = activeMissionSeconds < forceOffThreshold;
+      if (shouldForceAllOff) {
+        const forcedOffStateMap = new Map();
+        activeEntry.stateMap.forEach((_enabled, id) => {
+          forcedOffStateMap.set(id, false);
+        });
+        this.applyStateMap(forcedOffStateMap);
+        if (this.gauge && typeof this.gauge.setValue === "function") {
+          this.gauge.setValue(0);
+        }
+        return;
       }
 
       this.applyStateMap(activeEntry.stateMap);

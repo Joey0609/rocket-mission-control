@@ -1388,20 +1388,32 @@ function startServer(options = {}) {
     return null;
   }
 
-  function buildVisitorUrl(req) {
+  function buildVisitorUrl(req, targetPath = "/") {
     const proto = req.protocol || "http";
     const hostHeader = req.get("host") || `127.0.0.1:${port}`;
     const hostOnly = req.hostname || hostHeader.split(":")[0];
     const hostPort = hostHeader.includes(":") ? hostHeader.split(":").slice(1).join(":") : String(port);
+    const pathName = String(targetPath || "/").startsWith("/") ? String(targetPath || "/") : `/${String(targetPath || "")}`;
 
     if (hostOnly === "127.0.0.1" || hostOnly === "localhost" || hostOnly === "::1") {
       const lan = getLanIPv4();
       if (lan) {
-        return `${proto}://${lan}:${hostPort}/`;
+        return `${proto}://${lan}:${hostPort}${pathName}`;
       }
     }
 
-    return `${proto}://${hostHeader}/`;
+    return `${proto}://${hostHeader}${pathName}`;
+  }
+
+  function resolvePublicPagePath(rawMode) {
+    const mode = String(rawMode || "visitor").trim().toLowerCase();
+    if (mode === "obs") {
+      return "/obs";
+    }
+    if (mode === "video") {
+      return "/video";
+    }
+    return "/";
   }
 
   function newSessionToken() {
@@ -1533,6 +1545,14 @@ function startServer(options = {}) {
     res.sendFile(path.join(rootDir, "templates", "visitor.html"));
   });
 
+  app.get("/obs", (req, res) => {
+    res.sendFile(path.join(rootDir, "templates", "obs.html"));
+  });
+
+  app.get("/video", (req, res) => {
+    res.sendFile(path.join(rootDir, "templates", "video.html"));
+  });
+
   app.get("/admin/login", (req, res) => {
     if (isAuthed(req)) {
       res.redirect("/admin");
@@ -1604,12 +1624,13 @@ function startServer(options = {}) {
   });
 
   app.get("/api/visitor_url", requireAdminApi, (req, res) => {
-    res.json({ url: buildVisitorUrl(req) });
+    const pagePath = resolvePublicPagePath(req.query.mode);
+    res.json({ url: buildVisitorUrl(req, pagePath) });
   });
 
   app.get("/api/visitor_qr", requireAdminApi, async (req, res) => {
     try {
-      const fallbackUrl = buildVisitorUrl(req);
+      const fallbackUrl = buildVisitorUrl(req, resolvePublicPagePath(req.query.mode));
       const raw = String(req.query.url || fallbackUrl);
       const qrBuffer = await QRCode.toBuffer(raw, {
         type: "png",

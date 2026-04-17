@@ -1,4 +1,33 @@
 :root {
+  --font-saira: "Saira", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  --font-ui: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+@font-face {
+  font-family: "Saira";
+  src: url("/assets/fonts/saira-4ad1576d.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira";
+  src: url("/assets/fonts/saira-89521a35.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Saira";
+  src: url("/assets/fonts/saira-ff6f977a.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
   --bg-1: #081425;
   --bg-2: #102e4f;
   --bg-3: #0a6a8f;
@@ -34,15 +63,14 @@ body {
     radial-gradient(circle at 90% 10%, var(--bg-4), transparent 30%),
     linear-gradient(145deg, var(--bg-1), var(--bg-2));
   color: var(--ink);
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-saira);
   transition: background 0.35s ease, color 0.35s ease;
 }
 
 h1,
 h2,
-h3,
-.clock {
-  font-family: "Orbitron", "Manrope", sans-serif;
+h3 {
+  font-family: var(--font-ui);
   letter-spacing: 0.03em;
 }
 

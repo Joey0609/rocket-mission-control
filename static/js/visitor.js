@@ -53,6 +53,10 @@ let currentThemeId = adminDefaultThemeId;
 let themeModalDraftId = currentThemeId;
 let themeModalOriginId = currentThemeId;
 
+let viewMode = "visitor";
+let forceDashboardMode = false;
+let manualMissionOverrideMs = null;
+
 function toast(message, type = "info") {
   if (typeof window.notify === "function") {
     window.notify(message, type);
@@ -62,6 +66,26 @@ function toast(message, type = "info") {
 function queryParam(name) {
   const url = new URL(window.location.href);
   return url.searchParams.get(name);
+}
+
+function initViewMode() {
+  const fromBody = String(document.body?.dataset?.viewMode || "").trim().toLowerCase();
+  const fromQuery = String(queryParam("mode") || "").trim().toLowerCase();
+  const resolved = [fromBody, fromQuery].find((item) => item === "obs" || item === "video") || "visitor";
+
+  viewMode = resolved;
+  forceDashboardMode = viewMode === "obs" || viewMode === "video";
+
+  if (document.body) {
+    document.body.dataset.viewMode = viewMode;
+    document.body.classList.remove("viewer-mode-visitor", "viewer-mode-obs", "viewer-mode-video");
+    document.body.classList.add(`viewer-mode-${viewMode}`);
+  }
+
+  if (document.documentElement) {
+    document.documentElement.classList.remove("viewer-mode-visitor", "viewer-mode-obs", "viewer-mode-video");
+    document.documentElement.classList.add(`viewer-mode-${viewMode}`);
+  }
 }
 
 function setTextIfChanged(element, text) {
@@ -260,6 +284,7 @@ function renderMissionOverlay(state, missionMs) {
   const missionName = missionRaw || model || "待命任务";
   const vehicleName = missionRaw ? model : "";
   const hasVehicle = Boolean(vehicleName);
+  const payloadText = payload;
 
   const overlayClock = formatMissionOverlayClock(missionMs);
   setTextIfChanged(nodes.overlayClockSign, overlayClock.sign);
@@ -272,9 +297,9 @@ function renderMissionOverlay(state, missionMs) {
   setTextIfChanged(nodes.overlayVehicleName, vehicleName);
 
   if (nodes.overlayPayloadChunk) {
-    nodes.overlayPayloadChunk.classList.toggle("hidden", !payload);
+    nodes.overlayPayloadChunk.classList.toggle("hidden", !payloadText);
   }
-  setTextIfChanged(nodes.overlayPayloadChunk, payload ? `${payload}` : "");
+  setTextIfChanged(nodes.overlayPayloadChunk, payloadText ? `${payloadText}` : "");
 }
 
 function currentServerMissionMs(nowPerf) {
@@ -285,6 +310,10 @@ function currentServerMissionMs(nowPerf) {
 }
 
 function getDisplayMissionMs(nowPerf) {
+  if (manualMissionOverrideMs !== null) {
+    return manualMissionOverrideMs;
+  }
+
   const target = currentServerMissionMs(nowPerf);
 
   if (!displaySmooth.active) {
@@ -370,6 +399,35 @@ function ensureTelemetryGaugePanel() {
   });
 }
 
+function ensureTelemetryCoverLayers() {
+  for (const [sideName, mount] of [["left", nodes.telemetryGaugesLeft], ["right", nodes.telemetryGaugesRight]]) {
+    const side = mount?.closest?.(".timeline-side");
+    if (!side || side.querySelector(".timeline-side-cover")) {
+      continue;
+    }
+
+    const gradientId = `telemetryCoverGradient-${sideName}`;
+    const isRight = sideName === "right";
+    const transform = isRight ? "translate(600 0) scale(-1 1)" : "";
+    const foldRadius = 30;
+    const foldInset = 372;
+
+    side.insertAdjacentHTML("afterbegin", `
+      <svg class="timeline-side-cover ${isRight ? "is-right" : "is-left"}" viewBox="0 0 600 180" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="black" stop-opacity="0.5"></stop>
+            <stop offset="30%" stop-color="black" stop-opacity="0.3"></stop>
+            <stop offset="70%" stop-color="black" stop-opacity="0.01"></stop>
+            <stop offset="100%" stop-color="black" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+        <path d="M 0 0 L ${foldInset - foldRadius} 0 Q ${foldInset} 0 ${foldInset + foldRadius * 0.7} ${foldRadius * 0.7} L 550 180 L 0 180 Z" fill="url(#${gradientId})" transform="${transform}"></path>
+      </svg>
+    `);
+  }
+}
+
 function setTelemetryDashboardVisibility(visible) {
   for (const mount of [nodes.telemetryGaugesLeft, nodes.telemetryGaugesRight]) {
     const side = mount?.closest?.(".timeline-side");
@@ -409,7 +467,7 @@ function renderTelemetryGauges(state, missionSeconds) {
     return;
   }
 
-  const telemetryEnabled = Boolean(state?.telemetry_enabled);
+  const telemetryEnabled = forceDashboardMode ? true : Boolean(state?.telemetry_enabled);
   setTelemetryDashboardVisibility(telemetryEnabled);
   telemetryGaugePanel.setProfile(state?.telemetry_profile || null);
   if (!telemetryEnabled) {
@@ -493,6 +551,35 @@ function tickClocks() {
   }
 }
 
+function setManualMissionSeconds(seconds) {
+  if (!Number.isFinite(seconds)) {
+    return;
+  }
+  manualMissionOverrideMs = Number(seconds) * 1000;
+  displaySmooth.active = false;
+  tickClocks();
+}
+
+function clearManualMissionSeconds() {
+  manualMissionOverrideMs = null;
+  displaySmooth.active = false;
+  tickClocks();
+}
+
+function getCurrentMissionSeconds() {
+  return getDisplayMissionMs(performance.now()) / 1000;
+}
+
+window.MissionViewerBridge = {
+  getMode: () => viewMode,
+  getCurrentMissionSeconds,
+  setManualMissionSeconds,
+  clearManualMissionSeconds,
+  applyTheme,
+  getThemeId: () => currentThemeId,
+  getStateSnapshot: () => (lastState ? JSON.parse(JSON.stringify(lastState)) : null),
+};
+
 function bindThemeModal() {
   nodes.openThemeModalBtn.addEventListener("click", openThemeModal);
   nodes.themeBackdrop.addEventListener("click", () => closeThemeModal(false));
@@ -516,10 +603,12 @@ function bindThemeModal() {
 }
 
 async function init() {
+  initViewMode();
   await loadDefaultTheme();
   bindThemeModal();
   ensureTimelineRenderer();
   ensureTelemetryGaugePanel();
+  ensureTelemetryCoverLayers();
 
   try {
     const initialState = await loadInitialState();

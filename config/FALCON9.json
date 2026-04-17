@@ -86,7 +86,7 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "",
+    "payload": "asd",
     "recovery_capable": true,
     "recovery_enabled": false,
     "stage_count": 2,
