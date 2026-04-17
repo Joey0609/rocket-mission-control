@@ -174,9 +174,15 @@
     }
 
     getSvgWidth() {
+      const mountWidth = this.mountEl
+        ? Number(this.mountEl.clientWidth || this.mountEl.offsetWidth || 0)
+        : 0;
+      if (Number.isFinite(mountWidth) && mountWidth > 0) {
+        return Math.max(1, Math.round(mountWidth));
+      }
+
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1920;
-      const mountWidth = this.mountEl ? this.mountEl.getBoundingClientRect().width : 0;
-      return Math.max(1, Math.round(Math.max(viewportWidth, mountWidth)));
+      return Math.max(1, Math.round(viewportWidth));
     }
 
     updateSize() {

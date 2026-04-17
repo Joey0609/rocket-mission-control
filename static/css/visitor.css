@@ -2,6 +2,30 @@ body {
   overflow-x: hidden;
 }
 
+body.viewer-mode-obs,
+body.viewer-mode-video {
+  overflow: hidden;
+}
+
+.viewer-layout-root {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: center center;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 40;
+}
+
+body.viewer-mode-obs .viewer-layout-root,
+body.viewer-mode-video .viewer-layout-root {
+  display: block;
+}
+
 html.viewer-mode-obs,
 html.viewer-mode-obs body {
   background: transparent !important;
@@ -56,11 +80,33 @@ body.viewer-mode-video .timeline-fixed-layer {
   z-index: 36;
 }
 
+body.viewer-mode-obs .viewer-layout-root .timeline-fixed-layer,
+body.viewer-mode-video .viewer-layout-root .timeline-fixed-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 body.viewer-mode-obs .mission-overlay,
 body.viewer-mode-video .mission-overlay {
   width: min(42rem, 96vw);
   bottom: 20px;
   z-index: 52;
+}
+
+body.viewer-mode-obs .viewer-layout-root .mission-overlay,
+body.viewer-mode-video .viewer-layout-root .mission-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  width: 672px;
+  transform: translateX(-50%);
+  z-index: 52;
+  --overlay-prefix-width: 44px;
+  --overlay-prefix-font-size: 34px;
+  --overlay-time-font-size: 44px;
+  --overlay-line-font-size: 16px;
 }
 
 body.viewer-mode-obs .mission-overlay-line,
@@ -306,6 +352,12 @@ body.viewer-mode-video .theme-modal {
   will-change: opacity;
 }
 
+body.viewer-mode-obs .viewer-layout-root .timeline-side,
+body.viewer-mode-video .viewer-layout-root .timeline-side {
+  width: 560px;
+  height: 190px;
+}
+
 .timeline-side-cover {
   position: absolute;
   left: 0;
@@ -319,6 +371,12 @@ body.viewer-mode-video .theme-modal {
   /* filter: blur(1px); */
   transition: opacity 260ms ease, transform 260ms ease;
   will-change: opacity, transform;
+}
+
+body.viewer-mode-obs .viewer-layout-root .timeline-side-cover,
+body.viewer-mode-video .viewer-layout-root .timeline-side-cover {
+  width: 520px;
+  height: 160px;
 }
 
 .timeline-side-right .timeline-side-cover {
@@ -375,6 +433,12 @@ body.viewer-mode-video .theme-modal {
       color-mix(in srgb, var(--surface-axis-tag) 88%, transparent) 0%,
       color-mix(in srgb, var(--surface-axis) 72%, transparent) 62%,
       rgba(0, 0, 0, 0) 100%);
+}
+
+body.viewer-mode-obs .viewer-layout-root .timeline-side-bg,
+body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
+  width: 520px;
+  height: 126px;
 }
 
 .timeline-side-left .timeline-side-bg {
@@ -666,6 +730,10 @@ body.viewer-mode-video .theme-modal {
   text-align: center;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
   font-family: var(--font-saira);
+  --overlay-prefix-width: clamp(24px, calc(24px + (100vw - 1360px) * 0.0571428571), 44px);
+  --overlay-prefix-font-size: clamp(16px, calc(16px + (100vw - 1360px) * 0.0514285714), 34px);
+  --overlay-time-font-size: clamp(28px, calc(28px + (100vw - 1360px) * 0.0457142857), 44px);
+  --overlay-line-font-size: clamp(12px, calc(12px + (100vw - 1360px) * 0.0114285714), 16px);
 }
 
 .mission-overlay-clock {
@@ -674,10 +742,6 @@ body.viewer-mode-video .theme-modal {
   gap: 10px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  --overlay-prefix-width: clamp(24px, calc(24px + (100vw - 1360px) * 0.0571428571), 44px);
-  --overlay-prefix-font-size: clamp(16px, calc(16px + (100vw - 1360px) * 0.0514285714), 34px);
-  --overlay-time-font-size: clamp(28px, calc(28px + (100vw - 1360px) * 0.0457142857), 44px);
-  --overlay-line-font-size: clamp(12px, calc(12px + (100vw - 1360px) * 0.0114285714), 16px);
 }
 
 .overlay-hold-indicator {
@@ -729,6 +793,12 @@ body.viewer-mode-video .theme-modal {
   width: 100vw;
   height: 200px;
   overflow: hidden;
+}
+
+body.viewer-mode-obs .viewer-layout-root .timeline-mount,
+body.viewer-mode-video .viewer-layout-root .timeline-mount {
+  width: 1920px;
+  height: 200px;
 }
 
 .mission-timeline-svg {

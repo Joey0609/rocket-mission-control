@@ -192,18 +192,32 @@
           <p class="hint">设置 OBS 页面预览分辨率（默认 16:9）。</p>
           <div class="preview-config-grid">
             <label>
-              宽度
-              <input id="obsPreviewWidthInput" type="number" min="320" step="1" value="1920">
-            </label>
-            <label>
-              高度
-              <input id="obsPreviewHeightInput" type="number" min="180" step="1" value="1080">
+              清晰度
+              <select id="obsResolutionPresetSelect">
+                <option value="480p">480P (854 x 480)</option>
+                <option value="720p">720P (1280 x 720)</option>
+                <option value="1080p" selected>1080P (1920 x 1080)</option>
+                <option value="2k">2K (2560 x 1440)</option>
+                <option value="4k">4K (3840 x 2160)</option>
+              </select>
             </label>
           </div>
         </section>
 
         <section id="videoConfigPane" class="preview-config-pane hidden">
           <p class="hint">选择本地视频作为背景并校正时间轴映射。</p>
+          <div class="preview-config-grid">
+            <label>
+              清晰度
+              <select id="videoResolutionPresetSelect">
+                <option value="480p">480P (854 x 480)</option>
+                <option value="720p">720P (1280 x 720)</option>
+                <option value="1080p" selected>1080P (1920 x 1080)</option>
+                <option value="2k">2K (2560 x 1440)</option>
+                <option value="4k">4K (3840 x 2160)</option>
+              </select>
+            </label>
+          </div>
           <label class="preview-file-picker">
             选择本地视频
             <input id="videoSourceInput" type="file" accept="video/*">

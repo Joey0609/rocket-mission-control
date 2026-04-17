@@ -6,6 +6,15 @@
     video: "/video",
   };
 
+  const RESOLUTION_PRESETS = [
+    { id: "480p", label: "480P", width: 854, height: 480 },
+    { id: "720p", label: "720P", width: 1280, height: 720 },
+    { id: "1080p", label: "1080P", width: 1920, height: 1080 },
+    { id: "2k", label: "2K", width: 2560, height: 1440 },
+    { id: "4k", label: "4K", width: 3840, height: 2160 },
+  ];
+  const DEFAULT_PRESET_ID = "1080p";
+
   const dom = {
     previewFrame: document.querySelector(".preview-frame"),
     previewStage: document.getElementById("previewStage"),
@@ -30,8 +39,8 @@
     previewConfigTitle: document.getElementById("previewConfigTitle"),
     obsConfigPane: document.getElementById("obsConfigPane"),
     videoConfigPane: document.getElementById("videoConfigPane"),
-    obsPreviewWidthInput: document.getElementById("obsPreviewWidthInput"),
-    obsPreviewHeightInput: document.getElementById("obsPreviewHeightInput"),
+    obsResolutionPresetSelect: document.getElementById("obsResolutionPresetSelect"),
+    videoResolutionPresetSelect: document.getElementById("videoResolutionPresetSelect"),
     videoSourceInput: document.getElementById("videoSourceInput"),
     videoSourceName: document.getElementById("videoSourceName"),
     videoT0Input: document.getElementById("videoT0Input"),
@@ -66,7 +75,13 @@
     configMode: "obs",
     exportMode: "obs",
     exportBusy: false,
+    obsResolutionPresetId: DEFAULT_PRESET_ID,
     obsResolution: {
+      width: 1920,
+      height: 1080,
+    },
+    videoResolutionPresetId: DEFAULT_PRESET_ID,
+    videoResolution: {
       width: 1920,
       height: 1080,
     },
@@ -74,8 +89,8 @@
       file: null,
       fileName: "",
       duration: Number.NaN,
-      width: 1920,
-      height: 1080,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
       calibration: {
         t0VideoSeconds: 0,
         missionStartSeconds: 0,
@@ -105,6 +120,18 @@
   function clampInt(value, min, max, fallback) {
     const parsed = toInt(value, fallback);
     return Math.max(min, Math.min(max, parsed));
+  }
+
+  function getResolutionPresetById(id) {
+    const target = String(id || "").trim().toLowerCase();
+    return RESOLUTION_PRESETS.find((item) => item.id === target) || RESOLUTION_PRESETS.find((item) => item.id === DEFAULT_PRESET_ID) || RESOLUTION_PRESETS[0];
+  }
+
+  function applyResolutionPreset(selectEl, presetId) {
+    if (!selectEl) {
+      return;
+    }
+    selectEl.value = getResolutionPresetById(presetId).id;
   }
 
   function getActiveButton() {
@@ -153,6 +180,11 @@
     if (state.themeId) {
       search.set("theme", state.themeId);
     }
+    if (targetMode === "obs") {
+      search.set("res", state.obsResolutionPresetId);
+    } else if (targetMode === "video") {
+      search.set("res", state.videoResolutionPresetId);
+    }
     if (withCacheBust) {
       search.set("t", String(Date.now()));
     }
@@ -179,6 +211,11 @@
           const url = new URL(String(data.url), window.location.origin);
           if (state.themeId) {
             url.searchParams.set("theme", state.themeId);
+          }
+          if (targetMode === "obs") {
+            url.searchParams.set("res", state.obsResolutionPresetId);
+          } else if (targetMode === "video") {
+            url.searchParams.set("res", state.videoResolutionPresetId);
           }
           return url.toString();
         }
@@ -215,9 +252,7 @@
       return;
     }
 
-    const source = state.mode === "obs"
-      ? state.obsResolution
-      : { width: state.video.width, height: state.video.height };
+    const source = state.mode === "obs" ? state.obsResolution : state.videoResolution;
     const width = Math.max(320, toInt(source.width, 1920));
     const height = Math.max(180, toInt(source.height, 1080));
 
@@ -263,8 +298,8 @@
     dom.obsConfigPane.classList.toggle("hidden", state.configMode !== "obs");
     dom.videoConfigPane.classList.toggle("hidden", state.configMode !== "video");
 
-    dom.obsPreviewWidthInput.value = String(Math.max(320, toInt(state.obsResolution.width, 1920)));
-    dom.obsPreviewHeightInput.value = String(Math.max(180, toInt(state.obsResolution.height, 1080)));
+    applyResolutionPreset(dom.obsResolutionPresetSelect, state.obsResolutionPresetId);
+    applyResolutionPreset(dom.videoResolutionPresetSelect, state.videoResolutionPresetId);
 
     renderVideoConfigFields();
     dom.previewConfigModal.classList.remove("hidden");
@@ -330,15 +365,18 @@
   function renderVideoConfigFields() {
     suppressVideoCalibrationUpdate = true;
 
+    applyResolutionPreset(dom.videoResolutionPresetSelect, state.videoResolutionPresetId);
+
     dom.videoSourceName.textContent = state.video.fileName
       ? `已选择：${state.video.fileName}`
       : "未选择视频";
 
     const duration = getVideoDurationForSync();
+    const outputPreset = getResolutionPresetById(state.videoResolutionPresetId);
     if (Number.isFinite(state.video.duration) && state.video.duration > 0) {
-      dom.videoMetaHint.textContent = `视频信息：${Math.max(1, toInt(state.video.width, 1920))} x ${Math.max(1, toInt(state.video.height, 1080))}，时长 ${state.video.duration.toFixed(3)} 秒`;
+      dom.videoMetaHint.textContent = `视频信息：${Math.max(1, toInt(state.video.sourceWidth, 1920))} x ${Math.max(1, toInt(state.video.sourceHeight, 1080))}，时长 ${state.video.duration.toFixed(3)} 秒；输出 ${outputPreset.label} (${outputPreset.width} x ${outputPreset.height})`;
     } else {
-      dom.videoMetaHint.textContent = "视频信息：未加载";
+      dom.videoMetaHint.textContent = `视频信息：未加载；输出 ${outputPreset.label} (${outputPreset.width} x ${outputPreset.height})`;
     }
 
     dom.videoT0Input.value = String(round3(state.video.calibration.t0VideoSeconds));
@@ -399,8 +437,8 @@
     if (mode === "video") {
       return {
         resolution: {
-          width: state.video.width,
-          height: state.video.height,
+          width: state.videoResolution.width,
+          height: state.videoResolution.height,
         },
         calibration: {
           ...state.video.calibration,
@@ -455,9 +493,11 @@
 
   async function savePreviewConfig() {
     if (state.configMode === "obs") {
+      const preset = getResolutionPresetById(dom.obsResolutionPresetSelect?.value || state.obsResolutionPresetId);
+      state.obsResolutionPresetId = preset.id;
       state.obsResolution = {
-        width: clampInt(dom.obsPreviewWidthInput.value, 320, 7680, 1920),
-        height: clampInt(dom.obsPreviewHeightInput.value, 180, 4320, 1080),
+        width: preset.width,
+        height: preset.height,
       };
 
       if (state.mode === "obs") {
@@ -465,9 +505,16 @@
         sendCurrentModeConfig();
       }
       closePreviewConfig();
-      notify("OBS 预览设置已更新", "success");
+      notify(`OBS 预览设置已更新 (${preset.label})`, "success");
       return;
     }
+
+    const videoPreset = getResolutionPresetById(dom.videoResolutionPresetSelect?.value || state.videoResolutionPresetId);
+    state.videoResolutionPresetId = videoPreset.id;
+    state.videoResolution = {
+      width: videoPreset.width,
+      height: videoPreset.height,
+    };
 
     const file = dom.videoSourceInput.files && dom.videoSourceInput.files[0]
       ? dom.videoSourceInput.files[0]
@@ -483,10 +530,10 @@
           state.video.duration = meta.duration;
         }
         if (Number.isFinite(meta.width) && meta.width > 0) {
-          state.video.width = Math.max(320, toInt(meta.width, 1920));
+          state.video.sourceWidth = Math.max(1, toInt(meta.width, 1920));
         }
         if (Number.isFinite(meta.height) && meta.height > 0) {
-          state.video.height = Math.max(180, toInt(meta.height, 1080));
+          state.video.sourceHeight = Math.max(1, toInt(meta.height, 1080));
         }
 
         syncVideoCalibration("start");
@@ -509,7 +556,7 @@
 
     renderVideoConfigFields();
     closePreviewConfig();
-    notify("视频页面设置已更新", "success");
+    notify(`视频页面设置已更新 (${videoPreset.label})`, "success");
   }
 
   async function copyModeUrl(mode) {
@@ -602,10 +649,10 @@
         state.video.duration = Number(payload.duration);
       }
       if (Number.isFinite(payload.width) && payload.width > 0) {
-        state.video.width = Math.max(320, toInt(payload.width, 1920));
+        state.video.sourceWidth = Math.max(1, toInt(payload.width, 1920));
       }
       if (Number.isFinite(payload.height) && payload.height > 0) {
-        state.video.height = Math.max(180, toInt(payload.height, 1080));
+        state.video.sourceHeight = Math.max(1, toInt(payload.height, 1080));
       }
 
       syncVideoCalibration("start");
@@ -702,6 +749,8 @@
           state.video.file = null;
           state.video.fileName = "";
           state.video.duration = Number.NaN;
+          state.video.sourceWidth = 1920;
+          state.video.sourceHeight = 1080;
           renderVideoConfigFields();
           return;
         }
@@ -715,10 +764,10 @@
               state.video.duration = meta.duration;
             }
             if (Number.isFinite(meta.width) && meta.width > 0) {
-              state.video.width = Math.max(320, toInt(meta.width, 1920));
+              state.video.sourceWidth = Math.max(1, toInt(meta.width, 1920));
             }
             if (Number.isFinite(meta.height) && meta.height > 0) {
-              state.video.height = Math.max(180, toInt(meta.height, 1080));
+              state.video.sourceHeight = Math.max(1, toInt(meta.height, 1080));
             }
 
             // 选中文件时立即刷新时间校正参数，避免用户还需额外点保存才看到时长回填。

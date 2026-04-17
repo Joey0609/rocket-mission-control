@@ -4,6 +4,14 @@
     return;
   }
 
+  const RESOLUTION_PRESETS = {
+    "480p": { width: 854, height: 480 },
+    "720p": { width: 1280, height: 720 },
+    "1080p": { width: 1920, height: 1080 },
+    "2k": { width: 2560, height: 1440 },
+    "4k": { width: 3840, height: 2160 },
+  };
+
   const bridge = window.MissionViewerBridge || null;
   if (!bridge) {
     return;
@@ -78,6 +86,26 @@
   function safeFormatSeconds(value) {
     const numeric = toNumber(value, 0);
     return `${Math.round(numeric * 1000) / 1000}`;
+  }
+
+  function getResolutionFromQuery() {
+    let res = "";
+    try {
+      const url = new URL(window.location.href);
+      res = String(url.searchParams.get("res") || "").trim().toLowerCase();
+    } catch {
+      res = "";
+    }
+
+    if (!res || !Object.prototype.hasOwnProperty.call(RESOLUTION_PRESETS, res)) {
+      return null;
+    }
+
+    const preset = RESOLUTION_PRESETS[res];
+    return {
+      width: preset.width,
+      height: preset.height,
+    };
   }
 
   function applyForcedResolution(input) {
@@ -640,6 +668,13 @@
   }
 
   function init() {
+    if (mode === "obs" || mode === "video") {
+      const queryResolution = getResolutionFromQuery();
+      if (queryResolution) {
+        applyForcedResolution(queryResolution);
+      }
+    }
+
     window.addEventListener("message", handleMessage);
     startVideoSyncTimer();
 
