@@ -42,34 +42,9 @@
     layoutRoot.appendChild(timelineLayer);
   }
 
-  function readStylePx(element, propertyName) {
-    const raw = String(element?.style?.[propertyName] || "").trim();
-    if (!raw) {
-      return Number.NaN;
-    }
-    const parsed = Number.parseFloat(raw);
-    return Number.isFinite(parsed) ? parsed : Number.NaN;
-  }
-
   function getTargetViewportSize() {
-    const widthCandidates = [
-      readStylePx(document.documentElement, "width"),
-      readStylePx(document.body, "width"),
-      document.documentElement.clientWidth,
-      window.innerWidth,
-      BASE_WIDTH,
-    ];
-
-    const heightCandidates = [
-      readStylePx(document.documentElement, "height"),
-      readStylePx(document.body, "height"),
-      document.documentElement.clientHeight,
-      window.innerHeight,
-      BASE_HEIGHT,
-    ];
-
-    const width = widthCandidates.find((value) => Number.isFinite(value) && value > 0) || BASE_WIDTH;
-    const height = heightCandidates.find((value) => Number.isFinite(value) && value > 0) || BASE_HEIGHT;
+    const width = window.innerWidth || document.documentElement.clientWidth || BASE_WIDTH;
+    const height = window.innerHeight || document.documentElement.clientHeight || BASE_HEIGHT;
 
     return {
       width,
@@ -95,20 +70,6 @@
       updateLayoutScale();
     });
   }
-
-  const styleObserver = new MutationObserver(() => {
-    scheduleLayoutUpdate();
-  });
-
-  styleObserver.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["style"],
-  });
-
-  styleObserver.observe(document.body, {
-    attributes: true,
-    attributeFilter: ["style"],
-  });
 
   window.addEventListener("resize", scheduleLayoutUpdate);
   window.addEventListener("orientationchange", scheduleLayoutUpdate);

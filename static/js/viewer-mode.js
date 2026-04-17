@@ -11,6 +11,11 @@
     "2k": { width: 2560, height: 1440 },
     "4k": { width: 3840, height: 2160 },
   };
+  const VIDEO_FREEZE_EPSILON_SECONDS = 0.05;
+  const VIDEO_META_STORAGE_KEY = "mission-viewer.video-meta";
+  const VIDEO_FILE_DB_NAME = "mission-viewer-video-files";
+  const VIDEO_FILE_STORE_NAME = "assets";
+  const VIDEO_FILE_STORE_KEY = "selected-video";
 
   const bridge = window.MissionViewerBridge || null;
   if (!bridge) {
@@ -88,6 +93,76 @@
     return `${Math.round(numeric * 1000) / 1000}`;
   }
 
+  function readStoredVideoMeta() {
+    try {
+      const raw = window.localStorage.getItem(VIDEO_META_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function openVideoFileDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(VIDEO_FILE_DB_NAME, 1);
+
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(VIDEO_FILE_STORE_NAME)) {
+          database.createObjectStore(VIDEO_FILE_STORE_NAME);
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("无法打开视频文件存储"));
+    });
+  }
+
+  async function readStoredVideoFile() {
+    try {
+      const database = await openVideoFileDatabase();
+      return await new Promise((resolve, reject) => {
+        const transaction = database.transaction(VIDEO_FILE_STORE_NAME, "readonly");
+        const request = transaction.objectStore(VIDEO_FILE_STORE_NAME).get(VIDEO_FILE_STORE_KEY);
+        request.onsuccess = () => {
+          database.close();
+          resolve(request.result || null);
+        };
+        request.onerror = () => {
+          database.close();
+          reject(request.error || new Error("读取视频文件失败"));
+        };
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  function fileFromStoredRecord(record) {
+    if (!record) {
+      return null;
+    }
+    if (record instanceof File) {
+      return record;
+    }
+    const blob = record.blob instanceof Blob ? record.blob : null;
+    const fileBlob = blob || (record instanceof Blob ? record : null);
+    if (!fileBlob) {
+      return null;
+    }
+
+    const name = String(record.fileName || record.name || "local-video");
+    const type = String(record.fileType || fileBlob.type || "video/*");
+    return new File([fileBlob], name, {
+      type,
+      lastModified: Number(record.lastModified || Date.now()),
+    });
+  }
+
   function getResolutionFromQuery() {
     let res = "";
     try {
@@ -146,6 +221,70 @@
     return missionSeconds - state.video.calibration.missionStartSeconds;
   }
 
+  function applyStoredVideoMeta(meta, options = {}) {
+    if (!meta || typeof meta !== "object") {
+      return;
+    }
+
+    if (meta.calibration && typeof meta.calibration === "object") {
+      applyVideoCalibration(meta.calibration);
+    }
+
+    const resolution = meta.resolution && typeof meta.resolution === "object" ? meta.resolution : null;
+    if (resolution && options.applyResolution !== false) {
+      applyForcedResolution(resolution);
+    }
+  }
+
+  async function hydrateStoredVideoSelection(options = {}) {
+    const meta = readStoredVideoMeta();
+    const storedFile = await readStoredVideoFile();
+    const file = fileFromStoredRecord(storedFile);
+    if (!file) {
+      return false;
+    }
+
+    if (meta) {
+      applyStoredVideoMeta(meta, options);
+    }
+
+    await loadVideoFile(file, meta?.fileName || file.name || "local-video");
+
+    if (meta?.calibration && typeof meta.calibration === "object") {
+      applyVideoCalibration(meta.calibration);
+    }
+
+    if (meta?.resolution && typeof meta.resolution === "object" && options.applyResolution !== false) {
+      applyForcedResolution(meta.resolution);
+    }
+
+    return true;
+  }
+
+  function getVideoPlaybackPlan(missionSeconds) {
+    if (!Number.isFinite(state.video.duration) || state.video.duration <= 0) {
+      return null;
+    }
+
+    const startSeconds = Number(state.video.calibration.missionStartSeconds || 0);
+    const endSeconds = Number(state.video.calibration.missionEndSeconds || 0);
+    const targetSeconds = missionToVideoSeconds(missionSeconds);
+    const lastFrameSeconds = Math.max(0, state.video.duration - VIDEO_FREEZE_EPSILON_SECONDS);
+
+    if (missionSeconds < startSeconds || targetSeconds < 0) {
+      return { mode: "hold", time: 0 };
+    }
+
+    if (missionSeconds >= endSeconds || targetSeconds >= lastFrameSeconds) {
+      return { mode: "hold", time: lastFrameSeconds };
+    }
+
+    return {
+      mode: "play",
+      time: clamp(targetSeconds, 0, lastFrameSeconds),
+    };
+  }
+
   async function loadVideoFile(file, explicitName = "") {
     if (!nodes.videoBackground || !file) {
       return;
@@ -202,7 +341,12 @@
       return;
     }
 
-    const target = clamp(missionToVideoSeconds(missionSeconds), 0, state.video.duration);
+    const plan = getVideoPlaybackPlan(missionSeconds);
+    if (!plan) {
+      return;
+    }
+
+    const target = plan.time;
 
     if (Math.abs(nodes.videoBackground.currentTime - target) < 0.01) {
       return;
@@ -234,10 +378,23 @@
     }
 
     const missionSeconds = toNumber(bridge.getCurrentMissionSeconds?.(), 0);
-    const target = clamp(missionToVideoSeconds(missionSeconds), 0, state.video.duration);
+    const plan = getVideoPlaybackPlan(missionSeconds);
+    if (!plan) {
+      return;
+    }
 
-    if (Math.abs(nodes.videoBackground.currentTime - target) > 0.08) {
-      nodes.videoBackground.currentTime = target;
+    if (plan.mode === "hold") {
+      if (!nodes.videoBackground.paused) {
+        nodes.videoBackground.pause();
+      }
+      if (Math.abs(nodes.videoBackground.currentTime - plan.time) > 0.01) {
+        nodes.videoBackground.currentTime = plan.time;
+      }
+      return;
+    }
+
+    if (Math.abs(nodes.videoBackground.currentTime - plan.time) > 0.08) {
+      nodes.videoBackground.currentTime = plan.time;
     }
 
     if (nodes.videoBackground.paused) {
@@ -667,12 +824,18 @@
     }, 120);
   }
 
-  function init() {
+  async function init() {
+    let hasQueryResolution = false;
     if (mode === "obs" || mode === "video") {
       const queryResolution = getResolutionFromQuery();
       if (queryResolution) {
+        hasQueryResolution = true;
         applyForcedResolution(queryResolution);
       }
+    }
+
+    if (mode === "video") {
+      await hydrateStoredVideoSelection({ applyResolution: !hasQueryResolution });
     }
 
     window.addEventListener("message", handleMessage);
@@ -684,5 +847,9 @@
     });
   }
 
-  init();
+  init().catch((error) => {
+    postToParent("mission-preview:export-error", {
+      message: error?.message || "视频页初始化失败",
+    });
+  });
 })();

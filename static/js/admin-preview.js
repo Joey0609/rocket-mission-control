@@ -14,6 +14,10 @@
     { id: "4k", label: "4K", width: 3840, height: 2160 },
   ];
   const DEFAULT_PRESET_ID = "1080p";
+  const VIDEO_META_STORAGE_KEY = "mission-viewer.video-meta";
+  const VIDEO_FILE_DB_NAME = "mission-viewer-video-files";
+  const VIDEO_FILE_STORE_NAME = "assets";
+  const VIDEO_FILE_STORE_KEY = "selected-video";
 
   const dom = {
     previewFrame: document.querySelector(".preview-frame"),
@@ -120,6 +124,127 @@
   function clampInt(value, min, max, fallback) {
     const parsed = toInt(value, fallback);
     return Math.max(min, Math.min(max, parsed));
+  }
+
+  function readStoredVideoMeta() {
+    try {
+      const raw = window.localStorage.getItem(VIDEO_META_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStoredVideoMeta(meta) {
+    try {
+      window.localStorage.setItem(VIDEO_META_STORAGE_KEY, JSON.stringify({
+        version: 1,
+        updatedAt: Date.now(),
+        ...meta,
+      }));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  function clearStoredVideoMeta() {
+    try {
+      window.localStorage.removeItem(VIDEO_META_STORAGE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  function openVideoFileDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(VIDEO_FILE_DB_NAME, 1);
+
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(VIDEO_FILE_STORE_NAME)) {
+          database.createObjectStore(VIDEO_FILE_STORE_NAME);
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("无法打开视频文件存储"));
+    });
+  }
+
+  async function saveVideoFileToStore(file) {
+    if (!(file instanceof File)) {
+      return;
+    }
+
+    const database = await openVideoFileDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(VIDEO_FILE_STORE_NAME, "readwrite");
+      const store = transaction.objectStore(VIDEO_FILE_STORE_NAME);
+      store.put(file, VIDEO_FILE_STORE_KEY);
+      transaction.oncomplete = () => {
+        database.close();
+        resolve();
+      };
+      transaction.onerror = () => {
+        database.close();
+        reject(transaction.error || new Error("保存视频文件失败"));
+      };
+    });
+  }
+
+  async function clearVideoFileStore() {
+    try {
+      const database = await openVideoFileDatabase();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction(VIDEO_FILE_STORE_NAME, "readwrite");
+        transaction.objectStore(VIDEO_FILE_STORE_NAME).delete(VIDEO_FILE_STORE_KEY);
+        transaction.oncomplete = () => {
+          database.close();
+          resolve();
+        };
+        transaction.onerror = () => {
+          database.close();
+          reject(transaction.error || new Error("清除视频文件失败"));
+        };
+      });
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  function buildStoredVideoMeta() {
+    return {
+      fileName: state.video.fileName || "",
+      calibration: {
+        ...state.video.calibration,
+      },
+      resolutionPresetId: state.videoResolutionPresetId,
+      resolution: {
+        ...state.videoResolution,
+      },
+    };
+  }
+
+  function persistVideoMeta() {
+    writeStoredVideoMeta(buildStoredVideoMeta());
+  }
+
+  async function persistSelectedVideoAsset() {
+    if (state.video.file instanceof File) {
+      await saveVideoFileToStore(state.video.file);
+      persistVideoMeta();
+      return;
+    }
+
+    clearStoredVideoMeta();
+    await clearVideoFileStore();
   }
 
   function getResolutionPresetById(id) {
@@ -421,6 +546,7 @@
       missionEndSeconds: round3(missionEnd),
     };
 
+    persistVideoMeta();
     renderVideoConfigFields();
   }
 
@@ -537,6 +663,7 @@
         }
 
         syncVideoCalibration("start");
+        await persistSelectedVideoAsset();
       } catch (error) {
         notify(error?.message || "读取视频失败", "error");
         return;
@@ -553,6 +680,8 @@
       applyPreviewResolution();
       sendCurrentModeConfig();
     }
+
+    persistVideoMeta();
 
     renderVideoConfigFields();
     closePreviewConfig();
@@ -751,6 +880,7 @@
           state.video.duration = Number.NaN;
           state.video.sourceWidth = 1920;
           state.video.sourceHeight = 1080;
+          persistSelectedVideoAsset().catch(() => {});
           renderVideoConfigFields();
           return;
         }
@@ -772,6 +902,7 @@
 
             // 选中文件时立即刷新时间校正参数，避免用户还需额外点保存才看到时长回填。
             syncVideoCalibration("start");
+            persistSelectedVideoAsset().catch(() => {});
             renderVideoConfigFields();
 
             if (state.mode === "video") {
