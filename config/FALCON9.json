@@ -37,7 +37,7 @@
       "id": "stg_f9_fuel",
       "name": "推进剂准备加注",
       "time": -2280,
-      "description": "准备加注液氧和煤油"
+      "description": "推进剂准备加注"
     },
     {
       "id": "evt_f9_countdown",
@@ -193,7 +193,7 @@
   "observation_points": [],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "asd",
+    "payload": "",
     "recovery_capable": true,
     "recovery_enabled": false,
     "stage_count": 2,
@@ -221,7 +221,7 @@
     ],
     "boosters": {
       "enabled": true,
-      "count": 4,
+      "count": 1,
       "fuels": [
         {
           "phase": "液体",
@@ -236,42 +236,42 @@
     "node_values": {
       "event:evt_f9_ignition": {
         "stage1_0": 99,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:evt_f9_pitch": {
         "stage1_0": 96,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:evt_f9_maxq": {
         "stage1_0": 60,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:evt_f9_stage_sep": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:evt_f9_second_ignition": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:evt_f9_fairing_sep": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 97,
         "booster_0": -1
       },
       "event:evt_f9_seco": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 4,
         "booster_0": -1
       },
       "event:evt_f9_payload": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 2,
         "booster_0": -1
       },
       "stage:stg_f9_fuel:start": {
@@ -296,112 +296,112 @@
       },
       "event:stg_f9_fuel": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 0,
         "booster_0": -1
       },
       "stage:item_1776432484333:start": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 0,
         "booster_0": -1
       },
       "event:evt_f9_countdown": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 0,
         "booster_0": -1
       },
       "event:obs_f9_arm": {
         "stage1_0": 44,
-        "stage2_0": -1,
+        "stage2_0": 0,
         "booster_0": -1
       },
       "event:item_1776431961521": {
         "stage1_0": 63,
-        "stage2_0": -1,
+        "stage2_0": 0,
         "booster_0": -1
       },
       "event:item_1776431961731": {
         "stage1_0": 96,
-        "stage2_0": -1,
+        "stage2_0": 70,
         "booster_0": -1
       },
       "event:stg_f9_stage1": {
         "stage1_0": 99,
-        "stage2_0": -1,
+        "stage2_0": 91,
         "booster_0": -1
       },
       "event:item_1776432061145": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 98,
         "booster_0": -1
       },
       "event:item_1776432061284": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "stage:item_1776432484951:start": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:item_1776432061438": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:item_1776432089391": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:item_1776432089752": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "stage:item_1776432507552:start": {
         "stage1_0": 99,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "stage:item_1776432697028:start": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:item_1776432089952": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "event:item_1776432090133": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 63,
         "booster_0": -1
       },
       "event:item_1776432315386": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 57,
         "booster_0": -1
       },
       "event:item_1776432315538": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 27,
         "booster_0": -1
       },
       "event:item_1776432414486": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 16,
         "booster_0": -1
       },
       "event:item_1776432414839": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 2,
         "booster_0": -1
       },
       "event:item_1776432415133": {
         "stage1_0": 0,
-        "stage2_0": -1,
+        "stage2_0": 2,
         "booster_0": -1
       }
     },
@@ -515,31 +515,31 @@
       "stage2_0": [
         {
           "time": -2280,
-          "value": 100
+          "value": 0
         },
         {
           "time": -2100,
-          "value": 100
+          "value": 0
         },
         {
           "time": -1220,
-          "value": 100
+          "value": 0
         },
         {
           "time": -960,
-          "value": 100
+          "value": 0
         },
         {
           "time": -420,
-          "value": 100
+          "value": 70
         },
         {
           "time": -270,
-          "value": 100
+          "value": 91
         },
         {
           "time": -190,
-          "value": 100
+          "value": 98
         },
         {
           "time": -130,
@@ -583,39 +583,39 @@
         },
         {
           "time": 179,
-          "value": 100
+          "value": 97
         },
         {
           "time": 361,
-          "value": 100
+          "value": 63
         },
         {
           "time": 380,
-          "value": 100
+          "value": 57
         },
         {
           "time": 470,
-          "value": 100
+          "value": 27
         },
         {
           "time": 492,
-          "value": 100
+          "value": 16
         },
         {
           "time": 521,
-          "value": 100
+          "value": 4
         },
         {
           "time": 3177,
-          "value": 100
+          "value": 2
         },
         {
           "time": 3178,
-          "value": 100
+          "value": 2
         },
         {
           "time": 3708,
-          "value": 100
+          "value": 2
         }
       ],
       "booster_0": [
@@ -847,6 +847,24 @@
           "upper": 0
         },
         "accel_g": {
+          "stage1": 0.04136292200359405,
+          "upper": 0.04136292200359405
+        },
+        "angular_velocity_dps": {
+          "stage1": 2.2649182557461347,
+          "upper": 2.2649182557461347
+        }
+      },
+      "event:evt_f9_payload": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
           "stage1": 0,
           "upper": 0
         },
@@ -855,7 +873,133 @@
           "upper": 0
         }
       },
-      "event:evt_f9_payload": {
+      "event:evt_f9_ignition": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432089952": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432090133": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432315386": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432315538": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432414486": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0.028588542461675234,
+          "upper": 0.028588542461675234
+        },
+        "angular_velocity_dps": {
+          "stage1": 1.6883531178055997,
+          "upper": 1.6883531178055997
+        }
+      },
+      "event:item_1776432414839": {
+        "altitude_km": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "speed_mps": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "accel_g": {
+          "stage1": 0,
+          "upper": 0
+        },
+        "angular_velocity_dps": {
+          "stage1": 0,
+          "upper": 0
+        }
+      },
+      "event:item_1776432415133": {
         "altitude_km": {
           "stage1": 0,
           "upper": 0
@@ -886,27 +1030,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0
+          },
+          {
+            "time": 521,
+            "value": 0
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ],
@@ -920,27 +1092,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0
+          },
+          {
+            "time": 521,
+            "value": 0
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ]
@@ -956,27 +1156,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0
+          },
+          {
+            "time": 521,
+            "value": 0
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ],
@@ -990,27 +1218,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0
+          },
+          {
+            "time": 521,
+            "value": 0
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ]
@@ -1026,27 +1282,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0.028588542461675234
+          },
+          {
+            "time": 521,
+            "value": 0.04136292200359405
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ],
@@ -1060,27 +1344,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 0.028588542461675234
+          },
+          {
+            "time": 521,
+            "value": 0.04136292200359405
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ]
@@ -1096,27 +1408,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 1.6883531178055997
+          },
+          {
+            "time": 521,
+            "value": 2.2649182557461347
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ],
@@ -1130,27 +1470,55 @@
             "value": 0
           },
           {
-            "time": 62,
+            "time": 68,
             "value": 0
           },
           {
-            "time": 150,
+            "time": 147,
             "value": 0
           },
           {
-            "time": 378,
+            "time": 151,
             "value": 0
           },
           {
-            "time": 510,
+            "time": 157,
             "value": 0
           },
           {
-            "time": 540,
+            "time": 179,
             "value": 0
           },
           {
-            "time": 600,
+            "time": 361,
+            "value": 0
+          },
+          {
+            "time": 380,
+            "value": 0
+          },
+          {
+            "time": 470,
+            "value": 0
+          },
+          {
+            "time": 492,
+            "value": 1.6883531178055997
+          },
+          {
+            "time": 521,
+            "value": 2.2649182557461347
+          },
+          {
+            "time": 3177,
+            "value": 0
+          },
+          {
+            "time": 3178,
+            "value": 0
+          },
+          {
+            "time": 3708,
             "value": 0
           }
         ]
@@ -1325,37 +1693,165 @@
         ]
       },
       "event:evt_f9_second_ignition": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
-            "enabled": true
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
           }
         ]
       },
       "event:evt_f9_fairing_sep": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
-            "enabled": true
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
           }
         ]
       },
       "event:evt_f9_seco": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
             "enabled": false
           }
         ]
       },
       "event:evt_f9_payload": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
             "enabled": false
           }
         ]
@@ -1529,7 +2025,7 @@
         "engine_states": [
           {
             "id": 0,
-            "enabled": false
+            "enabled": true
           },
           {
             "id": 1,
@@ -1537,7 +2033,7 @@
           },
           {
             "id": 2,
-            "enabled": false
+            "enabled": true
           },
           {
             "id": 3,
@@ -1553,7 +2049,7 @@
           },
           {
             "id": 6,
-            "enabled": false
+            "enabled": true
           },
           {
             "id": 7,
@@ -1607,19 +2103,83 @@
         ]
       },
       "event:item_1776432414839": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
-            "enabled": true
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
           }
         ]
       },
       "event:item_1776432415133": {
-        "preset_id": "falcon9_stage2",
+        "preset_id": "falcon9_stage1",
         "engine_states": [
           {
             "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
             "enabled": false
           }
         ]

@@ -485,6 +485,7 @@ function renderTelemetryGauges(state, missionSeconds) {
     timelineNodes: Array.isArray(state?.timeline_nodes) ? state.timeline_nodes : [],
     engineLayout: state?.engine_layout || null,
     enginePresetLibrary: state?.engine_preset_library || null,
+    dashboardGaugeSpecs: Array.isArray(state?.dashboard_gauge_specs) ? state.dashboard_gauge_specs : [],
   });
 }
 

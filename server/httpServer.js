@@ -101,12 +101,16 @@ function normalizeEvents(events) {
     return [];
   }
   return events
-    .map((e) => ({
-      id: String(e.id || newId("evt")),
-      name: String(e.name || "未命名事件"),
-      time: toInt(e.time, 0),
-      description: String(e.description || ""),
-    }))
+    .map((e) => {
+      const hidden = Boolean(e?.hidden);
+      return {
+        id: String(e.id || newId("evt")),
+        name: String(e.name || "未命名事件"),
+        time: toInt(e.time, 0),
+        hidden,
+        description: String(e.description || ""),
+      };
+    })
     .sort((a, b) => a.time - b.time);
 }
 
@@ -168,16 +172,22 @@ function normalizeRocketMeta(raw) {
     }))
     : stageDefaults;
 
+  const boosterEnabled = Boolean(raw?.boosters?.enabled);
+  const boosterCount = boosterEnabled
+    ? Math.max(1, toInt(raw?.boosters?.count, 1))
+    : 0;
+
   return {
     mission_name: String(raw?.mission_name || "").trim(),
     payload: String(raw?.payload || "").trim(),
     recovery_capable: recoveryCapable,
     recovery_enabled: recoveryCapable ? raw?.recovery_enabled !== false : false,
+    auto_hold_at_ignition: Boolean(raw?.auto_hold_at_ignition),
     stage_count: Math.max(stageCount, stages.length),
     stages,
     boosters: {
-      enabled: Boolean(raw?.boosters?.enabled),
-      count: Math.max(0, toInt(raw?.boosters?.count, 0)),
+      enabled: boosterEnabled,
+      count: boosterCount,
       fuels: Array.isArray(raw?.boosters?.fuels)
         ? raw.boosters.fuels.map(normalizeFuelSpec)
         : [],
@@ -218,6 +228,8 @@ function normalizeFuelEditor(raw) {
 }
 
 const TELEMETRY_METRICS = ["altitude_km", "speed_mps", "accel_g", "angular_velocity_dps"];
+const TELEMETRY_EULER_CURVE_KEYS = ["euler_roll_deg", "euler_pitch_deg", "euler_yaw_deg"];
+const TELEMETRY_CURVE_KEYS = [...TELEMETRY_METRICS, ...TELEMETRY_EULER_CURVE_KEYS];
 
 const TELEMETRY_PROFILE_METRIC_DEFS = {
   speed_mps: {
@@ -419,7 +431,7 @@ function normalizeTelemetryEditor(raw) {
   const curves = {};
   const sourceCurves = raw?.curves && typeof raw.curves === "object" ? raw.curves : {};
 
-  for (const metricKey of TELEMETRY_METRICS) {
+  for (const metricKey of TELEMETRY_CURVE_KEYS) {
     const metricSource = sourceCurves[metricKey];
     const metricCurves = {
       stage1: [],
@@ -443,6 +455,260 @@ function normalizeTelemetryEditor(raw) {
     node_values: nodeValues,
     curves,
   };
+}
+
+const DASHBOARD_DATA_TYPES = ["altitude", "speed", "accel", "engine", "d3"];
+const CHINESE_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+
+function toChineseStageText(stageIndex) {
+  const index = Math.max(1, toInt(stageIndex, 1));
+  return CHINESE_STAGE_TEXT[index] || String(index);
+}
+
+function normalizeDashboardOptionKey(rawOptionKey, stageCount = 1) {
+  const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
+  const text = String(rawOptionKey || "").trim().toLowerCase();
+  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+  if (!matched) {
+    return "";
+  }
+
+  const stageIndex = Math.max(1, toInt(matched[1], 1));
+  if (stageIndex > normalizedStageCount) {
+    return "";
+  }
+
+  const dataType = matched[2];
+  if (!DASHBOARD_DATA_TYPES.includes(dataType)) {
+    return "";
+  }
+
+  return `stage${stageIndex}:${dataType}`;
+}
+
+function buildAllDashboardOptionKeys(stageCount = 1) {
+  const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
+  const keys = [];
+  for (let stageIndex = 1; stageIndex <= normalizedStageCount; stageIndex += 1) {
+    for (const dataType of DASHBOARD_DATA_TYPES) {
+      keys.push(`stage${stageIndex}:${dataType}`);
+    }
+  }
+  return keys;
+}
+
+function normalizeDashboardEditor(raw, stageCount = 1) {
+  const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
+  const source = raw && typeof raw === "object" ? raw : {};
+  const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+    ? source.node_configs
+    : {};
+
+  const nodeConfigs = {};
+
+  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+    if (!nodeKey || !config || typeof config !== "object") {
+      continue;
+    }
+
+    const selectedRaw = Array.isArray(config.selected) ? config.selected : [];
+    const deduped = [];
+    for (const item of selectedRaw) {
+      const normalized = normalizeDashboardOptionKey(item, normalizedStageCount);
+      if (!normalized || deduped.includes(normalized)) {
+        continue;
+      }
+      deduped.push(normalized);
+      if (deduped.length >= 4) {
+        break;
+      }
+    }
+
+    if (deduped.length <= 0) {
+      continue;
+    }
+
+    nodeConfigs[String(nodeKey)] = {
+      selected: deduped,
+    };
+  }
+
+  return {
+    version: 1,
+    node_configs: nodeConfigs,
+  };
+}
+
+function hashSeed(text) {
+  let hash = 0;
+  const source = String(text || "");
+  for (let i = 0; i < source.length; i += 1) {
+    hash = ((hash << 5) - hash) + source.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function pickDeterministicOption(options, seedText) {
+  const list = Array.isArray(options) ? options.filter(Boolean) : [];
+  if (list.length <= 0) {
+    return "";
+  }
+  const index = hashSeed(seedText) % list.length;
+  return list[index];
+}
+
+function ensureDashboardSelection(selectedRaw, allOptions, seedText) {
+  const all = Array.isArray(allOptions) ? allOptions.filter(Boolean) : [];
+  let selected = Array.isArray(selectedRaw)
+    ? selectedRaw.filter((item) => all.includes(item))
+    : [];
+
+  selected = Array.from(new Set(selected)).slice(0, 4);
+
+  if (selected.length === 0 && all.length > 0) {
+    const first = pickDeterministicOption(all, `${seedText}|empty|a`);
+    const second = pickDeterministicOption(all.filter((item) => item !== first), `${seedText}|empty|b`);
+    selected = [first, second].filter(Boolean);
+  }
+
+  if ((selected.length === 1 || selected.length === 3) && all.length > selected.length) {
+    const rest = all.filter((item) => !selected.includes(item));
+    const picked = pickDeterministicOption(rest, `${seedText}|odd|${selected.join(",")}`);
+    if (picked) {
+      selected.push(picked);
+    }
+  }
+
+  return selected.slice(0, 4);
+}
+
+function parseDashboardOptionKey(optionKey) {
+  const text = String(optionKey || "").trim().toLowerCase();
+  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+  if (!matched) {
+    return null;
+  }
+  return {
+    stage_index: Math.max(1, toInt(matched[1], 1)),
+    data_type: matched[2],
+  };
+}
+
+function resolveDashboardGaugeSpecs(model, missionTime) {
+  if (!model || !Array.isArray(model.events)) {
+    return [];
+  }
+
+  const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
+  const dashboardEditor = normalizeDashboardEditor(model?.dashboard_editor || {}, stageCount);
+  const allOptions = buildAllDashboardOptionKeys(stageCount);
+
+  const sortedEvents = model.events
+    .map((event) => ({
+      id: String(event?.id || ""),
+      name: String(event?.name || "未命名事件"),
+      time: toInt(event?.time, 0),
+    }))
+    .filter((event) => event.id)
+    .sort((a, b) => a.time - b.time);
+
+  if (sortedEvents.length <= 0) {
+    return [];
+  }
+
+  let activeEvent = sortedEvents[0];
+  for (const event of sortedEvents) {
+    if (event.time <= missionTime) {
+      activeEvent = event;
+    } else {
+      break;
+    }
+  }
+
+  const nodeKey = `event:${activeEvent.id}`;
+  const selectedRaw = dashboardEditor.node_configs?.[nodeKey]?.selected || [];
+  const selected = ensureDashboardSelection(selectedRaw, allOptions, `${nodeKey}|${stageCount}`);
+  if (selected.length <= 0) {
+    return [];
+  }
+
+  const sideOrder = selected.length >= 4
+    ? ["left", "right", "left", "right"]
+    : ["left", "right"];
+
+  return selected
+    .slice(0, sideOrder.length)
+    .map((optionKey, index) => {
+      const parsed = parseDashboardOptionKey(optionKey);
+      if (!parsed) {
+        return null;
+      }
+
+      const stageText = `${toChineseStageText(parsed.stage_index)}级`;
+      const base = {
+        id: `dashboard_${index + 1}`,
+        side: sideOrder[index],
+        stage_index: parsed.stage_index,
+        option_key: optionKey,
+      };
+
+      if (parsed.data_type === "altitude") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "altitude_km",
+          label: `${stageText}高度`,
+          unit: "KM",
+          max_value: 700,
+          fraction_digits: 1,
+        };
+      }
+
+      if (parsed.data_type === "speed") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "speed_mps",
+          label: `${stageText}速度`,
+          unit: "M/S",
+          max_value: 8500,
+          fraction_digits: 0,
+        };
+      }
+
+      if (parsed.data_type === "accel") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "accel_g",
+          label: `${stageText}加速度`,
+          unit: "G",
+          max_value: 8,
+          fraction_digits: 2,
+        };
+      }
+
+      if (parsed.data_type === "engine") {
+        return {
+          ...base,
+          type: "engine_layout",
+          label: `${stageText}发动机`,
+          size: 128,
+        };
+      }
+
+      return {
+        ...base,
+        type: "metric",
+        metric_key: "__dashboard_3d__",
+        label: `${stageText}3D`,
+        unit: "3D",
+        max_value: 100,
+        fraction_digits: 0,
+      };
+    })
+    .filter(Boolean);
 }
 
 const MODEL_FILE_ID_ALIASES = {
@@ -661,39 +927,72 @@ function guessPresetIdByModelName(modelName) {
 }
 
 function normalizeEngineNodeConfig(raw, defaultPresetId) {
-  const presetId = String(raw?.preset_id || defaultPresetId || "")
+  const source = raw && typeof raw === "object" ? raw : {};
+  const normalizePresetId = (value) => String(value || defaultPresetId || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "");
 
-  const engineStates = [];
-  if (Array.isArray(raw?.engine_states)) {
-    for (const state of raw.engine_states) {
-      engineStates.push(normalizeEngineState(state, engineStates.length));
-    }
-  } else if (Array.isArray(raw?.active_ids)) {
-    for (const id of raw.active_ids) {
-      const normalizedId = Math.max(0, toInt(id, -1));
-      if (normalizedId >= 0) {
-        engineStates.push({ id: normalizedId, enabled: true });
+  const normalizeStates = (engineStatesRaw, activeIdsRaw) => {
+    const engineStates = [];
+    if (Array.isArray(engineStatesRaw)) {
+      for (const state of engineStatesRaw) {
+        engineStates.push(normalizeEngineState(state, engineStates.length));
+      }
+    } else if (Array.isArray(activeIdsRaw)) {
+      for (const id of activeIdsRaw) {
+        const normalizedId = Math.max(0, toInt(id, -1));
+        if (normalizedId >= 0) {
+          engineStates.push({ id: normalizedId, enabled: true });
+        }
       }
     }
+
+    const deduped = new Map();
+    for (const state of engineStates) {
+      deduped.set(state.id, { id: state.id, enabled: Boolean(state.enabled) });
+    }
+    return Array.from(deduped.values()).sort((a, b) => a.id - b.id);
+  };
+
+  const normalizeStageConfig = (stageRaw, fallbackStageIndex = 1) => ({
+    stage_index: Math.max(1, toInt(stageRaw?.stage_index, fallbackStageIndex)),
+    preset_id: normalizePresetId(stageRaw?.preset_id),
+    engine_states: normalizeStates(stageRaw?.engine_states, stageRaw?.active_ids),
+  });
+
+  const rawStageConfigs = Array.isArray(source.stage_configs)
+    ? source.stage_configs
+    : source.stage_configs && typeof source.stage_configs === "object"
+      ? Object.values(source.stage_configs)
+      : [];
+
+  const stageConfigsMap = new Map();
+  rawStageConfigs.forEach((item, index) => {
+    const normalized = normalizeStageConfig(item, index + 1);
+    stageConfigsMap.set(normalized.stage_index, normalized);
+  });
+
+  if (stageConfigsMap.size === 0) {
+    const fallback = normalizeStageConfig(source, 1);
+    stageConfigsMap.set(1, fallback);
   }
 
-  const deduped = new Map();
-  for (const state of engineStates) {
-    deduped.set(state.id, { id: state.id, enabled: Boolean(state.enabled) });
-  }
+  const sortedStageConfigs = Array.from(stageConfigsMap.values())
+    .sort((a, b) => a.stage_index - b.stage_index);
+  const primary = sortedStageConfigs[0] || normalizeStageConfig(source, 1);
 
   return {
-    preset_id: presetId,
-    engine_states: Array.from(deduped.values()).sort((a, b) => a.id - b.id),
+    preset_id: primary.preset_id,
+    engine_states: primary.engine_states,
+    stage_configs: sortedStageConfigs,
   };
 }
 
-function normalizeEngineLayout(raw, modelName) {
+function normalizeEngineLayout(raw, modelName, stageCount = 1) {
   const source = raw && typeof raw === "object" ? raw : {};
   const defaultPresetId = guessPresetIdByModelName(modelName);
+  const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
   const nodeConfigs = {};
   const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
     ? source.node_configs
@@ -703,11 +1002,52 @@ function normalizeEngineLayout(raw, modelName) {
     if (!nodeKey) {
       continue;
     }
-    nodeConfigs[nodeKey] = normalizeEngineNodeConfig(config, defaultPresetId);
+    const normalized = normalizeEngineNodeConfig(config, defaultPresetId);
+    const stageConfigMap = new Map();
+    (Array.isArray(normalized.stage_configs) ? normalized.stage_configs : []).forEach((item) => {
+      const stageIndex = Math.max(1, toInt(item?.stage_index, 1));
+      stageConfigMap.set(stageIndex, {
+        stage_index: stageIndex,
+        preset_id: String(item?.preset_id || normalized.preset_id || defaultPresetId)
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, ""),
+        engine_states: Array.isArray(item?.engine_states)
+          ? item.engine_states.map((state, index) => normalizeEngineState(state, index))
+          : normalized.engine_states,
+      });
+    });
+
+    const fallbackStage = stageConfigMap.get(1) || {
+      stage_index: 1,
+      preset_id: normalized.preset_id || defaultPresetId,
+      engine_states: normalized.engine_states,
+    };
+
+    const stageConfigs = [];
+    for (let stageIndex = 1; stageIndex <= normalizedStageCount; stageIndex += 1) {
+      const picked = stageConfigMap.get(stageIndex) || fallbackStage;
+      stageConfigs.push({
+        stage_index: stageIndex,
+        preset_id: String(picked.preset_id || fallbackStage.preset_id || defaultPresetId)
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, ""),
+        engine_states: Array.isArray(picked.engine_states)
+          ? picked.engine_states.map((state, index) => normalizeEngineState(state, index))
+          : fallbackStage.engine_states,
+      });
+    }
+
+    nodeConfigs[nodeKey] = {
+      preset_id: stageConfigs[0]?.preset_id || defaultPresetId,
+      engine_states: stageConfigs[0]?.engine_states || [],
+      stage_configs: stageConfigs,
+    };
   }
 
   return {
-    version: 3,
+    version: 4,
     node_configs: nodeConfigs,
   };
 }
@@ -718,6 +1058,8 @@ function normalizeModel(raw) {
   const stages = normalizeStages(raw?.stages || []);
   const events = normalizeEvents(raw?.events || []);
   const observation_points = normalizeObservations(raw?.observation_points || []);
+  const rocketMeta = normalizeRocketMeta(raw?.rocket_meta || {});
+  const dashboardEditor = normalizeDashboardEditor(raw?.dashboard_editor || {}, rocketMeta.stage_count);
   return {
     version: 2,
     model_id: modelId,
@@ -725,10 +1067,11 @@ function normalizeModel(raw) {
     stages,
     events,
     observation_points,
-    rocket_meta: normalizeRocketMeta(raw?.rocket_meta || {}),
+    rocket_meta: rocketMeta,
     fuel_editor: normalizeFuelEditor(raw?.fuel_editor || {}),
     telemetry_editor: normalizeTelemetryEditor(raw?.telemetry_editor || {}),
-    engine_layout: normalizeEngineLayout(raw?.engine_layout || {}, modelName),
+    engine_layout: normalizeEngineLayout(raw?.engine_layout || {}, modelName, rocketMeta.stage_count),
+    dashboard_editor: dashboardEditor,
   };
 }
 
@@ -943,6 +1286,7 @@ class MissionEngine {
     this.holdActive = false;
     this.holdStartedAt = null;
     this.holdAccumulatedMs = 0;
+    this.autoHoldAtIgnitionLatched = false;
     this.telemetryEnabled = true;
     this.telemetryPaused = false;
     this.telemetryPauseMissionMs = 0;
@@ -1062,6 +1406,7 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.clearHold();
+    this.autoHoldAtIgnitionLatched = false;
     this.markDirty();
   }
 
@@ -1077,6 +1422,7 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.clearHold();
+    this.autoHoldAtIgnitionLatched = false;
     this.markDirty();
     return true;
   }
@@ -1088,6 +1434,7 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.clearHold();
+    this.autoHoldAtIgnitionLatched = false;
     this.markDirty();
   }
 
@@ -1097,6 +1444,7 @@ class MissionEngine {
     }
     this.ignitionEpoch = Date.now() - this.holdElapsedMs(Date.now());
     this.clearHold();
+    this.autoHoldAtIgnitionLatched = false;
     this.observationLog.push({
       type: "ignition",
       timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
@@ -1135,6 +1483,7 @@ class MissionEngine {
       this.ignitionEpoch = null;
       this.launchEpoch = now - targetMissionTime * 1000;
     }
+    this.autoHoldAtIgnitionLatched = false;
 
     this.observationLog.push({
       type: "observation",
@@ -1210,8 +1559,10 @@ class MissionEngine {
       }
     }
 
+    const visibleEvents = (Array.isArray(model.events) ? model.events : []).filter((event) => !Boolean(event?.hidden));
+
     let currentEvent = null;
-    for (const evt of model.events) {
+    for (const evt of visibleEvents) {
       if (evt.time <= missionTime) {
         currentEvent = evt;
       } else {
@@ -1223,7 +1574,7 @@ class MissionEngine {
     for (const stg of model.stages) {
       nodes.push({ id: stg.id, kind: "stage", name: stg.name, time: stg.start_time, description: stg.description });
     }
-    for (const evt of model.events) {
+    for (const evt of visibleEvents) {
       nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description });
     }
     for (const obs of model.observation_points || []) {
@@ -1271,13 +1622,26 @@ class MissionEngine {
     const model = this.model;
 
     if (this.running && this.launchEpoch && !this.ignitionEpoch && !this.holdActive && now >= this.launchEpoch) {
-      this.ignitionEpoch = this.launchEpoch;
-      this.clearHold();
-      this.observationLog.push({
-        type: "auto_ignition",
-        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-      });
-      this.markDirty();
+      const autoHoldAtIgnition = Boolean(model?.rocket_meta?.auto_hold_at_ignition);
+      if (autoHoldAtIgnition && !this.autoHoldAtIgnitionLatched) {
+        this.holdActive = true;
+        this.holdStartedAt = now;
+        this.autoHoldAtIgnitionLatched = true;
+        this.observationLog.push({
+          type: "auto_hold_at_ignition",
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        });
+        this.markDirty();
+      } else {
+        this.ignitionEpoch = this.launchEpoch;
+        this.clearHold();
+        this.autoHoldAtIgnitionLatched = false;
+        this.observationLog.push({
+          type: "auto_ignition",
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        });
+        this.markDirty();
+      }
     }
 
     let status = "idle";
@@ -1301,6 +1665,7 @@ class MissionEngine {
     const missionTimeMs = this.missionTimeMs(now);
     const timeline = this.timelineSummary(missionTime);
     const telemetryProfile = buildTelemetryProfile(model);
+    const dashboardGaugeSpecs = resolveDashboardGaugeSpecs(model, missionTime);
     const unifiedFormatted = this.running
       ? (missionTime >= 0 ? this.fmtPlus(missionTime) : this.fmtMinus(Math.abs(missionTime)))
       : "T-00:00";
@@ -1342,6 +1707,8 @@ class MissionEngine {
       focus_nodes: timeline.focusNodes,
       timeline_nodes: timeline.timelineNodes || [],
       telemetry_profile: telemetryProfile,
+      dashboard_editor: normalizeDashboardEditor(model?.dashboard_editor || {}, model?.rocket_meta?.stage_count || 1),
+      dashboard_gauge_specs: dashboardGaugeSpecs,
       next_poll_hint_ms: timeline.nextPollHintMs,
       change_token: this.lastMutation,
       ...extra,

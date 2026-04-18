@@ -40,6 +40,9 @@ const dom = {
   recoverToggleText: document.getElementById("recoverToggleText"),
   recoverSwitchWrap: document.getElementById("recoverSwitchWrap"),
   payloadInput: document.getElementById("payloadInput"),
+  ignitionAutoHoldToggle: document.getElementById("ignitionAutoHoldToggle"),
+  ignitionAutoHoldText: document.getElementById("ignitionAutoHoldText"),
+  ignitionAutoHoldSwitchWrap: document.getElementById("ignitionAutoHoldSwitchWrap"),
 
   configModal: document.getElementById("configModal"),
   configBackdrop: document.getElementById("configBackdrop"),
@@ -109,7 +112,11 @@ const dom = {
   engineAllOnBtn: document.getElementById("engineAllOnBtn"),
   engineAllOffBtn: document.getElementById("engineAllOffBtn"),
   engineCurrentNodeLabel: document.getElementById("engineCurrentNodeLabel"),
+  engineNodeStageLabel: document.getElementById("engineNodeStageLabel"),
   enginePresetPreview: document.getElementById("enginePresetPreview"),
+  engineNodeEditorModal: document.getElementById("engineNodeEditorModal"),
+  engineNodeEditorBackdrop: document.getElementById("engineNodeEditorBackdrop"),
+  closeEngineNodeEditorBtn: document.getElementById("closeEngineNodeEditorBtn"),
   engineExportSvgBtn: document.getElementById("engineExportSvgBtn"),
   engineBackToListBtn: document.getElementById("engineBackToListBtn"),
   saveEngineNodeConfigBtn: document.getElementById("saveEngineNodeConfigBtn"),
@@ -149,6 +156,8 @@ let visualRows = [];
 let visualUndoStack = [];
 let visualSortTimer = null;
 let updatingRecoverToggle = false;
+let updatingIgnitionAutoHoldToggle = false;
+let ignitionAutoHoldToggleSaving = false;
 let propellantDirty = false;
 let propellantSnapshot = null;
 let payloadApplyTimer = null;
@@ -324,6 +333,12 @@ function setRecoverToggleText(enabled) {
   }
 }
 
+function setIgnitionAutoHoldText(enabled) {
+  if (dom.ignitionAutoHoldText) {
+    dom.ignitionAutoHoldText.textContent = enabled ? "点火自动HOLD" : "点火自动继续";
+  }
+}
+
 function setRecoverableConfigText(enabled) {
   if (dom.recoverableConfigText) {
     dom.recoverableConfigText.textContent = enabled ? "可回收" : "不可回收";
@@ -406,6 +421,15 @@ async function runPendingUnsavedCloseAction(action) {
 function handleEscapeClose() {
   if (isModalVisible(dom.unsavedConfirmModal)) {
     closeUnsavedConfirmDialog();
+    return true;
+  }
+
+  if (isModalVisible(dom.engineNodeEditorModal)) {
+    if (typeof closeEngineNodeEditor === "function") {
+      closeEngineNodeEditor(false);
+    } else {
+      dom.engineNodeEditorModal.classList.add("hidden");
+    }
     return true;
   }
 
@@ -600,29 +624,106 @@ function normalizeEngineStatesDraft(rawStates, rawActiveIds) {
   return Array.from(deduped.values()).sort((a, b) => a.id - b.id);
 }
 
-function normalizeEngineLayoutDraft(rawEngineLayout) {
+function normalizeEngineLayoutDraft(rawEngineLayout, stageCount = 1) {
   const source = rawEngineLayout && typeof rawEngineLayout === "object" ? rawEngineLayout : {};
+  const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
   const nodeConfigs = {};
   const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
     ? source.node_configs
     : {};
+
+  const normalizePresetId = (rawId) => String(rawId || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "");
+
+  const normalizeStageConfig = (config, fallbackStageIndex = 1) => ({
+    stage_index: Math.max(1, toInt(config?.stage_index, fallbackStageIndex)),
+    preset_id: normalizePresetId(config?.preset_id),
+    engine_states: normalizeEngineStatesDraft(config?.engine_states, config?.active_ids),
+  });
 
   for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
     if (!nodeKey) {
       continue;
     }
 
+    const rawStageConfigs = Array.isArray(config?.stage_configs)
+      ? config.stage_configs
+      : config?.stage_configs && typeof config.stage_configs === "object"
+        ? Object.values(config.stage_configs)
+        : [];
+
+    const stageConfigs = rawStageConfigs
+      .map((item, index) => normalizeStageConfig(item, index + 1))
+      .filter((item) => item.stage_index >= 1)
+      .sort((a, b) => a.stage_index - b.stage_index);
+
+    if (stageConfigs.length === 0) {
+      stageConfigs.push(normalizeStageConfig(config, 1));
+    }
+
+    const stageConfigMap = new Map();
+    stageConfigs.forEach((item) => {
+      stageConfigMap.set(item.stage_index, {
+        stage_index: item.stage_index,
+        preset_id: normalizePresetId(item.preset_id),
+        engine_states: normalizeEngineStatesDraft(item.engine_states, item.active_ids),
+      });
+    });
+
+    const fallbackStage = stageConfigMap.get(1) || stageConfigs[0] || normalizeStageConfig(config, 1);
+    const finalizedStageConfigs = [];
+    for (let stageIndex = 1; stageIndex <= normalizedStageCount; stageIndex += 1) {
+      const picked = stageConfigMap.get(stageIndex) || fallbackStage;
+      finalizedStageConfigs.push({
+        stage_index: stageIndex,
+        preset_id: normalizePresetId(picked?.preset_id || fallbackStage?.preset_id),
+        engine_states: normalizeEngineStatesDraft(picked?.engine_states, picked?.active_ids),
+      });
+    }
+
+    const primary = finalizedStageConfigs[0];
+
     nodeConfigs[nodeKey] = {
-      preset_id: String(config?.preset_id || "")
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, ""),
-      engine_states: normalizeEngineStatesDraft(config?.engine_states, config?.active_ids),
+      preset_id: primary.preset_id,
+      engine_states: primary.engine_states,
+      stage_configs: finalizedStageConfigs,
     };
   }
 
   return {
-    version: 3,
+    version: 4,
+    node_configs: nodeConfigs,
+  };
+}
+
+function normalizeDashboardEditorDraft(rawDashboardEditor) {
+  const source = rawDashboardEditor && typeof rawDashboardEditor === "object" ? rawDashboardEditor : {};
+  const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+    ? source.node_configs
+    : {};
+
+  const nodeConfigs = {};
+  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+    if (!nodeKey || !config || typeof config !== "object") {
+      continue;
+    }
+    const selected = Array.isArray(config.selected)
+      ? config.selected
+        .map((item) => String(item || "").trim().toLowerCase())
+        .filter(Boolean)
+      : [];
+    if (selected.length <= 0) {
+      continue;
+    }
+    nodeConfigs[nodeKey] = {
+      selected: Array.from(new Set(selected)).slice(0, 4),
+    };
+  }
+
+  return {
+    version: 1,
     node_configs: nodeConfigs,
   };
 }
@@ -644,6 +745,7 @@ function normalizeDraft(payload, selectedModelName) {
       id: String(item.id || "").trim() || `evt_${Date.now()}`,
       name: String(item.name || ""),
       time: toInt(item.time, 0),
+      hidden: Boolean(item.hidden),
       description: String(item.description || ""),
     }))
     : [];
@@ -669,6 +771,7 @@ function normalizeDraft(payload, selectedModelName) {
       payload: String(payload.rocket_meta.payload || "").trim(),
       recovery_capable: payload.rocket_meta.recovery_capable !== false,
       recovery_enabled: payload.rocket_meta.recovery_capable === false ? false : payload.rocket_meta.recovery_enabled !== false,
+      auto_hold_at_ignition: Boolean(payload.rocket_meta.auto_hold_at_ignition),
       stage_count: Math.max(1, toInt(payload.rocket_meta.stage_count, 1)),
       stages: Array.isArray(payload.rocket_meta.stages)
         ? payload.rocket_meta.stages.map((stage, idx) => ({
@@ -691,6 +794,7 @@ function normalizeDraft(payload, selectedModelName) {
       payload: "",
       recovery_capable: true,
       recovery_enabled: true,
+      auto_hold_at_ignition: false,
       stage_count: 1,
       stages: [{ stage_index: 1, fuels: [normalizeFuelSpec({})] }],
       boosters: { enabled: false, count: 0, fuels: [] },
@@ -698,6 +802,13 @@ function normalizeDraft(payload, selectedModelName) {
 
   if (!rocketMeta.recovery_capable) {
     rocketMeta.recovery_enabled = false;
+  }
+
+  if (rocketMeta.boosters?.enabled) {
+    rocketMeta.boosters.count = Math.max(1, toInt(rocketMeta.boosters.count, 1));
+  } else {
+    rocketMeta.boosters.count = 0;
+    rocketMeta.boosters.fuels = [];
   }
 
   const fuelEditor = {
@@ -730,7 +841,8 @@ function normalizeDraft(payload, selectedModelName) {
     rocket_meta: rocketMeta,
     fuel_editor: fuelEditor,
     telemetry_editor: telemetryEditor,
-    engine_layout: normalizeEngineLayoutDraft(payload?.engine_layout),
+    engine_layout: normalizeEngineLayoutDraft(payload?.engine_layout, rocketMeta.stage_count),
+    dashboard_editor: normalizeDashboardEditorDraft(payload?.dashboard_editor),
   };
 }
 
@@ -862,8 +974,20 @@ function syncLaunchInputFromState(state) {
   dom.launchAt.value = dateToInputValue(launchDate);
 }
 
+function getSelectedRocketMeta() {
+  const selectedModel = String(dom.modelSelect?.value || "").trim();
+  if (!selectedModel || !modelsCache[selectedModel] || !modelsCache[selectedModel].rocket_meta) {
+    return null;
+  }
+  return modelsCache[selectedModel].rocket_meta;
+}
+
 function renderRocketConfigCard(state) {
-  const meta = state.rocket_meta || null;
+  const stateMeta = state?.rocket_meta && typeof state.rocket_meta === "object"
+    ? state.rocket_meta
+    : null;
+  const cacheMeta = getSelectedRocketMeta();
+  const meta = cacheMeta || stateMeta;
   if (!meta) {
     updatingRecoverToggle = true;
     dom.recoverToggle.checked = false;
@@ -875,17 +999,39 @@ function renderRocketConfigCard(state) {
       dom.payloadInput.disabled = true;
       dom.payloadInput.value = "";
     }
+    updatingIgnitionAutoHoldToggle = true;
+    if (dom.ignitionAutoHoldToggle) {
+      dom.ignitionAutoHoldToggle.checked = false;
+      dom.ignitionAutoHoldToggle.disabled = true;
+    }
+    updatingIgnitionAutoHoldToggle = false;
+    if (dom.ignitionAutoHoldSwitchWrap) {
+      dom.ignitionAutoHoldSwitchWrap.classList.add("dim");
+    }
+    setIgnitionAutoHoldText(false);
     return;
   }
 
   const capable = meta.recovery_capable !== false;
   const enabled = capable ? meta.recovery_enabled !== false : false;
+  const autoHoldAtIgnitionEnabled = Boolean(meta.auto_hold_at_ignition);
   updatingRecoverToggle = true;
   dom.recoverToggle.checked = enabled;
   dom.recoverToggle.disabled = !capable;
   updatingRecoverToggle = false;
   dom.recoverSwitchWrap.classList.toggle("dim", !capable);
   setRecoverToggleText(enabled);
+
+  updatingIgnitionAutoHoldToggle = true;
+  if (dom.ignitionAutoHoldToggle) {
+    dom.ignitionAutoHoldToggle.checked = autoHoldAtIgnitionEnabled;
+    dom.ignitionAutoHoldToggle.disabled = ignitionAutoHoldToggleSaving;
+  }
+  updatingIgnitionAutoHoldToggle = false;
+  if (dom.ignitionAutoHoldSwitchWrap) {
+    dom.ignitionAutoHoldSwitchWrap.classList.toggle("dim", ignitionAutoHoldToggleSaving);
+  }
+  setIgnitionAutoHoldText(autoHoldAtIgnitionEnabled);
 
   if (dom.payloadInput) {
     const payloadText = String(meta.payload || "").trim();
@@ -1036,6 +1182,64 @@ async function updateRecoveryToggle(enabled) {
   modelsCache[modelName] = draft;
   setRecoverToggleText(Boolean(draft.rocket_meta.recovery_enabled));
   toast(draft.rocket_meta.recovery_enabled ? "已开启回收" : "已关闭回收", "success");
+}
+
+async function updateIgnitionAutoHoldToggle(enabled) {
+  if (ignitionAutoHoldToggleSaving) {
+    return;
+  }
+
+  const modelName = dom.modelSelect.value;
+  if (!modelName || !modelsCache[modelName]) {
+    return;
+  }
+
+  const nextEnabled = Boolean(enabled);
+  const currentEnabled = Boolean(modelsCache[modelName]?.rocket_meta?.auto_hold_at_ignition);
+  if (nextEnabled === currentEnabled) {
+    setIgnitionAutoHoldText(nextEnabled);
+    return;
+  }
+
+  ignitionAutoHoldToggleSaving = true;
+  renderRocketConfigCard(lastState || {});
+
+  const draft = normalizeDraft(modelsCache[modelName], modelName);
+  draft.rocket_meta.auto_hold_at_ignition = nextEnabled;
+
+  try {
+    const res = await adminFetch("/api/models", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.message || "更新点火自动 HOLD 配置失败");
+    }
+
+    modelsCache[modelName] = draft;
+    if (lastState && lastState.current_model === modelName) {
+      lastState = {
+        ...lastState,
+        rocket_meta: {
+          ...(lastState.rocket_meta || {}),
+          auto_hold_at_ignition: nextEnabled,
+        },
+      };
+    }
+
+    updatingIgnitionAutoHoldToggle = true;
+    if (dom.ignitionAutoHoldToggle) {
+      dom.ignitionAutoHoldToggle.checked = nextEnabled;
+    }
+    updatingIgnitionAutoHoldToggle = false;
+    setIgnitionAutoHoldText(nextEnabled);
+    toast(nextEnabled ? "已开启点火自动 HOLD" : "已关闭点火自动 HOLD", "success");
+  } finally {
+    ignitionAutoHoldToggleSaving = false;
+    renderRocketConfigCard(lastState || {});
+  }
 }
 
 async function updatePayloadValue(modelName, rawValue, silent = false) {
@@ -1321,6 +1525,10 @@ function bindEvents() {
     if (!configDraft.rocket_meta.boosters.enabled) {
       configDraft.rocket_meta.boosters.count = 0;
       configDraft.rocket_meta.boosters.fuels = [];
+      dom.boosterCountInput.min = "0";
+    } else {
+      configDraft.rocket_meta.boosters.count = Math.max(1, toInt(configDraft.rocket_meta.boosters.count, 1));
+      dom.boosterCountInput.min = "1";
     }
     propellantDirty = true;
     renderPropellantFields();
@@ -1333,7 +1541,9 @@ function bindEvents() {
     if (!configDraft.rocket_meta.boosters || typeof configDraft.rocket_meta.boosters !== "object") {
       configDraft.rocket_meta.boosters = { enabled: false, count: 0, fuels: [] };
     }
-    configDraft.rocket_meta.boosters.count = Math.max(0, toInt(dom.boosterCountInput.value, 0));
+    const minBoosterCount = configDraft.rocket_meta.boosters.enabled ? 1 : 0;
+    configDraft.rocket_meta.boosters.count = Math.max(minBoosterCount, toInt(dom.boosterCountInput.value, minBoosterCount));
+    dom.boosterCountInput.value = String(configDraft.rocket_meta.boosters.count);
     propellantDirty = true;
   });
 
@@ -1368,6 +1578,11 @@ function bindEvents() {
   dom.fuelCurveCanvas.addEventListener("mouseleave", () => {
     clearFuelCurveHover();
   });
+  dom.fuelCurveCanvas.addEventListener("wheel", (event) => {
+    if (typeof handleFuelCurveWheelZoom === "function") {
+      handleFuelCurveWheelZoom(event);
+    }
+  }, { passive: false });
 
   if (dom.openTelemetryEditorBtn) {
     dom.openTelemetryEditorBtn.addEventListener("click", () => openTelemetryModal("model"));
@@ -1415,6 +1630,11 @@ function bindEvents() {
     dom.telemetryCurveCanvas.addEventListener("mouseleave", () => {
       clearTelemetryCurveHover();
     });
+    dom.telemetryCurveCanvas.addEventListener("wheel", (event) => {
+      if (typeof handleTelemetryCurveWheelZoom === "function") {
+        handleTelemetryCurveWheelZoom(event);
+      }
+    }, { passive: false });
   }
 
   window.addEventListener("mousemove", (event) => {
@@ -1441,6 +1661,19 @@ function bindEvents() {
     }
     updateRecoveryToggle(Boolean(dom.recoverToggle.checked)).catch((error) => toast(error.message, "error"));
   });
+
+  if (dom.ignitionAutoHoldToggle) {
+    dom.ignitionAutoHoldToggle.addEventListener("change", () => {
+      if (updatingIgnitionAutoHoldToggle) {
+        return;
+      }
+      updateIgnitionAutoHoldToggle(Boolean(dom.ignitionAutoHoldToggle.checked))
+        .catch((error) => {
+          toast(error.message, "error");
+          renderRocketConfigCard(lastState || {});
+        });
+    });
+  }
 
   if (dom.payloadInput) {
     dom.payloadInput.addEventListener("input", schedulePayloadSave);

@@ -18,6 +18,14 @@
   const VIDEO_FILE_DB_NAME = "mission-viewer-video-files";
   const VIDEO_FILE_STORE_NAME = "assets";
   const VIDEO_FILE_STORE_KEY = "selected-video";
+  const DASHBOARD_OPTION_DEFS = [
+    { key: "altitude", label: "高度" },
+    { key: "speed", label: "速度" },
+    { key: "accel", label: "加速度" },
+    { key: "engine", label: "发动机" },
+    { key: "d3", label: "3D" },
+  ];
+  const DASHBOARD_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 
   const dom = {
     previewFrame: document.querySelector(".preview-frame"),
@@ -35,12 +43,15 @@
 
     openObsSettingsBtn: document.getElementById("openObsSettingsBtn"),
     openVideoSettingsBtn: document.getElementById("openVideoSettingsBtn"),
+    openDashboardEditorBtn: document.getElementById("openDashboardEditorBtn"),
 
     previewConfigModal: document.getElementById("previewConfigModal"),
     previewConfigBackdrop: document.getElementById("previewConfigBackdrop"),
     previewConfigTitle: document.getElementById("previewConfigTitle"),
     obsConfigPane: document.getElementById("obsConfigPane"),
     videoConfigPane: document.getElementById("videoConfigPane"),
+    dashboardConfigPane: document.getElementById("dashboardConfigPane"),
+    dashboardConfigTable: document.getElementById("dashboardConfigTable"),
     obsResolutionPresetSelect: document.getElementById("obsResolutionPresetSelect"),
     videoResolutionPresetSelect: document.getElementById("videoResolutionPresetSelect"),
     videoSourceInput: document.getElementById("videoSourceInput"),
@@ -83,6 +94,11 @@
         missionEndSeconds: 0,
       },
     },
+    dashboard: {
+      modelName: "",
+      draftModel: null,
+      snapshotSignature: "",
+    },
   };
 
   let suppressVideoCalibrationUpdate = false;
@@ -106,6 +122,280 @@
   function clampInt(value, min, max, fallback) {
     const parsed = toInt(value, fallback);
     return Math.max(min, Math.min(max, parsed));
+  }
+
+  async function adminFetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+      window.location.href = "/admin/login";
+      throw new Error("未登录或会话已过期");
+    }
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  function stableSerialize(value) {
+    try {
+      return JSON.stringify(value ?? null);
+    } catch {
+      return "";
+    }
+  }
+
+  function formatDashboardStage(stageIndex) {
+    const index = Math.max(1, toInt(stageIndex, 1));
+    return `${DASHBOARD_STAGE_TEXT[index] || String(index)}级`;
+  }
+
+  function buildDashboardOptionKey(stageIndex, typeKey) {
+    return `stage${Math.max(1, toInt(stageIndex, 1))}:${String(typeKey || "").trim().toLowerCase()}`;
+  }
+
+  function normalizeDashboardEditorDraft(rawEditor, stageCount) {
+    const source = rawEditor && typeof rawEditor === "object" ? rawEditor : {};
+    const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+      ? source.node_configs
+      : {};
+    const maxStage = Math.max(1, toInt(stageCount, 1));
+    const validType = new Set(DASHBOARD_OPTION_DEFS.map((item) => item.key));
+    const nodeConfigs = {};
+
+    for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+      if (!nodeKey || !config || typeof config !== "object") {
+        continue;
+      }
+
+      const selected = [];
+      const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
+      for (const item of sourceSelected) {
+        const text = String(item || "").trim().toLowerCase();
+        const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+        if (!matched) {
+          continue;
+        }
+        const stageIndex = Math.max(1, toInt(matched[1], 1));
+        const typeKey = matched[2];
+        if (stageIndex > maxStage || !validType.has(typeKey)) {
+          continue;
+        }
+        const normalizedKey = buildDashboardOptionKey(stageIndex, typeKey);
+        if (!selected.includes(normalizedKey)) {
+          selected.push(normalizedKey);
+        }
+        if (selected.length >= 4) {
+          break;
+        }
+      }
+
+      if (selected.length > 0) {
+        nodeConfigs[nodeKey] = { selected };
+      }
+    }
+
+    return {
+      version: 1,
+      node_configs: nodeConfigs,
+    };
+  }
+
+  function finalizeDashboardEditorForSave(rawEditor, stageCount) {
+    const maxStage = Math.max(1, toInt(stageCount, 1));
+    const normalized = normalizeDashboardEditorDraft(rawEditor, maxStage);
+    const nodeConfigs = {};
+    const allOptionKeys = [];
+
+    for (let stageIndex = 1; stageIndex <= maxStage; stageIndex += 1) {
+      DASHBOARD_OPTION_DEFS.forEach((option) => {
+        allOptionKeys.push(buildDashboardOptionKey(stageIndex, option.key));
+      });
+    }
+
+    for (const [nodeKey, config] of Object.entries(normalized.node_configs || {})) {
+      let selected = Array.isArray(config?.selected) ? config.selected : [];
+      selected = Array.from(new Set(selected.filter((item) => allOptionKeys.includes(item)))).slice(0, 4);
+
+      if (selected.length === 1 || selected.length === 3) {
+        const rest = allOptionKeys.filter((item) => !selected.includes(item));
+        if (rest.length > 0) {
+          const randomIndex = Math.floor(Math.random() * rest.length);
+          const picked = rest[Math.max(0, Math.min(rest.length - 1, randomIndex))];
+          if (picked) {
+            selected.push(picked);
+          }
+        }
+      }
+
+      if (selected.length > 0) {
+        nodeConfigs[nodeKey] = { selected: selected.slice(0, 4) };
+      }
+    }
+
+    return {
+      version: 1,
+      node_configs: nodeConfigs,
+    };
+  }
+
+  async function loadDashboardDraftModel() {
+    const snapshot = await adminFetchJson("/api/state", { cache: "no-store" });
+    const modelName = String(snapshot?.current_model || "").trim();
+    if (!modelName) {
+      throw new Error("请先选择型号");
+    }
+
+    const models = await adminFetchJson("/api/models", { cache: "no-store" });
+    const model = models && typeof models === "object" ? models[modelName] : null;
+    if (!model || typeof model !== "object") {
+      throw new Error("当前型号配置不存在");
+    }
+
+    state.dashboard.modelName = modelName;
+    state.dashboard.draftModel = JSON.parse(JSON.stringify(model));
+    const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
+    state.dashboard.draftModel.dashboard_editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount);
+    state.dashboard.snapshotSignature = stableSerialize(state.dashboard.draftModel.dashboard_editor);
+  }
+
+  function renderDashboardConfigTable() {
+    if (!dom.dashboardConfigTable) {
+      return;
+    }
+
+    const model = state.dashboard.draftModel;
+    if (!model) {
+      dom.dashboardConfigTable.innerHTML = "";
+      return;
+    }
+
+    const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
+    const editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount);
+    model.dashboard_editor = editor;
+
+    const events = (Array.isArray(model.events) ? model.events : [])
+      .map((event, index) => ({
+        id: String(event?.id || `evt_${index + 1}`),
+        name: String(event?.name || "未命名事件"),
+        time: toInt(event?.time, 0),
+      }))
+      .sort((a, b) => a.time - b.time);
+
+    if (events.length <= 0) {
+      dom.dashboardConfigTable.innerHTML = "<tbody><tr><td>当前型号无事件，无法配置仪表盘。</td></tr></tbody>";
+      return;
+    }
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const headNode = document.createElement("th");
+    headNode.textContent = "节点";
+    headNode.className = "dashboard-node-col";
+    headRow.appendChild(headNode);
+
+    const headTime = document.createElement("th");
+    headTime.textContent = "时间";
+    headTime.className = "dashboard-time-col";
+    headRow.appendChild(headTime);
+
+    for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+      const th = document.createElement("th");
+      th.textContent = `${formatDashboardStage(stageIndex)}数据`;
+      headRow.appendChild(th);
+    }
+
+    thead.appendChild(headRow);
+
+    const tbody = document.createElement("tbody");
+
+    const allOptionKeys = [];
+    for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+      DASHBOARD_OPTION_DEFS.forEach((option) => {
+        allOptionKeys.push(buildDashboardOptionKey(stageIndex, option.key));
+      });
+    }
+
+    const normalizeSelectionOrder = (rawSelected) => {
+      const selectedSet = new Set(Array.isArray(rawSelected) ? rawSelected : []);
+      const ordered = allOptionKeys.filter((key) => selectedSet.has(key));
+      return ordered.slice(0, 4);
+    };
+
+    const updateSelection = (nodeKey, optionKey) => {
+      const existing = editor.node_configs[nodeKey] && Array.isArray(editor.node_configs[nodeKey].selected)
+        ? editor.node_configs[nodeKey].selected.slice()
+        : [];
+      const selected = normalizeSelectionOrder(existing);
+      const index = selected.indexOf(optionKey);
+
+      if (index >= 0) {
+        selected.splice(index, 1);
+      } else {
+        if (selected.length >= 4) {
+          notify("每个事件最多点亮 4 个仪表盘数据", "warning");
+          return;
+        }
+        selected.push(optionKey);
+      }
+
+      const normalized = normalizeSelectionOrder(selected);
+
+      if (normalized.length > 0) {
+        editor.node_configs[nodeKey] = { selected: normalized };
+      } else {
+        delete editor.node_configs[nodeKey];
+      }
+
+      state.dashboard.draftModel.dashboard_editor = editor;
+      renderDashboardConfigTable();
+    };
+
+    events.forEach((event) => {
+      const tr = document.createElement("tr");
+      const nodeKey = `event:${event.id}`;
+      const selected = editor.node_configs[nodeKey]?.selected || [];
+
+      const tdNode = document.createElement("td");
+      tdNode.className = "dashboard-node-col";
+      tdNode.textContent = event.name;
+      tr.appendChild(tdNode);
+
+      const tdTime = document.createElement("td");
+      tdTime.className = "dashboard-time-col";
+      tdTime.textContent = `T${event.time >= 0 ? "+" : ""}${event.time}`;
+      tr.appendChild(tdTime);
+
+      for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+        const tdStage = document.createElement("td");
+        tdStage.className = "dashboard-stage-cell";
+
+        const optionsWrap = document.createElement("div");
+        optionsWrap.className = "dashboard-stage-options";
+
+        DASHBOARD_OPTION_DEFS.forEach((option) => {
+          const optionKey = buildDashboardOptionKey(stageIndex, option.key);
+          const orderIndex = selected.indexOf(optionKey);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "dashboard-option-btn";
+          btn.classList.toggle("active", orderIndex >= 0);
+          btn.textContent = orderIndex >= 0
+            ? `${formatDashboardStage(stageIndex)}${option.label} #${orderIndex + 1}`
+            : `${formatDashboardStage(stageIndex)}${option.label}`;
+          btn.addEventListener("click", () => updateSelection(nodeKey, optionKey));
+          optionsWrap.appendChild(btn);
+        });
+
+        tdStage.appendChild(optionsWrap);
+        tr.appendChild(tdStage);
+      }
+
+      tbody.appendChild(tr);
+    });
+
+    dom.dashboardConfigTable.innerHTML = "";
+    dom.dashboardConfigTable.appendChild(thead);
+    dom.dashboardConfigTable.appendChild(tbody);
   }
 
   function readStoredVideoMeta() {
@@ -398,21 +688,41 @@
     }
   }
 
-  function openPreviewConfig(mode) {
-    state.configMode = mode === "video" ? "video" : "obs";
+  async function openPreviewConfig(mode) {
+    state.configMode = mode === "video"
+      ? "video"
+      : mode === "dashboard"
+        ? "dashboard"
+        : "obs";
 
-    dom.previewConfigTitle.textContent = state.configMode === "video" ? "视频页面设置" : "OBS 页面设置";
+    dom.previewConfigTitle.textContent = state.configMode === "video"
+      ? "视频页面设置"
+      : state.configMode === "dashboard"
+        ? "仪表盘设置"
+        : "OBS 页面设置";
+
     dom.obsConfigPane.classList.toggle("hidden", state.configMode !== "obs");
     dom.videoConfigPane.classList.toggle("hidden", state.configMode !== "video");
+    if (dom.dashboardConfigPane) {
+      dom.dashboardConfigPane.classList.toggle("hidden", state.configMode !== "dashboard");
+    }
 
     applyResolutionPreset(dom.obsResolutionPresetSelect, state.obsResolutionPresetId);
     applyResolutionPreset(dom.videoResolutionPresetSelect, state.videoResolutionPresetId);
 
-    renderVideoConfigFields();
+    if (state.configMode === "dashboard") {
+      await loadDashboardDraftModel();
+      renderDashboardConfigTable();
+    } else {
+      renderVideoConfigFields();
+    }
+
+    dom.previewConfigModal.classList.toggle("mode-dashboard", state.configMode === "dashboard");
     dom.previewConfigModal.classList.remove("hidden");
   }
 
   function closePreviewConfig() {
+    dom.previewConfigModal.classList.remove("mode-dashboard");
     dom.previewConfigModal.classList.add("hidden");
   }
 
@@ -564,6 +874,44 @@
   }
 
   async function savePreviewConfig() {
+    if (state.configMode === "dashboard") {
+      const modelName = String(state.dashboard.modelName || "").trim();
+      if (!modelName || !state.dashboard.draftModel) {
+        throw new Error("仪表盘草稿不存在，请重新打开设置");
+      }
+
+      const stageCount = Math.max(1, toInt(state.dashboard.draftModel?.rocket_meta?.stage_count, 1));
+      state.dashboard.draftModel.dashboard_editor = finalizeDashboardEditorForSave(
+        state.dashboard.draftModel.dashboard_editor,
+        stageCount,
+      );
+
+      let payload = JSON.parse(JSON.stringify(state.dashboard.draftModel));
+      if (typeof normalizeDraft === "function") {
+        payload = normalizeDraft(payload, modelName);
+      }
+      payload.name = modelName;
+      payload.dashboard_editor = finalizeDashboardEditorForSave(payload.dashboard_editor, stageCount);
+
+      const response = await adminFetchJson("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response?.success) {
+        throw new Error(response?.message || "保存仪表盘设置失败");
+      }
+
+      state.dashboard.snapshotSignature = stableSerialize(payload.dashboard_editor);
+      if (typeof fetchModels === "function") {
+        await fetchModels();
+      }
+
+      closePreviewConfig();
+      notify("仪表盘设置已保存", "success");
+      return;
+    }
+
     if (state.configMode === "obs") {
       const preset = getResolutionPresetById(dom.obsResolutionPresetSelect?.value || state.obsResolutionPresetId);
       state.obsResolutionPresetId = preset.id;
@@ -717,10 +1065,19 @@
     }
 
     if (dom.openObsSettingsBtn) {
-      dom.openObsSettingsBtn.addEventListener("click", () => openPreviewConfig("obs"));
+      dom.openObsSettingsBtn.addEventListener("click", () => {
+        openPreviewConfig("obs").catch((error) => notify(error?.message || "打开设置失败", "error"));
+      });
     }
     if (dom.openVideoSettingsBtn) {
-      dom.openVideoSettingsBtn.addEventListener("click", () => openPreviewConfig("video"));
+      dom.openVideoSettingsBtn.addEventListener("click", () => {
+        openPreviewConfig("video").catch((error) => notify(error?.message || "打开设置失败", "error"));
+      });
+    }
+    if (dom.openDashboardEditorBtn) {
+      dom.openDashboardEditorBtn.addEventListener("click", () => {
+        openPreviewConfig("dashboard").catch((error) => notify(error?.message || "打开仪表盘设置失败", "error"));
+      });
     }
 
     if (dom.previewConfigBackdrop) {
@@ -832,7 +1189,6 @@
     setModeButtonState();
     toggleActionGroups();
     renderVideoConfigFields();
-    setExportProgress(0, "准备导出");
     setTimeout(() => {
       positionModeThumb();
       applyPreviewResolution();

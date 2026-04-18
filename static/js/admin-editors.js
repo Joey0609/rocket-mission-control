@@ -2,8 +2,31 @@ const TELEMETRY_METRIC_DEFS = [
   { key: "altitude_km", label: "高度 (km)", shortLabel: "高度", defaultValue: 0 },
   { key: "speed_mps", label: "速度 (m/s)", shortLabel: "速度", defaultValue: 0 },
   { key: "accel_g", label: "加速度 (g)", shortLabel: "加速度", defaultValue: 0 },
-  { key: "angular_velocity_dps", label: "角速度 (deg/s)", shortLabel: "角速度", defaultValue: 0 },
+  { key: "angular_velocity_dps", label: "欧拉角 (deg)", shortLabel: "欧拉角", defaultValue: 0 },
 ];
+
+const TELEMETRY_EULER_METRIC_KEY = "angular_velocity_dps";
+const TELEMETRY_EULER_AXES = ["roll", "pitch", "yaw"];
+const TELEMETRY_EULER_AXIS_LABEL = {
+  roll: "roll",
+  pitch: "pitch",
+  yaw: "yaw",
+};
+const TELEMETRY_EULER_AXIS_CURVE_KEY = {
+  roll: "euler_roll_deg",
+  pitch: "euler_pitch_deg",
+  yaw: "euler_yaw_deg",
+};
+const TELEMETRY_EULER_AXIS_COLORS = {
+  roll: "#4fd2ff",
+  pitch: "#ffba6e",
+  yaw: "#8ef07a",
+};
+const TELEMETRY_EULER_AXIS_ACTIVE_COLORS = {
+  roll: "#ffe07e",
+  pitch: "#fff4a8",
+  yaw: "#d5ff8f",
+};
 
 let telemetryEditDraft = null;
 let telemetryEditSource = "";
@@ -19,6 +42,21 @@ let telemetrySplitMode = {
   separationTime: Number.POSITIVE_INFINITY,
   separationName: "",
 };
+
+const VISUAL_SORT_IDLE_MS = 3000;
+
+let configDraftSnapshot = "";
+let configRawSnapshotText = "";
+let visualSortPending = false;
+let visualFocusedInputCount = 0;
+let visualIdleSortTimer = null;
+
+let fuelSnapshot = "";
+let telemetrySnapshot = "";
+let engineLayoutSnapshot = "";
+
+let fuelCurveZoomRange = null;
+let telemetryCurveZoomRange = null;
 
 function toFloat(value, fallback = 0) {
   const parsed = Number.parseFloat(value);
@@ -128,6 +166,62 @@ function evaluateSmoothValueAtX(points, x) {
   return Math.max(minSegmentValue, Math.min(maxSegmentValue, value));
 }
 
+function stableSerialize(value) {
+  try {
+    return JSON.stringify(value ?? null);
+  } catch {
+    return "";
+  }
+}
+
+function makeConfigDraftSignature(draft = configDraft) {
+  if (!draft) {
+    return "";
+  }
+  const selectedName = dom.modelSelect?.value || draft?.name || "";
+  return stableSerialize(normalizeDraft(draft, selectedName));
+}
+
+function refreshConfigDirtyState() {
+  configDraftDirty = makeConfigDraftSignature(configDraft) !== configDraftSnapshot;
+}
+
+function hasConfigUnsavedChanges() {
+  const rawText = String(dom.configRawEditor?.value || "");
+  if (rawText !== configRawSnapshotText) {
+    try {
+      const selectedName = dom.modelSelect?.value || configDraft?.name || "";
+      const normalized = normalizeDraft(JSON.parse(rawText || "{}"), selectedName);
+      return stableSerialize(normalized) !== configDraftSnapshot;
+    } catch {
+      return true;
+    }
+  }
+
+  return makeConfigDraftSignature(configDraft) !== configDraftSnapshot;
+}
+
+function makeRocketMetaSignature(rawMeta = configDraft?.rocket_meta) {
+  const meta = rawMeta && typeof rawMeta === "object" ? rawMeta : {};
+  return stableSerialize(meta);
+}
+
+function hasPropellantUnsavedChanges() {
+  return makeRocketMetaSignature(configDraft?.rocket_meta) !== makeRocketMetaSignature(propellantSnapshot);
+}
+
+function makeFuelSignature(draft = fuelEditDraft) {
+  return stableSerialize(draft?.fuel_editor && typeof draft.fuel_editor === "object" ? draft.fuel_editor : {});
+}
+
+function makeTelemetrySignature(draft = telemetryEditDraft) {
+  return stableSerialize(draft?.telemetry_editor && typeof draft.telemetry_editor === "object" ? draft.telemetry_editor : {});
+}
+
+function makeEngineLayoutSignature(draft = engineEditDraft) {
+  return stableSerialize(draft?.engine_layout && typeof draft.engine_layout === "object" ? draft.engine_layout : {});
+}
+
 function showConfigValidation(message, isError) {
   dom.configValidationMsg.textContent = message;
   dom.configValidationMsg.classList.toggle("error", Boolean(isError));
@@ -155,6 +249,7 @@ function validateRawDraft() {
 
   configDraft = normalized;
   configDraftValid = true;
+  refreshConfigDirtyState();
   dom.saveConfigModalBtn.disabled = false;
   showConfigValidation("配置有效，可保存。", false);
   return true;
@@ -177,6 +272,144 @@ function sortVisualRows() {
   });
 }
 
+function applyVisualSortNow(withAnimation = true) {
+  if (!Array.isArray(visualRows) || visualRows.length <= 1) {
+    visualSortPending = false;
+    return;
+  }
+
+  const oldOrder = new Map();
+  visualRows.forEach((row, index) => {
+    const rowKey = String(row?.rowKey || `${row?.kind || "row"}_${row?.id || ""}_${index}`);
+    oldOrder.set(rowKey, index);
+  });
+
+  sortVisualRows();
+  visualSortPending = false;
+
+  if (!withAnimation) {
+    renderVisualEditor();
+    return;
+  }
+
+  const moveMap = new Map();
+  visualRows.forEach((row, newIndex) => {
+    const rowKey = String(row?.rowKey || `${row?.kind || "row"}_${row?.id || ""}_${newIndex}`);
+    const oldIndex = oldOrder.get(rowKey);
+    if (typeof oldIndex !== "number" || oldIndex === newIndex) {
+      return;
+    }
+    moveMap.set(rowKey, oldIndex < newIndex ? "down" : "up");
+  });
+
+  renderVisualEditor(moveMap);
+}
+
+function queueVisualSortAfterIdle() {
+  visualSortPending = true;
+  if (visualIdleSortTimer) {
+    clearTimeout(visualIdleSortTimer);
+  }
+
+  visualIdleSortTimer = setTimeout(() => {
+    visualIdleSortTimer = null;
+    if (visualFocusedInputCount > 0) {
+      queueVisualSortAfterIdle();
+      return;
+    }
+    applyVisualSortNow(true);
+  }, VISUAL_SORT_IDLE_MS);
+}
+
+function registerVisualInputFocus() {
+  visualFocusedInputCount += 1;
+  if (visualIdleSortTimer) {
+    clearTimeout(visualIdleSortTimer);
+    visualIdleSortTimer = null;
+  }
+}
+
+function registerVisualInputBlur() {
+  visualFocusedInputCount = Math.max(0, visualFocusedInputCount - 1);
+  if (visualFocusedInputCount === 0 && visualSortPending) {
+    queueVisualSortAfterIdle();
+  }
+}
+
+function isVisualEventRow(row) {
+  return row?.kind === "event" || row?.kind === "observation";
+}
+
+function normalizeVisualEventFlags(row) {
+  if (!row || typeof row !== "object") {
+    return;
+  }
+  row.isObservation = isVisualEventRow(row) ? Boolean(row.isObservation || row.kind === "observation") : false;
+  row.isHidden = isVisualEventRow(row) ? Boolean(row.isHidden) : false;
+  if (row.isObservation && row.isHidden) {
+    row.isHidden = false;
+  }
+}
+
+function parseObservationTime(observation) {
+  const fallbackCountdown = Math.max(0, toInt(observation?.new_countdown, 0));
+  const hasTime = Object.prototype.hasOwnProperty.call(observation || {}, "time");
+  return hasTime ? toInt(observation?.time, -fallbackCountdown) : -fallbackCountdown;
+}
+
+function buildVisualEventRow(seed = {}, fallbackIndex = 0) {
+  const row = {
+    rowKey: `${String(seed?.id || `evt_${fallbackIndex + 1}`)}_${Date.now()}_${fallbackIndex}`,
+    kind: "event",
+    id: String(seed?.id || `evt_${Date.now()}`).trim(),
+    name: String(seed?.name || ""),
+    start_time: 0,
+    end_time: 0,
+    time: toInt(seed?.time, 0),
+    description: String(seed?.description || ""),
+    isObservation: Boolean(seed?.isObservation),
+    isHidden: Boolean(seed?.hidden),
+  };
+  normalizeVisualEventFlags(row);
+  return row;
+}
+
+function mergeObservationRowsIntoEvents(rows, observations = []) {
+  const eventRows = rows.filter((row) => row?.kind === "event");
+  observations.forEach((obs, index) => {
+    const obsId = String(obs?.id || "").trim();
+    const obsName = String(obs?.name || "").trim();
+    const obsTime = parseObservationTime(obs);
+
+    let matched = null;
+    if (obsId) {
+      matched = eventRows.find((row) => String(row?.id || "").trim() === obsId) || null;
+    }
+
+    if (!matched && obsName) {
+      matched = eventRows.find((row) => String(row?.name || "").trim() === obsName && toInt(row?.time, 0) === obsTime) || null;
+    }
+
+    if (matched) {
+      matched.isObservation = true;
+      matched.isHidden = false;
+      normalizeVisualEventFlags(matched);
+      return;
+    }
+
+    const syntheticRow = buildVisualEventRow({
+      id: obsId || `evt_obs_${Date.now()}_${index + 1}`,
+      name: obsName || "未命名观察点",
+      time: obsTime,
+      description: String(obs?.description || ""),
+      isObservation: true,
+      hidden: false,
+    }, index);
+    rows.push(syntheticRow);
+    eventRows.push(syntheticRow);
+  });
+}
+
 function draftToVisualRows(draft) {
   const rows = [];
 
@@ -190,34 +423,16 @@ function draftToVisualRows(draft) {
       end_time: toInt(stg.end_time, toInt(stg.start_time, 0)),
       time: 0,
       description: stg.description || "",
+      isObservation: false,
+      isHidden: false,
     });
   }
 
-  for (const evt of draft.events || []) {
-    rows.push({
-      rowKey: `${evt.id}_${Date.now()}`,
-      kind: "event",
-      id: evt.id,
-      name: evt.name,
-      start_time: 0,
-      end_time: 0,
-      time: toInt(evt.time, 0),
-      description: evt.description || "",
-    });
-  }
+  (draft.events || []).forEach((evt, index) => {
+    rows.push(buildVisualEventRow(evt, index));
+  });
 
-  for (const obs of draft.observation_points || []) {
-    rows.push({
-      rowKey: `${obs.id}_${Date.now()}`,
-      kind: "observation",
-      id: obs.id,
-      name: obs.name,
-      start_time: 0,
-      end_time: 0,
-      time: toInt(obs.time, -Math.max(0, toInt(obs.new_countdown, 0))),
-      description: obs.description || "",
-    });
-  }
+  mergeObservationRowsIntoEvents(rows, Array.isArray(draft.observation_points) ? draft.observation_points : []);
 
   visualRows = rows;
   sortVisualRows();
@@ -235,9 +450,12 @@ function visualRowsToDraft() {
     fuel_editor: deepClone(configDraft.fuel_editor || { version: 1, node_values: {}, curves: {} }),
     telemetry_editor: deepClone(configDraft.telemetry_editor || { version: 1, node_values: {}, curves: {} }),
     engine_layout: deepClone(configDraft.engine_layout || { version: 3, node_configs: {} }),
+    dashboard_editor: deepClone(configDraft.dashboard_editor || { version: 1, node_configs: {} }),
   };
 
   for (const row of visualRows) {
+    normalizeVisualEventFlags(row);
+
     if (row.kind === "stage") {
       const start = toInt(row.start_time, 0);
       const end = Math.max(start, toInt(row.end_time, start));
@@ -251,24 +469,33 @@ function visualRowsToDraft() {
       continue;
     }
 
-    if (row.kind === "event") {
-      draft.events.push({
-        id: String(row.id || "").trim() || `evt_${Date.now()}`,
-        name: String(row.name || "未命名事件"),
-        time: toInt(row.time, 0),
-        description: String(row.description || ""),
-      });
+    if (!isVisualEventRow(row)) {
       continue;
     }
 
     const time = toInt(row.time, 0);
-    draft.observation_points.push({
-      id: String(row.id || "").trim() || `obs_${Date.now()}`,
-      name: String(row.name || "未命名观察点"),
+    const isHidden = Boolean(row.isHidden);
+    const eventId = String(row.id || "").trim() || `evt_${Date.now()}`;
+    const eventName = String(row.name || "未命名事件");
+    const eventDescription = String(row.description || "");
+
+    draft.events.push({
+      id: eventId,
+      name: eventName,
       time,
-      new_countdown: Math.max(0, -time),
-      description: String(row.description || ""),
+      hidden: isHidden,
+      description: eventDescription,
     });
+
+    if (Boolean(row.isObservation) && !isHidden) {
+      draft.observation_points.push({
+        id: eventId,
+        name: eventName,
+        time,
+        new_countdown: Math.max(0, -time),
+        description: eventDescription,
+      });
+    }
   }
 
   draft.stages.sort((a, b) => a.start_time - b.start_time);
@@ -281,9 +508,7 @@ function visualRowsToDraft() {
 function syncRawFromVisual() {
   configDraft = visualRowsToDraft();
   configDraftValid = true;
-  if (isModalVisible(dom.configModal)) {
-    configDraftDirty = true;
-  }
+  refreshConfigDirtyState();
   dom.saveConfigModalBtn.disabled = false;
   dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
   showConfigValidation("可视化编辑已同步，可直接保存。", false);
@@ -312,12 +537,7 @@ function undoVisualChange() {
 }
 
 function scheduleVisualSortRerender() {
-  if (visualSortTimer) {
-    clearTimeout(visualSortTimer);
-  }
-  visualSortTimer = setTimeout(() => {
-    renderVisualEditor();
-  }, 160);
+  queueVisualSortAfterIdle();
 }
 
 const TYPE_ICON_BY_KIND = {
@@ -352,50 +572,132 @@ function makeTypeButton(currentRow, kind, label) {
       currentRow.start_time = pivot;
       currentRow.end_time = Math.max(pivot, pivot + 10);
       currentRow.time = 0;
+      currentRow.isObservation = false;
+      currentRow.isHidden = false;
     } else {
       currentRow.time = pivot;
       currentRow.start_time = 0;
       currentRow.end_time = 0;
+      currentRow.isObservation = Boolean(currentRow.isObservation);
+      currentRow.isHidden = Boolean(currentRow.isHidden);
+      if (currentRow.isObservation && currentRow.isHidden) {
+        currentRow.isHidden = false;
+      }
     }
+    normalizeVisualEventFlags(currentRow);
     syncRawFromVisual();
     renderVisualEditor();
+    scheduleVisualSortRerender();
   });
   return btn;
 }
 
-function renderVisualRow(row, index) {
+function makeVisualFlagButton(row, flagKey, label) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "visual-flag-btn";
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+
+  const icon = document.createElement("span");
+  icon.className = "icon-mask";
+  icon.setAttribute("aria-hidden", "true");
+  icon.style.setProperty("--icon-url", "url('/assets/observe.svg')");
+  btn.appendChild(icon);
+
+  const canToggle = isVisualEventRow(row);
+  if (!canToggle) {
+    btn.disabled = true;
+    return btn;
+  }
+
+  const active = flagKey === "observation"
+    ? Boolean(row.isObservation) && !Boolean(row.isHidden)
+    : Boolean(row.isHidden);
+  btn.classList.toggle("active", active);
+
+  btn.addEventListener("click", () => {
+    pushVisualUndo();
+    if (flagKey === "observation") {
+      row.isObservation = !Boolean(row.isObservation);
+      if (row.isObservation) {
+        row.isHidden = false;
+      }
+    } else {
+      row.isHidden = !Boolean(row.isHidden);
+      if (row.isHidden) {
+        row.isObservation = false;
+      }
+    }
+
+    normalizeVisualEventFlags(row);
+    syncRawFromVisual();
+    renderVisualEditor();
+  });
+
+  return btn;
+}
+
+function renderVisualRow(row, index, moveMap = null) {
+  normalizeVisualEventFlags(row);
+
   const line = document.createElement("div");
   line.className = "visual-row";
+  const rowKey = String(row?.rowKey || `${row?.kind || "row"}_${row?.id || ""}_${index}`);
+  if (!row.rowKey) {
+    row.rowKey = rowKey;
+  }
+
+  const moveDirection = moveMap instanceof Map ? moveMap.get(rowKey) : "";
+  if (moveDirection === "up") {
+    line.classList.add("visual-row-move-up");
+  } else if (moveDirection === "down") {
+    line.classList.add("visual-row-move-down");
+  }
 
   const typeCell = document.createElement("div");
   typeCell.className = "type-switch";
   typeCell.appendChild(makeTypeButton(row, "stage", "阶段"));
   typeCell.appendChild(makeTypeButton(row, "event", "事件"));
-  typeCell.appendChild(makeTypeButton(row, "observation", "观察点"));
   line.appendChild(typeCell);
+
+  const observationCell = document.createElement("div");
+  observationCell.className = "visual-flag-cell";
+  observationCell.appendChild(makeVisualFlagButton(row, "observation", "标记为观察点（仅事件）"));
+  line.appendChild(observationCell);
+
+  const hiddenCell = document.createElement("div");
+  hiddenCell.className = "visual-flag-cell";
+  hiddenCell.appendChild(makeVisualFlagButton(row, "hidden", "标记为隐藏事件（仅事件）"));
+  line.appendChild(hiddenCell);
 
   const idInput = document.createElement("input");
   idInput.className = "row-input";
   idInput.value = row.id || "";
   idInput.placeholder = "id";
-  idInput.addEventListener("focus", () => pushVisualUndo());
+  idInput.addEventListener("focus", () => {
+    pushVisualUndo();
+    registerVisualInputFocus();
+  });
+  idInput.addEventListener("blur", registerVisualInputBlur);
   idInput.addEventListener("input", () => {
     row.id = idInput.value;
     syncRawFromVisual();
   });
-  line.appendChild(idInput);
 
   const nameInput = document.createElement("input");
   nameInput.className = "row-input";
   nameInput.value = row.name || "";
   nameInput.placeholder = "名称";
-  nameInput.addEventListener("focus", () => pushVisualUndo());
+  nameInput.addEventListener("focus", () => {
+    pushVisualUndo();
+    registerVisualInputFocus();
+  });
+  nameInput.addEventListener("blur", registerVisualInputBlur);
   nameInput.addEventListener("input", () => {
     row.name = nameInput.value;
     syncRawFromVisual();
   });
-  line.appendChild(nameInput);
-
   const timeWrap = document.createElement("div");
   timeWrap.className = `cell-time ${row.kind === "stage" ? "dual" : "single"}`;
 
@@ -405,7 +707,11 @@ function renderVisualRow(row, index) {
     startInput.className = "row-time";
     startInput.value = String(toInt(row.start_time, 0));
     startInput.placeholder = "开始";
-    startInput.addEventListener("focus", () => pushVisualUndo());
+    startInput.addEventListener("focus", () => {
+      pushVisualUndo();
+      registerVisualInputFocus();
+    });
+    startInput.addEventListener("blur", registerVisualInputBlur);
     startInput.addEventListener("input", () => {
       row.start_time = toInt(startInput.value, 0);
       if (toInt(row.end_time, row.start_time) < row.start_time) {
@@ -420,7 +726,11 @@ function renderVisualRow(row, index) {
     endInput.className = "row-time";
     endInput.value = String(toInt(row.end_time, toInt(row.start_time, 0)));
     endInput.placeholder = "结束";
-    endInput.addEventListener("focus", () => pushVisualUndo());
+    endInput.addEventListener("focus", () => {
+      pushVisualUndo();
+      registerVisualInputFocus();
+    });
+    endInput.addEventListener("blur", registerVisualInputBlur);
     endInput.addEventListener("input", () => {
       row.end_time = toInt(endInput.value, toInt(row.start_time, 0));
       syncRawFromVisual();
@@ -433,8 +743,12 @@ function renderVisualRow(row, index) {
     timeInput.type = "number";
     timeInput.className = "row-time";
     timeInput.value = String(toInt(row.time, 0));
-    timeInput.placeholder = row.kind === "event" ? "时间" : "观察时间";
-    timeInput.addEventListener("focus", () => pushVisualUndo());
+    timeInput.placeholder = "时间";
+    timeInput.addEventListener("focus", () => {
+      pushVisualUndo();
+      registerVisualInputFocus();
+    });
+    timeInput.addEventListener("blur", registerVisualInputBlur);
     timeInput.addEventListener("input", () => {
       row.time = toInt(timeInput.value, 0);
       syncRawFromVisual();
@@ -443,13 +757,19 @@ function renderVisualRow(row, index) {
     timeWrap.appendChild(timeInput);
   }
 
+  line.appendChild(idInput);
+  line.appendChild(nameInput);
   line.appendChild(timeWrap);
 
   const descInput = document.createElement("input");
   descInput.className = "row-desc";
   descInput.value = row.description || "";
   descInput.placeholder = "介绍";
-  descInput.addEventListener("focus", () => pushVisualUndo());
+  descInput.addEventListener("focus", () => {
+    pushVisualUndo();
+    registerVisualInputFocus();
+  });
+  descInput.addEventListener("blur", registerVisualInputBlur);
   descInput.addEventListener("input", () => {
     row.description = descInput.value;
     syncRawFromVisual();
@@ -472,15 +792,14 @@ function renderVisualRow(row, index) {
   return line;
 }
 
-function renderVisualEditor() {
+function renderVisualEditor(moveMap = null) {
   if (!configDraft) {
     return;
   }
 
-  sortVisualRows();
   dom.visualList.innerHTML = "";
   visualRows.forEach((row, index) => {
-    dom.visualList.appendChild(renderVisualRow(row, index));
+    dom.visualList.appendChild(renderVisualRow(row, index, moveMap));
   });
 }
 
@@ -500,6 +819,14 @@ function setConfigTab(tab) {
     draftToVisualRows(configDraft);
     syncRawFromVisual();
     renderVisualEditor();
+    return;
+  }
+
+  visualSortPending = false;
+  visualFocusedInputCount = 0;
+  if (visualIdleSortTimer) {
+    clearTimeout(visualIdleSortTimer);
+    visualIdleSortTimer = null;
   }
 }
 
@@ -512,29 +839,44 @@ function openConfigModal() {
 
   configDraft = normalizeDraft(modelsCache[modelName], modelName);
   visualUndoStack = [];
+  visualSortPending = false;
+  visualFocusedInputCount = 0;
+  if (visualIdleSortTimer) {
+    clearTimeout(visualIdleSortTimer);
+    visualIdleSortTimer = null;
+  }
   dom.configModalTitle.textContent = `型号配置编辑 · ${modelName}`;
   dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
   dom.recoverableConfigToggle.checked = configDraft.rocket_meta.recovery_capable !== false;
   setRecoverableConfigText(dom.recoverableConfigToggle.checked);
   validateRawDraft();
   setConfigTab("visual");
+  configDraftSnapshot = makeConfigDraftSignature(configDraft);
+  configRawSnapshotText = String(dom.configRawEditor.value || "");
+  refreshConfigDirtyState();
   dom.configModal.classList.remove("hidden");
-  configDraftDirty = false;
 }
 
 function closeConfigModal(force = false) {
-  if (!force && configDraftDirty) {
+  if (!force && hasConfigUnsavedChanges()) {
     openUnsavedConfirmDialog({
       title: "配置尚未保存",
       message: "当前型号配置有未保存修改，是否保存后关闭？",
       onSave: () => saveConfigModal(),
       onDiscard: () => {
-        configDraftDirty = false;
+        refreshConfigDirtyState();
         dom.configModal.classList.add("hidden");
         return true;
       },
     });
     return false;
+  }
+
+  visualSortPending = false;
+  visualFocusedInputCount = 0;
+  if (visualIdleSortTimer) {
+    clearTimeout(visualIdleSortTimer);
+    visualIdleSortTimer = null;
   }
   dom.configModal.classList.add("hidden");
   return true;
@@ -547,6 +889,7 @@ async function saveConfigModal() {
   }
 
   if (configTab === "visual") {
+    applyVisualSortNow(false);
     syncRawFromVisual();
   }
 
@@ -568,7 +911,9 @@ async function saveConfigModal() {
   modelsCache[payload.name] = payload;
   toast(`配置已保存: ${payload.name}`, "success");
   await fetchModels();
-  configDraftDirty = false;
+  configDraftSnapshot = makeConfigDraftSignature(configDraft);
+  configRawSnapshotText = String(dom.configRawEditor.value || "");
+  refreshConfigDirtyState();
   closeConfigModal(true);
   return true;
 }
@@ -587,6 +932,8 @@ function addVisualItem() {
     end_time: 10,
     time: 0,
     description: "",
+    isObservation: false,
+    isHidden: false,
   });
   syncRawFromVisual();
   renderVisualEditor();
@@ -603,7 +950,7 @@ function openPropellantModal() {
 }
 
 function closePropellantModal(force = false) {
-  if (!force && propellantDirty) {
+  if (!force && hasPropellantUnsavedChanges()) {
     openUnsavedConfirmDialog({
       title: "加注参数尚未保存",
       message: "当前加注参数有未保存修改，是否保存后关闭？",
@@ -613,6 +960,7 @@ function closePropellantModal(force = false) {
           configDraft.rocket_meta = deepClone(propellantSnapshot);
           dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
           showConfigValidation("已放弃加注参数修改。", false);
+          refreshConfigDirtyState();
         }
         propellantDirty = false;
         propellantSnapshot = null;
@@ -684,8 +1032,14 @@ function setBoosterUiState(enabled) {
   if (dom.boosterCountWrap) {
     dom.boosterCountWrap.classList.toggle("hidden", !enabled);
   }
+  if (dom.boosterCountInput) {
+    dom.boosterCountInput.min = enabled ? "1" : "0";
+  }
   if (!enabled && dom.boosterCountInput) {
     dom.boosterCountInput.value = "0";
+  }
+  if (enabled && dom.boosterCountInput) {
+    dom.boosterCountInput.value = String(Math.max(1, toInt(dom.boosterCountInput.value, 1)));
   }
 }
 
@@ -798,12 +1152,18 @@ function renderPropellantFields() {
   const stageCount = Math.max(1, toInt(meta.stage_count, 1));
   dom.rocketStageCountInput.value = String(stageCount);
   const boosterEnabled = Boolean(meta.boosters?.enabled);
+  const boosterCount = boosterEnabled
+    ? Math.max(1, toInt(meta.boosters?.count, 1))
+    : 0;
   dom.boosterEnabledInput.checked = boosterEnabled;
-  dom.boosterCountInput.value = String(Math.max(0, toInt(meta.boosters?.count, 0)));
+  dom.boosterCountInput.value = String(boosterCount);
   setBoosterUiState(boosterEnabled);
 
   if (!meta.boosters || typeof meta.boosters !== "object") {
     meta.boosters = { enabled: false, count: 0, fuels: [] };
+  }
+  if (boosterEnabled) {
+    meta.boosters.count = boosterCount;
   }
 
   while ((meta.stages || []).length < stageCount) {
@@ -867,7 +1227,7 @@ function savePropellantModal() {
   }));
 
   const boosterEnabled = Boolean(dom.boosterEnabledInput.checked);
-  const boosterCount = boosterEnabled ? Math.max(0, toInt(dom.boosterCountInput.value, 0)) : 0;
+  const boosterCount = boosterEnabled ? Math.max(1, toInt(dom.boosterCountInput.value, 1)) : 0;
   const boosterFuelSeed = Array.isArray(meta.boosters?.fuels) && meta.boosters.fuels.length > 0
     ? ensureFuelSeed(meta.boosters.fuels[0])
     : normalizeFuelSpec(getDefaultLiquidPropellant());
@@ -1197,6 +1557,101 @@ function timeDomain() {
   return { minTime, maxTime };
 }
 
+function normalizeTimeZoomRange(baseDomain, range) {
+  const baseMin = Number(baseDomain?.minTime || 0);
+  const baseMax = Number(baseDomain?.maxTime || 0);
+  const baseSpan = baseMax - baseMin;
+  if (!Number.isFinite(baseSpan) || baseSpan <= 0) {
+    return null;
+  }
+
+  if (!range || !Number.isFinite(range.minTime) || !Number.isFinite(range.maxTime)) {
+    return null;
+  }
+
+  const minSpan = Math.max(2, baseSpan / 140);
+  const desiredSpan = Math.max(minSpan, Math.min(baseSpan, range.maxTime - range.minTime));
+  let minTime = Math.max(baseMin, range.minTime);
+  let maxTime = minTime + desiredSpan;
+
+  if (maxTime > baseMax) {
+    maxTime = baseMax;
+    minTime = maxTime - desiredSpan;
+  }
+
+  if (minTime <= baseMin + 1e-6 && maxTime >= baseMax - 1e-6) {
+    return null;
+  }
+
+  return { minTime, maxTime };
+}
+
+function getFuelCurveViewDomain() {
+  const base = timeDomain();
+  const normalized = normalizeTimeZoomRange(base, fuelCurveZoomRange);
+  return normalized || base;
+}
+
+function applyHorizontalCurveZoom(baseDomain, currentDomain, pointerRatio, deltaY) {
+  const baseSpan = baseDomain.maxTime - baseDomain.minTime;
+  const currentSpan = currentDomain.maxTime - currentDomain.minTime;
+  const minSpan = Math.max(2, baseSpan / 140);
+  const zoomFactor = deltaY < 0 ? 0.88 : 1.14;
+  let targetSpan = Math.max(minSpan, Math.min(baseSpan, currentSpan * zoomFactor));
+
+  if (!Number.isFinite(targetSpan) || targetSpan <= 0) {
+    targetSpan = currentSpan;
+  }
+
+  if (targetSpan >= baseSpan - 1e-6) {
+    return null;
+  }
+
+  const clampedRatio = Math.max(0, Math.min(1, pointerRatio));
+  const focusTime = currentDomain.minTime + clampedRatio * currentSpan;
+
+  let minTime = focusTime - clampedRatio * targetSpan;
+  let maxTime = minTime + targetSpan;
+
+  if (minTime < baseDomain.minTime) {
+    minTime = baseDomain.minTime;
+    maxTime = minTime + targetSpan;
+  }
+  if (maxTime > baseDomain.maxTime) {
+    maxTime = baseDomain.maxTime;
+    minTime = maxTime - targetSpan;
+  }
+
+  return normalizeTimeZoomRange(baseDomain, { minTime, maxTime });
+}
+
+function handleFuelCurveWheelZoom(event) {
+  if (!dom.fuelModal || dom.fuelModal.classList.contains("hidden") || fuelTab !== "curve") {
+    return;
+  }
+
+  const rect = dom.fuelCurveCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return;
+  }
+
+  const m = curveCanvasMetrics();
+  const plotW = m.width - m.padLeft - m.padRight;
+  if (plotW <= 10) {
+    return;
+  }
+
+  event.preventDefault();
+  const localX = (event.clientX - rect.left) * (m.width / rect.width);
+  const clampedX = Math.max(m.padLeft, Math.min(m.width - m.padRight, localX));
+  const pointerRatio = (clampedX - m.padLeft) / plotW;
+
+  const baseDomain = timeDomain();
+  const currentDomain = getFuelCurveViewDomain();
+  fuelCurveZoomRange = applyHorizontalCurveZoom(baseDomain, currentDomain, pointerRatio, event.deltaY);
+  renderFuelCurve();
+}
+
 function getCurrentCurveChannelId() {
   return String(dom.fuelCurveChannelSelect.value || (fuelChannels[0] ? fuelChannels[0].id : ""));
 }
@@ -1303,8 +1758,11 @@ function renderFuelCurve() {
 
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
-  const { minTime, maxTime } = timeDomain();
-  const axisNodes = fuelNodes.slice().sort((a, b) => a.time - b.time);
+  const { minTime, maxTime } = getFuelCurveViewDomain();
+  const axisNodes = fuelNodes
+    .slice()
+    .sort((a, b) => a.time - b.time)
+    .filter((node) => node.time >= minTime && node.time <= maxTime);
   const axisGridColor = "rgba(34, 42, 60, 0.22)";
   const axisLabelColor = "rgba(28, 36, 54, 0.88)";
 
@@ -1443,7 +1901,7 @@ function findCurvePointAtPosition(x, y) {
   const { width, height, padLeft, padRight, padTop, padBottom } = m;
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
-  const { minTime, maxTime } = timeDomain();
+  const { minTime, maxTime } = getFuelCurveViewDomain();
 
   const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
   const toY = (value) => padTop + ((100 - value) / 100) * plotH;
@@ -1466,21 +1924,42 @@ function updateCurvePointByPointer(clientX, clientY) {
   }
   const channelId = curveDragState.channelId;
   const points = fuelEditDraft.fuel_editor.curves[channelId] || [];
-  const point = points[curveDragState.index];
-  if (!point) {
+  const currentPoint = points[curveDragState.index];
+  if (!currentPoint) {
     return;
   }
 
   const rect = dom.fuelCurveCanvas.getBoundingClientRect();
   const m = curveCanvasMetrics();
-  const { width, height, padTop, padBottom } = m;
+  const { width, height, padLeft, padRight, padTop, padBottom } = m;
+  const plotW = width - padLeft - padRight;
   const localY = (clientY - rect.top) * (height / rect.height);
+  const localX = (clientX - rect.left) * (width / rect.width);
 
-  const plotH = height - padTop - padBottom;
+  const plotH = Math.max(1, height - padTop - padBottom);
+  const clampedX = Math.max(padLeft, Math.min(width - padRight, localX));
   const y = Math.max(padTop, Math.min(height - padBottom, localY));
   const value = Math.max(0, Math.min(100, Math.round(100 - ((y - padTop) / plotH) * 100)));
 
-  point.value = value;
+  if (plotW > 1) {
+    const baseDomain = timeDomain();
+    const baseSpan = baseDomain.maxTime - baseDomain.minTime;
+    if (baseSpan > 0) {
+      const prevPoint = points[curveDragState.index - 1] || null;
+      const nextPoint = points[curveDragState.index + 1] || null;
+      const minBound = prevPoint ? prevPoint.time + 1 : baseDomain.minTime;
+      const maxBound = nextPoint ? nextPoint.time - 1 : baseDomain.maxTime;
+      const ratio = (clampedX - padLeft) / plotW;
+      const rawTime = baseDomain.minTime + ratio * baseSpan;
+      if (maxBound >= minBound) {
+        currentPoint.time = Math.round(Math.max(minBound, Math.min(maxBound, rawTime)));
+      }
+    }
+  }
+
+  currentPoint.value = value;
+  points.sort((a, b) => a.time - b.time);
+  curveDragState.index = Math.max(0, points.indexOf(currentPoint));
   fuelDirty = true;
 
   for (const node of fuelNodes) {
@@ -1579,11 +2058,13 @@ function openFuelModal(source) {
   renderFuelTable();
   setFuelTab("list");
   dom.fuelModal.classList.remove("hidden");
+  fuelCurveZoomRange = null;
+  fuelSnapshot = makeFuelSignature(fuelEditDraft);
   fuelDirty = false;
 }
 
 function closeFuelModal(force = false) {
-  if (!force && fuelDirty) {
+  if (!force && makeFuelSignature(fuelEditDraft) !== fuelSnapshot) {
     openUnsavedConfirmDialog({
       title: "燃料配置尚未保存",
       message: "当前燃料编辑有未保存修改，是否保存后关闭？",
@@ -1598,6 +2079,7 @@ function closeFuelModal(force = false) {
   dom.fuelModal.classList.add("hidden");
   curveDragState = null;
   fuelCurveHoverState = null;
+  fuelCurveZoomRange = null;
   return true;
 }
 
@@ -1609,10 +2091,11 @@ async function saveFuelModal() {
   if (fuelEditSource === "config" && configDraft) {
     configDraft.fuel_editor = deepClone(fuelEditDraft.fuel_editor);
     dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
-    configDraftDirty = true;
+    refreshConfigDirtyState();
     dom.saveConfigModalBtn.disabled = false;
     showConfigValidation("燃料配置已更新，请保存型号配置以落盘。", false);
     toast("燃料配置已写入当前型号草稿", "success");
+    fuelSnapshot = makeFuelSignature(fuelEditDraft);
     fuelDirty = false;
     closeFuelModal(true);
     return true;
@@ -1634,6 +2117,7 @@ async function saveFuelModal() {
 
   modelsCache[payload.name] = payload;
   toast("燃料配置已保存", "success");
+  fuelSnapshot = makeFuelSignature(fuelEditDraft);
   fuelDirty = false;
   closeFuelModal(true);
   return true;
@@ -1723,6 +2207,40 @@ function shouldSplitTelemetryAtTime(time) {
   return telemetrySplitMode.enabled && toInt(time, 0) > telemetrySplitMode.separationTime;
 }
 
+function normalizeEulerAngles(rawValue, fallback = 0) {
+  if (rawValue && typeof rawValue === "object") {
+    return {
+      roll: toFloat(rawValue.roll, fallback),
+      pitch: toFloat(rawValue.pitch, 0),
+      yaw: toFloat(rawValue.yaw, 0),
+    };
+  }
+  return {
+    roll: toFloat(rawValue, fallback),
+    pitch: 0,
+    yaw: 0,
+  };
+}
+
+function eulerAnglesToScalar(angles) {
+  const roll = toFloat(angles?.roll, 0);
+  const pitch = toFloat(angles?.pitch, 0);
+  const yaw = toFloat(angles?.yaw, 0);
+  return Math.max(0, Math.sqrt((roll * roll) + (pitch * pitch) + (yaw * yaw)));
+}
+
+function getTelemetryEulerAxisCurveKey(axisKey) {
+  return TELEMETRY_EULER_AXIS_CURVE_KEY[axisKey] || "";
+}
+
+function getTelemetryEulerAxisByCurveKey(metricKey) {
+  return TELEMETRY_EULER_AXES.find((axisKey) => getTelemetryEulerAxisCurveKey(axisKey) === metricKey) || "";
+}
+
+function isTelemetryEulerCurveKey(metricKey) {
+  return Boolean(getTelemetryEulerAxisByCurveKey(metricKey));
+}
+
 function ensureTelemetryStructure(draft) {
   if (!draft.telemetry_editor || typeof draft.telemetry_editor !== "object") {
     draft.telemetry_editor = { version: 1, node_values: {}, curves: {} };
@@ -1760,6 +2278,40 @@ function ensureTelemetryStructure(draft) {
     };
   }
 
+  for (const axisKey of TELEMETRY_EULER_AXES) {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const metricCurveSource = draft.telemetry_editor.curves[curveKey];
+    if (Array.isArray(metricCurveSource)) {
+      const parsed = normalizeTelemetryCurveArray(metricCurveSource, 0);
+      draft.telemetry_editor.curves[curveKey] = {
+        stage1: parsed,
+        upper: parsed.map((point) => ({ ...point })),
+      };
+      continue;
+    }
+    if (!metricCurveSource || typeof metricCurveSource !== "object") {
+      draft.telemetry_editor.curves[curveKey] = { stage1: [], upper: [] };
+      continue;
+    }
+    draft.telemetry_editor.curves[curveKey] = {
+      stage1: normalizeTelemetryCurveArray(metricCurveSource.stage1, 0),
+      upper: normalizeTelemetryCurveArray(
+        Array.isArray(metricCurveSource.upper) ? metricCurveSource.upper : metricCurveSource.stage1,
+        0,
+      ),
+    };
+  }
+
+  const readEulerAxisFromCurve = (axisKey, time, fallback = 0) => {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const curves = draft.telemetry_editor.curves?.[curveKey];
+    const points = Array.isArray(curves?.stage1) ? curves.stage1 : [];
+    if (points.length <= 0) {
+      return fallback;
+    }
+    return toFloat(interpolate(points, time), fallback);
+  };
+
   for (const node of telemetryNodes) {
     if (!draft.telemetry_editor.node_values[node.key] || typeof draft.telemetry_editor.node_values[node.key] !== "object") {
       draft.telemetry_editor.node_values[node.key] = {};
@@ -1773,16 +2325,57 @@ function ensureTelemetryStructure(draft) {
       }
       nodeStore[metric.key] = branch;
     }
+
+    const eulerFallback = toFloat(nodeStore?.[TELEMETRY_EULER_METRIC_KEY]?.stage1, 0);
+    const currentEuler = normalizeEulerAngles(nodeStore.euler_angles, eulerFallback);
+    nodeStore.euler_angles = {
+      roll: readEulerAxisFromCurve("roll", node.time, currentEuler.roll),
+      pitch: readEulerAxisFromCurve("pitch", node.time, currentEuler.pitch),
+      yaw: readEulerAxisFromCurve("yaw", node.time, currentEuler.yaw),
+    };
+    if (nodeStore[TELEMETRY_EULER_METRIC_KEY]) {
+      const scalar = eulerAnglesToScalar(nodeStore.euler_angles);
+      nodeStore[TELEMETRY_EULER_METRIC_KEY].stage1 = scalar;
+      nodeStore[TELEMETRY_EULER_METRIC_KEY].upper = scalar;
+    }
   }
 
   syncTelemetryCurvesFromNodeValues(draft);
 }
 
-function resolveTelemetryBranchPoints(draft, metricKey, branchKey, fallback = 0) {
+function resolveTelemetryBranchPoints(draft, metricKey, branchKey, fallback = 0, options = {}) {
+  const clampMin = options.clampMin !== false;
   const entries = [];
   for (const node of telemetryNodes) {
     const rawValue = draft.telemetry_editor.node_values[node.key]?.[metricKey]?.[branchKey];
-    entries.push({ time: node.time, value: Math.max(0, toFloat(rawValue, fallback)) });
+    const parsed = toFloat(rawValue, fallback);
+    entries.push({ time: node.time, value: clampMin ? Math.max(0, parsed) : parsed });
+  }
+
+  const unique = new Map();
+  for (const point of entries) {
+    unique.set(point.time, point.value);
+  }
+
+  const points = Array.from(unique.entries())
+    .map(([time, value]) => ({ time: Number(time), value: Number(value) }))
+    .sort((a, b) => a.time - b.time);
+
+  if (points.length === 0) {
+    points.push({ time: 0, value: fallback });
+  }
+  if (points.length === 1) {
+    points.push({ time: points[0].time + 60, value: points[0].value });
+  }
+
+  return points;
+}
+
+function resolveTelemetryEulerAxisPoints(draft, axisKey, fallback = 0) {
+  const entries = [];
+  for (const node of telemetryNodes) {
+    const rawValue = draft.telemetry_editor.node_values[node.key]?.euler_angles?.[axisKey];
+    entries.push({ time: node.time, value: toFloat(rawValue, fallback) });
   }
 
   const unique = new Map();
@@ -1815,6 +2408,48 @@ function syncTelemetryCurvesFromNodeValues(draft) {
       stage1,
       upper,
     };
+  }
+
+  for (const axisKey of TELEMETRY_EULER_AXES) {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const stage1 = resolveTelemetryEulerAxisPoints(draft, axisKey, 0);
+    draft.telemetry_editor.curves[curveKey] = {
+      stage1,
+      upper: stage1.map((point) => ({ ...point })),
+    };
+  }
+}
+
+function syncTelemetryEulerNodeValuesFromCurves(draft) {
+  if (!draft?.telemetry_editor?.node_values) {
+    return;
+  }
+
+  const readAxisValueAtTime = (axisKey, time) => {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const curve = draft.telemetry_editor.curves?.[curveKey];
+    const points = Array.isArray(curve?.stage1) ? curve.stage1 : [];
+    return toFloat(interpolate(points, time), 0);
+  };
+
+  for (const node of telemetryNodes) {
+    const nodeStore = draft.telemetry_editor.node_values[node.key];
+    if (!nodeStore || typeof nodeStore !== "object") {
+      continue;
+    }
+
+    const nextEuler = {
+      roll: readAxisValueAtTime("roll", node.time),
+      pitch: readAxisValueAtTime("pitch", node.time),
+      yaw: readAxisValueAtTime("yaw", node.time),
+    };
+    nodeStore.euler_angles = nextEuler;
+
+    const scalar = eulerAnglesToScalar(nextEuler);
+    const branch = normalizeTelemetryBranch(nodeStore[TELEMETRY_EULER_METRIC_KEY], scalar);
+    branch.stage1 = scalar;
+    branch.upper = scalar;
+    nodeStore[TELEMETRY_EULER_METRIC_KEY] = branch;
   }
 }
 
@@ -1857,7 +2492,14 @@ function renderTelemetryTable() {
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  const headerTexts = ["节点", "时间(s)", ...TELEMETRY_METRIC_DEFS.map((metric) => metric.label)];
+  const scalarMetrics = TELEMETRY_METRIC_DEFS.slice(0, 3);
+  const eulerMetric = TELEMETRY_METRIC_DEFS.find((metric) => metric.key === TELEMETRY_EULER_METRIC_KEY) || TELEMETRY_METRIC_DEFS[3];
+  const headerTexts = [
+    "节点",
+    "时间(s)",
+    ...scalarMetrics.map((metric) => metric.label),
+    `${eulerMetric?.label || "欧拉角"} (roll / pitch / yaw)`,
+  ];
   headerTexts.forEach((text) => {
     const th = document.createElement("th");
     th.textContent = text;
@@ -1885,7 +2527,7 @@ function renderTelemetryTable() {
     const splitNow = shouldSplitTelemetryAtTime(node.time);
     const nodeStore = telemetryEditDraft.telemetry_editor.node_values[node.key];
 
-    TELEMETRY_METRIC_DEFS.forEach((metric) => {
+    scalarMetrics.forEach((metric) => {
       const td = document.createElement("td");
       const branch = normalizeTelemetryBranch(nodeStore[metric.key], metric.defaultValue);
       nodeStore[metric.key] = branch;
@@ -1957,6 +2599,47 @@ function renderTelemetryTable() {
       tr.appendChild(td);
     });
 
+    {
+      const metric = eulerMetric;
+      const td = document.createElement("td");
+      const branch = normalizeTelemetryBranch(nodeStore[metric.key], metric.defaultValue);
+      nodeStore[metric.key] = branch;
+
+      const eulerWrap = document.createElement("div");
+      eulerWrap.className = "telemetry-euler-inputs";
+
+      const currentEuler = normalizeEulerAngles(nodeStore.euler_angles, branch.stage1);
+      nodeStore.euler_angles = currentEuler;
+
+      TELEMETRY_EULER_AXES.forEach((axisKey) => {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.step = "0.01";
+        input.value = formatFloat(currentEuler[axisKey]);
+        input.placeholder = TELEMETRY_EULER_AXIS_LABEL[axisKey];
+        input.title = `欧拉角 ${TELEMETRY_EULER_AXIS_LABEL[axisKey]}`;
+        input.addEventListener("input", () => {
+          const nextEuler = normalizeEulerAngles(nodeStore.euler_angles, branch.stage1);
+          nextEuler[axisKey] = toFloat(input.value, nextEuler[axisKey]);
+          nodeStore.euler_angles = nextEuler;
+
+          const scalar = eulerAnglesToScalar(nextEuler);
+          nodeStore[metric.key].stage1 = scalar;
+          nodeStore[metric.key].upper = scalar;
+
+          telemetryDirty = true;
+          syncTelemetryCurvesFromNodeValues(telemetryEditDraft);
+          if (telemetryTab !== "list") {
+            renderTelemetryCurve();
+          }
+        });
+        eulerWrap.appendChild(input);
+      });
+
+      td.appendChild(eulerWrap);
+      tr.appendChild(td);
+    }
+
     tbody.appendChild(tr);
   });
 
@@ -2001,6 +2684,39 @@ function telemetryTimeDomain() {
   return { minTime, maxTime };
 }
 
+function getTelemetryCurveViewDomain() {
+  const base = telemetryTimeDomain();
+  const normalized = normalizeTimeZoomRange(base, telemetryCurveZoomRange);
+  return normalized || base;
+}
+
+function handleTelemetryCurveWheelZoom(event) {
+  if (!dom.telemetryModal || dom.telemetryModal.classList.contains("hidden") || telemetryTab === "list") {
+    return;
+  }
+
+  const rect = dom.telemetryCurveCanvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return;
+  }
+
+  const m = telemetryCurveCanvasMetrics();
+  const plotW = m.width - m.padLeft - m.padRight;
+  if (plotW <= 10) {
+    return;
+  }
+
+  event.preventDefault();
+  const localX = (event.clientX - rect.left) * (m.width / rect.width);
+  const clampedX = Math.max(m.padLeft, Math.min(m.width - m.padRight, localX));
+  const pointerRatio = (clampedX - m.padLeft) / plotW;
+
+  const baseDomain = telemetryTimeDomain();
+  const currentDomain = getTelemetryCurveViewDomain();
+  telemetryCurveZoomRange = applyHorizontalCurveZoom(baseDomain, currentDomain, pointerRatio, event.deltaY);
+  renderTelemetryCurve();
+}
+
 function telemetryValueDomain(metricKey) {
   const curves = telemetryEditDraft?.telemetry_editor?.curves?.[metricKey] || { stage1: [], upper: [] };
   const values = [];
@@ -2031,10 +2747,223 @@ function telemetryValueDomain(metricKey) {
   };
 }
 
+function telemetryEulerValueDomain() {
+  const values = [];
+  for (const axisKey of TELEMETRY_EULER_AXES) {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const curves = telemetryEditDraft?.telemetry_editor?.curves?.[curveKey] || { stage1: [] };
+    (Array.isArray(curves.stage1) ? curves.stage1 : []).forEach((point) => {
+      values.push(toFloat(point.value, 0));
+    });
+  }
+
+  if (values.length === 0) {
+    return { minValue: -1, maxValue: 1 };
+  }
+
+  let minValue = Math.min(...values);
+  let maxValue = Math.max(...values);
+  if (Math.abs(maxValue - minValue) < 1e-6) {
+    minValue -= 1;
+    maxValue += 1;
+  }
+
+  const span = Math.max(1, maxValue - minValue);
+  const pad = Math.max(1, span * 0.12);
+  return {
+    minValue: minValue - pad,
+    maxValue: maxValue + pad,
+  };
+}
+
+function buildTelemetryEulerSeries() {
+  return TELEMETRY_EULER_AXES.map((axisKey) => {
+    const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+    const curves = telemetryEditDraft?.telemetry_editor?.curves?.[curveKey] || { stage1: [] };
+    return {
+      axisKey,
+      metricKey: curveKey,
+      color: TELEMETRY_EULER_AXIS_COLORS[axisKey] || "#4fd2ff",
+      activeColor: TELEMETRY_EULER_AXIS_ACTIVE_COLORS[axisKey] || "#ffe07e",
+      points: Array.isArray(curves.stage1) ? curves.stage1 : [],
+    };
+  });
+}
+
+function renderTelemetryEulerCurve() {
+  if (!telemetryEditDraft) {
+    return;
+  }
+
+  ensureTelemetryStructure(telemetryEditDraft);
+
+  if (dom.telemetryCurveYLabel) {
+    dom.telemetryCurveYLabel.textContent = "欧拉角 (deg)";
+  }
+  if (dom.telemetryCurveLegend) {
+    dom.telemetryCurveLegend.textContent = "蓝色: roll | 橙色: pitch | 绿色: yaw";
+  }
+
+  const m = telemetryCurveCanvasMetrics();
+  const { ctx, width, height, padLeft, padRight, padTop, padBottom } = m;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const { minTime, maxTime } = getTelemetryCurveViewDomain();
+  const { minValue, maxValue } = telemetryEulerValueDomain();
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const axisNodes = telemetryNodes
+    .slice()
+    .sort((a, b) => a.time - b.time)
+    .filter((node) => node.time >= minTime && node.time <= maxTime);
+  const axisGridColor = "rgba(34, 42, 60, 0.22)";
+  const axisLabelColor = "rgba(28, 36, 54, 0.88)";
+
+  const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
+  const toY = (value) => padTop + ((maxValue - value) / (maxValue - minValue)) * plotH;
+
+  ctx.strokeStyle = axisGridColor;
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 6; i += 1) {
+    const y = padTop + (i / 6) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(width - padRight, y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(padLeft - 5, y);
+    ctx.lineTo(padLeft, y);
+    ctx.stroke();
+
+    const value = maxValue - ((maxValue - minValue) * i) / 6;
+    ctx.fillStyle = axisLabelColor;
+    ctx.font = '11px "Manrope"';
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(formatFloat(value), padLeft - 10, y);
+  }
+
+  axisNodes.forEach((node, index) => {
+    const x = toX(node.time);
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, height - padBottom);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, height - padBottom);
+    ctx.lineTo(x, height - padBottom + 5);
+    ctx.stroke();
+
+    ctx.fillStyle = axisLabelColor;
+    ctx.font = '11px "Manrope"';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(formatSignedTime(node.time), x, height - padBottom + 8);
+
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = axisLabelColor;
+    const nameY = padTop - 6 - (index % 2) * 14;
+    ctx.fillText(shortenLabel(node.name, 10), x, nameY);
+  });
+
+  ctx.strokeStyle = "rgba(34, 42, 60, 0.58)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padLeft, padTop);
+  ctx.lineTo(padLeft, height - padBottom);
+  ctx.lineTo(width - padRight, height - padBottom);
+  ctx.stroke();
+
+  const series = buildTelemetryEulerSeries().map((item) => ({
+    ...item,
+    canvasPoints: item.points.map((point) => ({ x: toX(point.time), y: toY(point.value) })),
+  }));
+
+  series.forEach((item) => {
+    if (item.canvasPoints.length <= 0) {
+      return;
+    }
+
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    drawSmoothCurvePath(ctx, item.canvasPoints);
+    ctx.stroke();
+
+    item.canvasPoints.forEach((point, index) => {
+      const active = telemetryDragState
+        && telemetryDragState.metricKey === item.metricKey
+        && telemetryDragState.branch === "stage1"
+        && telemetryDragState.index === index;
+
+      ctx.beginPath();
+      ctx.fillStyle = active ? item.activeColor : item.color;
+      ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+
+  if (telemetryCurveHoverState) {
+    const hoverX = Math.max(padLeft, Math.min(width - padRight, telemetryCurveHoverState.x));
+    const hoverTime = minTime + ((hoverX - padLeft) / plotW) * (maxTime - minTime);
+
+    ctx.strokeStyle = "rgba(255,225,132,0.68)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(hoverX, padTop);
+    ctx.lineTo(hoverX, height - padBottom);
+    ctx.stroke();
+
+    const tooltipLines = [formatSignedTime(hoverTime)];
+
+    series.forEach((item) => {
+      const value = toFloat(interpolate(item.points, hoverTime), 0);
+      tooltipLines.push(`${TELEMETRY_EULER_AXIS_LABEL[item.axisKey]}: ${formatFloat(value)}`);
+
+      const y = toY(value);
+      ctx.beginPath();
+      ctx.fillStyle = item.color;
+      ctx.arc(hoverX, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    let nearestNode = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    axisNodes.forEach((node) => {
+      const dt = Math.abs(node.time - hoverTime);
+      if (dt < nearestDistance) {
+        nearestDistance = dt;
+        nearestNode = node;
+      }
+    });
+    if (nearestNode) {
+      tooltipLines.push(`最近事件: ${nearestNode.name}`);
+    }
+
+    drawCanvasTooltip(
+      ctx,
+      tooltipLines,
+      hoverX,
+      padTop + 12,
+      { minX: 6, minY: 6, maxX: width - 6, maxY: height - 6 },
+    );
+  }
+}
+
 function renderTelemetryCurve() {
   if (!telemetryEditDraft) {
     return;
   }
+
+  if (telemetryTab === "angular") {
+    renderTelemetryEulerCurve();
+    return;
+  }
+
   const metric = getTelemetryMetricByTab();
   if (!metric) {
     return;
@@ -2060,11 +2989,14 @@ function renderTelemetryCurve() {
 
   ctx.clearRect(0, 0, width, height);
 
-  const { minTime, maxTime } = telemetryTimeDomain();
+  const { minTime, maxTime } = getTelemetryCurveViewDomain();
   const { minValue, maxValue } = telemetryValueDomain(metric.key);
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
-  const axisNodes = telemetryNodes.slice().sort((a, b) => a.time - b.time);
+  const axisNodes = telemetryNodes
+    .slice()
+    .sort((a, b) => a.time - b.time)
+    .filter((node) => node.time >= minTime && node.time <= maxTime);
   const axisGridColor = "rgba(34, 42, 60, 0.22)";
   const axisLabelColor = "rgba(28, 36, 54, 0.88)";
 
@@ -2234,6 +3166,46 @@ function findTelemetryCurvePointAtPosition(x, y) {
   if (!telemetryEditDraft) {
     return null;
   }
+
+  if (telemetryTab === "angular") {
+    ensureTelemetryStructure(telemetryEditDraft);
+    const m = telemetryCurveCanvasMetrics();
+    const { width, height, padLeft, padRight, padTop, padBottom } = m;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+    const { minTime, maxTime } = getTelemetryCurveViewDomain();
+    const { minValue, maxValue } = telemetryEulerValueDomain();
+
+    const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
+    const toY = (value) => padTop + ((maxValue - value) / (maxValue - minValue)) * plotH;
+
+    const candidates = [];
+    TELEMETRY_EULER_AXES.forEach((axisKey) => {
+      const curveKey = getTelemetryEulerAxisCurveKey(axisKey);
+      const curves = telemetryEditDraft.telemetry_editor.curves[curveKey] || { stage1: [] };
+      (curves.stage1 || []).forEach((point, index) => {
+        const dx = toX(point.time) - x;
+        const dy = toY(point.value) - y;
+        const distance2 = dx * dx + dy * dy;
+        if (distance2 <= 81) {
+          candidates.push({ metricKey: curveKey, branch: "stage1", index, distance2 });
+        }
+      });
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a, b) => a.distance2 - b.distance2);
+    const best = candidates[0];
+    return {
+      metricKey: best.metricKey,
+      branch: best.branch,
+      index: best.index,
+    };
+  }
+
   const metric = getTelemetryMetricByTab();
   if (!metric) {
     return null;
@@ -2245,7 +3217,7 @@ function findTelemetryCurvePointAtPosition(x, y) {
   const { width, height, padLeft, padRight, padTop, padBottom } = m;
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
-  const { minTime, maxTime } = telemetryTimeDomain();
+  const { minTime, maxTime } = getTelemetryCurveViewDomain();
   const { minValue, maxValue } = telemetryValueDomain(metric.key);
 
   const toX = (time) => padLeft + ((time - minTime) / (maxTime - minTime)) * plotW;
@@ -2292,6 +3264,61 @@ function updateTelemetryCurvePointByPointer(clientX, clientY) {
     return;
   }
 
+  if (isTelemetryEulerCurveKey(telemetryDragState.metricKey)) {
+    ensureTelemetryStructure(telemetryEditDraft);
+    const curves = telemetryEditDraft.telemetry_editor.curves[telemetryDragState.metricKey];
+    const points = curves?.[telemetryDragState.branch];
+    if (!Array.isArray(points)) {
+      return;
+    }
+
+    const currentPoint = points[telemetryDragState.index];
+    if (!currentPoint) {
+      return;
+    }
+
+    const rect = dom.telemetryCurveCanvas.getBoundingClientRect();
+    const m = telemetryCurveCanvasMetrics();
+    const { width, height, padLeft, padRight, padTop, padBottom } = m;
+    const plotW = width - padLeft - padRight;
+    const localY = (clientY - rect.top) * (height / rect.height);
+    const localX = (clientX - rect.left) * (width / rect.width);
+    const clampedX = Math.max(padLeft, Math.min(width - padRight, localX));
+    const clampedY = Math.max(padTop, Math.min(height - padBottom, localY));
+
+    const { minValue, maxValue } = telemetryEulerValueDomain();
+    const plotH = Math.max(1, height - padTop - padBottom);
+    const value = maxValue - ((clampedY - padTop) / plotH) * (maxValue - minValue);
+    currentPoint.value = toFloat(value, currentPoint.value);
+
+    if (plotW > 1) {
+      const baseDomain = telemetryTimeDomain();
+      const baseSpan = baseDomain.maxTime - baseDomain.minTime;
+      if (baseSpan > 0) {
+        const prevPoint = points[telemetryDragState.index - 1] || null;
+        const nextPoint = points[telemetryDragState.index + 1] || null;
+        const minBound = prevPoint ? prevPoint.time + 1 : baseDomain.minTime;
+        const maxBound = nextPoint ? nextPoint.time - 1 : baseDomain.maxTime;
+
+        const ratio = (clampedX - padLeft) / plotW;
+        const rawTime = baseDomain.minTime + ratio * baseSpan;
+        if (maxBound >= minBound) {
+          currentPoint.time = Math.round(Math.max(minBound, Math.min(maxBound, rawTime)));
+        }
+      }
+    }
+
+    points.sort((a, b) => a.time - b.time);
+    telemetryDragState.index = Math.max(0, points.indexOf(currentPoint));
+
+    syncTelemetryEulerNodeValuesFromCurves(telemetryEditDraft);
+    telemetryDirty = true;
+    syncTelemetryCurvesFromNodeValues(telemetryEditDraft);
+    renderTelemetryTable();
+    renderTelemetryCurve();
+    return;
+  }
+
   const metric = TELEMETRY_METRIC_DEFS.find((item) => item.key === telemetryDragState.metricKey);
   if (!metric) {
     return;
@@ -2303,21 +3330,48 @@ function updateTelemetryCurvePointByPointer(clientX, clientY) {
   if (!Array.isArray(points)) {
     return;
   }
-  const point = points[telemetryDragState.index];
-  if (!point) {
+  const currentPoint = points[telemetryDragState.index];
+  if (!currentPoint) {
     return;
   }
 
   const rect = dom.telemetryCurveCanvas.getBoundingClientRect();
   const m = telemetryCurveCanvasMetrics();
-  const { height, padTop, padBottom } = m;
+  const { width, height, padLeft, padRight, padTop, padBottom } = m;
+  const plotW = width - padLeft - padRight;
   const localY = (clientY - rect.top) * (height / rect.height);
+  const localX = (clientX - rect.left) * (width / rect.width);
+  const clampedX = Math.max(padLeft, Math.min(width - padRight, localX));
   const clampedY = Math.max(padTop, Math.min(height - padBottom, localY));
 
   const { minValue, maxValue } = telemetryValueDomain(metric.key);
-  const plotH = height - padTop - padBottom;
+  const plotH = Math.max(1, height - padTop - padBottom);
   const value = maxValue - ((clampedY - padTop) / plotH) * (maxValue - minValue);
-  point.value = Math.max(0, toFloat(value, point.value));
+  currentPoint.value = Math.max(0, toFloat(value, currentPoint.value));
+
+  if (plotW > 1) {
+    const baseDomain = telemetryTimeDomain();
+    const baseSpan = baseDomain.maxTime - baseDomain.minTime;
+    if (baseSpan > 0) {
+      const prevPoint = points[telemetryDragState.index - 1] || null;
+      const nextPoint = points[telemetryDragState.index + 1] || null;
+      let minBound = prevPoint ? prevPoint.time + 1 : baseDomain.minTime;
+      const maxBound = nextPoint ? nextPoint.time - 1 : baseDomain.maxTime;
+
+      if (telemetrySplitMode.enabled && telemetryDragState.branch === "upper") {
+        minBound = Math.max(minBound, telemetrySplitMode.separationTime);
+      }
+
+      const ratio = (clampedX - padLeft) / plotW;
+      const rawTime = baseDomain.minTime + ratio * baseSpan;
+      if (maxBound >= minBound) {
+        currentPoint.time = Math.round(Math.max(minBound, Math.min(maxBound, rawTime)));
+      }
+    }
+  }
+
+  points.sort((a, b) => a.time - b.time);
+  telemetryDragState.index = Math.max(0, points.indexOf(currentPoint));
 
   const stage1Points = curves.stage1 || [];
   const upperPoints = telemetrySplitMode.enabled ? (curves.upper || []) : stage1Points;
@@ -2420,11 +3474,13 @@ function openTelemetryModal(source) {
   setTelemetryTab("list");
 
   dom.telemetryModal.classList.remove("hidden");
+  telemetryCurveZoomRange = null;
+  telemetrySnapshot = makeTelemetrySignature(telemetryEditDraft);
   telemetryDirty = false;
 }
 
 function closeTelemetryModal(force = false) {
-  if (!force && telemetryDirty) {
+  if (!force && makeTelemetrySignature(telemetryEditDraft) !== telemetrySnapshot) {
     openUnsavedConfirmDialog({
       title: "遥测配置尚未保存",
       message: "当前遥测编辑有未保存修改，是否保存后关闭？",
@@ -2440,6 +3496,7 @@ function closeTelemetryModal(force = false) {
   dom.telemetryModal.classList.add("hidden");
   telemetryDragState = null;
   telemetryCurveHoverState = null;
+  telemetryCurveZoomRange = null;
   return true;
 }
 
@@ -2451,10 +3508,11 @@ async function saveTelemetryModal() {
   if (telemetryEditSource === "config" && configDraft) {
     configDraft.telemetry_editor = deepClone(telemetryEditDraft.telemetry_editor);
     dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
-    configDraftDirty = true;
+    refreshConfigDirtyState();
     dom.saveConfigModalBtn.disabled = false;
     showConfigValidation("遥测配置已更新，请保存型号配置以落盘。", false);
     toast("遥测配置已写入当前型号草稿", "success");
+    telemetrySnapshot = makeTelemetrySignature(telemetryEditDraft);
     telemetryDirty = false;
     closeTelemetryModal(true);
     return true;
@@ -2476,6 +3534,7 @@ async function saveTelemetryModal() {
 
   modelsCache[payload.name] = payload;
   toast("遥测配置已保存", "success");
+  telemetrySnapshot = makeTelemetrySignature(telemetryEditDraft);
   telemetryDirty = false;
   closeTelemetryModal(true);
   return true;
@@ -2486,10 +3545,11 @@ let engineEditSource = "";
 let engineEditModelName = "";
 let engineDirty = false;
 let engineListNodes = [];
-let engineTab = "list";
 let engineSelectedNodeKey = "";
+let engineSelectedStageIndex = 1;
 let engineSelectedPresetId = "";
 let engineNodeConfigDraft = null;
+let engineNodeEditorDirty = false;
 let engineEventsBound = false;
 let enginePresetLibrary = null;
 
@@ -2661,9 +3721,92 @@ function ensureEnginePresetLibraryLoaded() {
     });
 }
 
+const ENGINE_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+
+function getEngineStageCountFromDraft(draft) {
+  return Math.max(1, toInt(draft?.rocket_meta?.stage_count, 1));
+}
+
+function formatEngineStageLabel(stageIndex) {
+  const index = Math.max(1, toInt(stageIndex, 1));
+  const text = ENGINE_STAGE_TEXT[index] || String(index);
+  return `${text}级`;
+}
+
+function normalizeSingleEngineStageConfig(rawConfig, fallbackPreset) {
+  const preset = getPresetById(rawConfig?.preset_id) || fallbackPreset;
+  const states = mergeEngineStatesWithPreset(preset, rawConfig?.engine_states || rawConfig?.active_ids);
+  return {
+    preset_id: preset.id,
+    engine_states: states,
+  };
+}
+
+function pickRawStageConfig(existingConfig, stageIndex) {
+  const source = existingConfig && typeof existingConfig === "object" ? existingConfig : null;
+  if (!source) {
+    return null;
+  }
+
+  const stageConfigs = source.stage_configs;
+  if (Array.isArray(stageConfigs)) {
+    return stageConfigs.find((item) => toInt(item?.stage_index, 0) === stageIndex)
+      || stageConfigs[stageIndex - 1]
+      || null;
+  }
+
+  if (stageConfigs && typeof stageConfigs === "object") {
+    return stageConfigs[`stage_${stageIndex}`]
+      || stageConfigs[`stage${stageIndex}`]
+      || stageConfigs[String(stageIndex)]
+      || null;
+  }
+
+  if (stageIndex === 1 && (source.preset_id || source.engine_states || source.active_ids)) {
+    return source;
+  }
+
+  return null;
+}
+
+function syncNodeLegacyConfig(nodeConfig) {
+  const firstStage = Array.isArray(nodeConfig?.stage_configs) && nodeConfig.stage_configs.length > 0
+    ? nodeConfig.stage_configs[0]
+    : null;
+  if (!firstStage) {
+    nodeConfig.preset_id = "";
+    nodeConfig.engine_states = [];
+    return nodeConfig;
+  }
+
+  nodeConfig.preset_id = String(firstStage.preset_id || "");
+  nodeConfig.engine_states = normalizeEngineStateList(firstStage.engine_states);
+  return nodeConfig;
+}
+
+function normalizeEngineNodeConfig(existingConfig, stageCount, fallbackPreset) {
+  const source = existingConfig && typeof existingConfig === "object" ? existingConfig : {};
+  const baseConfig = normalizeSingleEngineStageConfig(source, fallbackPreset);
+  const stageConfigs = [];
+
+  for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+    const rawStage = pickRawStageConfig(source, stageIndex);
+    const normalized = normalizeSingleEngineStageConfig(rawStage || baseConfig, fallbackPreset);
+    stageConfigs.push({
+      stage_index: stageIndex,
+      preset_id: normalized.preset_id,
+      engine_states: normalized.engine_states,
+    });
+  }
+
+  return syncNodeLegacyConfig({
+    stage_configs: stageConfigs,
+  });
+}
+
 function ensureEngineLayoutStructure(draft) {
   if (!draft.engine_layout || typeof draft.engine_layout !== "object") {
-    draft.engine_layout = { version: 3, node_configs: {} };
+    draft.engine_layout = { version: 4, node_configs: {} };
   }
   if (!draft.engine_layout.node_configs || typeof draft.engine_layout.node_configs !== "object") {
     draft.engine_layout.node_configs = {};
@@ -2672,18 +3815,13 @@ function ensureEngineLayoutStructure(draft) {
   const library = getPresetLibrary();
   const guessedPreset = getPresetById(guessEnginePresetIdByModelName(engineEditModelName));
   const fallbackPreset = guessedPreset || library.presets[0];
+  const stageCount = getEngineStageCountFromDraft(draft);
 
   engineListNodes = buildEngineListNodes(draft);
 
   for (const node of engineListNodes) {
     const existing = draft.engine_layout.node_configs[node.key] || {};
-    const preset = getPresetById(existing.preset_id) || fallbackPreset;
-    const states = mergeEngineStatesWithPreset(preset, existing.engine_states);
-
-    draft.engine_layout.node_configs[node.key] = {
-      preset_id: preset.id,
-      engine_states: states,
-    };
+    draft.engine_layout.node_configs[node.key] = normalizeEngineNodeConfig(existing, stageCount, fallbackPreset);
   }
 }
 
@@ -2701,20 +3839,35 @@ function getEngineNodeConfig(nodeKey) {
   }
   ensureEngineLayoutStructure(engineEditDraft);
   const fallbackPreset = getPresetLibrary().presets[0];
-  const config = engineEditDraft.engine_layout.node_configs[nodeKey] || {
-    preset_id: fallbackPreset.id,
-    engine_states: buildDefaultEngineStates(fallbackPreset),
-  };
-
-  const preset = getEnginePresetById(config.preset_id) || fallbackPreset;
-  const engineStates = mergeEngineStatesWithPreset(preset, config.engine_states);
-
-  const normalized = {
-    preset_id: preset.id,
-    engine_states: engineStates,
-  };
+  const stageCount = getEngineStageCountFromDraft(engineEditDraft);
+  const existing = engineEditDraft.engine_layout.node_configs[nodeKey] || {};
+  const normalized = normalizeEngineNodeConfig(existing, stageCount, fallbackPreset);
   engineEditDraft.engine_layout.node_configs[nodeKey] = normalized;
   return normalized;
+}
+
+function getEngineStageConfig(nodeKey, stageIndex) {
+  const nodeConfig = getEngineNodeConfig(nodeKey);
+  if (!nodeConfig) {
+    return null;
+  }
+
+  const normalizedStage = Math.max(1, toInt(stageIndex, 1));
+  const stageConfigs = Array.isArray(nodeConfig.stage_configs) ? nodeConfig.stage_configs : [];
+  const found = stageConfigs.find((item) => toInt(item?.stage_index, 0) === normalizedStage)
+    || stageConfigs[normalizedStage - 1]
+    || stageConfigs[0]
+    || null;
+
+  if (!found) {
+    return null;
+  }
+
+  return {
+    stage_index: normalizedStage,
+    preset_id: String(found.preset_id || ""),
+    engine_states: normalizeEngineStateList(found.engine_states),
+  };
 }
 function renderEngineSvgMarkup(preset, engineStates = [], options = {}) {
   const width = Math.max(120, toInt(options.width, 420));
@@ -2794,10 +3947,14 @@ function renderEnginePresetItems() {
     btn.classList.toggle("active", preset.id === engineSelectedPresetId);
     btn.textContent = `${preset.name} (${preset.engine_count})`;
     btn.addEventListener("click", () => {
+      if (engineSelectedPresetId === preset.id) {
+        return;
+      }
       engineSelectedPresetId = preset.id;
       if (engineNodeConfigDraft) {
         engineNodeConfigDraft.preset_id = preset.id;
         engineNodeConfigDraft.engine_states = buildDefaultEngineStates(preset);
+        engineNodeEditorDirty = true;
       }
       renderEnginePresetItems();
       renderEnginePresetEditor();
@@ -2828,6 +3985,10 @@ function renderEnginePresetEditor() {
     }
   }
 
+  if (dom.engineNodeStageLabel) {
+    dom.engineNodeStageLabel.textContent = `编辑 ${formatEngineStageLabel(engineSelectedStageIndex)}`;
+  }
+
   const states = Array.isArray(engineNodeConfigDraft?.engine_states) ? engineNodeConfigDraft.engine_states : buildDefaultEngineStates(preset);
   dom.enginePresetPreview.innerHTML = renderEngineSvgMarkup(preset, states, {
     width: 420,
@@ -2851,7 +4012,7 @@ function renderEnginePresetEditor() {
       }
 
       state.enabled = !state.enabled;
-      engineDirty = true;
+      engineNodeEditorDirty = true;
       renderEnginePresetEditor();
     });
   });
@@ -2863,6 +4024,7 @@ function renderEngineTable() {
   }
 
   ensureEngineLayoutStructure(engineEditDraft);
+  const stageCount = getEngineStageCountFromDraft(engineEditDraft);
 
   dom.engineTable.innerHTML = "";
 
@@ -2872,9 +4034,14 @@ function renderEngineTable() {
   const headers = [
     { text: "节点", className: "engine-node-col" },
     { text: "事件", className: "engine-event-col" },
-    { text: "发动机配置", className: "engine-action-col" },
-    { text: "预览", className: "engine-preview-col" },
   ];
+
+  for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+    headers.push({
+      text: formatEngineStageLabel(stageIndex),
+      className: "engine-stage-col",
+    });
+  }
 
   headers.forEach((item) => {
     const th = document.createElement("th");
@@ -2887,9 +4054,6 @@ function renderEngineTable() {
 
   const tbody = document.createElement("tbody");
   engineListNodes.forEach((node) => {
-    const config = getEngineNodeConfig(node.key);
-    const preset = getEnginePresetById(config.preset_id) || getPresetLibrary().presets[0];
-
     const tr = document.createElement("tr");
 
     const tdNode = document.createElement("td");
@@ -2902,61 +4066,42 @@ function renderEngineTable() {
     tdEvent.textContent = node.name;
     tr.appendChild(tdEvent);
 
-    const tdAction = document.createElement("td");
-    tdAction.className = "engine-action-col";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn";
-    btn.textContent = "配置";
-    btn.addEventListener("click", () => {
-      engineSelectedNodeKey = node.key;
-      engineSelectedPresetId = preset.id;
-      engineNodeConfigDraft = {
-        preset_id: preset.id,
-        engine_states: mergeEngineStatesWithPreset(preset, config.engine_states),
-      };
-      engineSetTab("preset");
-      renderEnginePresetItems();
-      renderEnginePresetEditor();
-    });
-    tdAction.appendChild(btn);
-    tr.appendChild(tdAction);
+    for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
+      const stageConfig = getEngineStageConfig(node.key, stageIndex);
+      const preset = getEnginePresetById(stageConfig?.preset_id) || getPresetLibrary().presets[0];
+      const states = mergeEngineStatesWithPreset(preset, stageConfig?.engine_states || []);
 
-    const tdPreview = document.createElement("td");
-    tdPreview.className = "engine-preview-col";
-    const preview = document.createElement("div");
-    preview.className = "engine-row-preview";
-    preview.innerHTML = renderEngineSvgMarkup(preset, config.engine_states, {
-      width: 170,
-      height: 54,
-      compact: true,
-      blackBackground: false,
-    });
-    tdPreview.appendChild(preview);
-    tr.appendChild(tdPreview);
+      const tdStage = document.createElement("td");
+      tdStage.className = "engine-stage-col";
+
+      const previewBtn = document.createElement("button");
+      previewBtn.type = "button";
+      previewBtn.className = "engine-stage-preview-btn";
+      previewBtn.setAttribute("aria-label", `${node.name} ${formatEngineStageLabel(stageIndex)} 发动机配置`);
+      previewBtn.title = `${node.name} · ${formatEngineStageLabel(stageIndex)}（点击编辑）`;
+
+      const preview = document.createElement("div");
+      preview.className = "engine-row-preview";
+      preview.innerHTML = renderEngineSvgMarkup(preset, states, {
+        width: 170,
+        height: 54,
+        compact: true,
+        blackBackground: false,
+      });
+
+      previewBtn.appendChild(preview);
+      previewBtn.addEventListener("click", () => {
+        openEngineNodeEditor(node.key, stageIndex);
+      });
+
+      tdStage.appendChild(previewBtn);
+      tr.appendChild(tdStage);
+    }
 
     tbody.appendChild(tr);
   });
 
   dom.engineTable.appendChild(tbody);
-}
-
-function engineSetTab(tab) {
-  const nextTab = tab === "preset" ? "preset" : "list";
-  engineTab = nextTab;
-
-  if (dom.engineListPane) {
-    dom.engineListPane.classList.toggle("hidden", nextTab !== "list");
-  }
-  if (dom.enginePresetPane) {
-    dom.enginePresetPane.classList.toggle("hidden", nextTab !== "preset");
-  }
-  if (dom.engineTabListBtn) {
-    dom.engineTabListBtn.classList.toggle("active", nextTab === "list");
-  }
-  if (dom.engineTabPresetBtn) {
-    dom.engineTabPresetBtn.classList.toggle("active", nextTab === "preset");
-  }
 }
 
 function ensureEngineSelection() {
@@ -2969,16 +4114,8 @@ function ensureEngineSelection() {
     engineSelectedNodeKey = engineListNodes[0]?.key || "";
   }
 
-  const nodeConfig = getEngineNodeConfig(engineSelectedNodeKey);
-  if (!nodeConfig) {
-    return;
-  }
-
-  engineSelectedPresetId = nodeConfig.preset_id;
-  engineNodeConfigDraft = {
-    preset_id: nodeConfig.preset_id,
-    engine_states: normalizeEngineStateList(nodeConfig.engine_states),
-  };
+  const stageCount = getEngineStageCountFromDraft(engineEditDraft);
+  engineSelectedStageIndex = Math.max(1, Math.min(stageCount, toInt(engineSelectedStageIndex, 1)));
 }
 
 function setAllEngineState(enabled) {
@@ -2989,52 +4126,106 @@ function setAllEngineState(enabled) {
     id: state.id,
     enabled: Boolean(enabled),
   }));
-  engineDirty = true;
+  engineNodeEditorDirty = true;
   renderEnginePresetEditor();
+}
+
+function openEngineNodeEditor(nodeKey, stageIndex) {
+  if (!engineEditDraft || !nodeKey) {
+    return;
+  }
+
+  ensureEngineLayoutStructure(engineEditDraft);
+  const node = getEngineNodeByKey(nodeKey);
+  if (!node) {
+    return;
+  }
+
+  const stageCount = getEngineStageCountFromDraft(engineEditDraft);
+  const normalizedStage = Math.max(1, Math.min(stageCount, toInt(stageIndex, 1)));
+  const stageConfig = getEngineStageConfig(nodeKey, normalizedStage);
+  if (!stageConfig) {
+    return;
+  }
+
+  const preset = getEnginePresetById(stageConfig.preset_id) || getPresetLibrary().presets[0];
+
+  engineSelectedNodeKey = nodeKey;
+  engineSelectedStageIndex = normalizedStage;
+  engineSelectedPresetId = preset.id;
+  engineNodeConfigDraft = {
+    stage_index: normalizedStage,
+    preset_id: preset.id,
+    engine_states: mergeEngineStatesWithPreset(preset, stageConfig.engine_states),
+  };
+  engineNodeEditorDirty = false;
+
+  renderEnginePresetItems();
+  renderEnginePresetEditor();
+  if (dom.engineNodeEditorModal) {
+    dom.engineNodeEditorModal.classList.remove("hidden");
+  }
+}
+
+function closeEngineNodeEditor(force = false) {
+  if (!force && engineNodeEditorDirty) {
+    openUnsavedConfirmDialog({
+      title: "节点配置尚未保存",
+      message: "当前节点预览改动尚未保存，是否保存后关闭？",
+      onSave: () => saveEngineNodeConfig(),
+      onDiscard: () => {
+        closeEngineNodeEditor(true);
+        return true;
+      },
+    });
+    return false;
+  }
+
+  if (dom.engineNodeEditorModal) {
+    dom.engineNodeEditorModal.classList.add("hidden");
+  }
+  engineNodeConfigDraft = null;
+  engineNodeEditorDirty = false;
+  return true;
 }
 
 function saveEngineNodeConfig() {
   if (!engineEditDraft || !engineSelectedNodeKey || !engineNodeConfigDraft) {
-    return;
+    return false;
   }
-  const preset = getEnginePresetById(engineNodeConfigDraft.preset_id) || getPresetLibrary().presets[0];
-  const states = mergeEngineStatesWithPreset(preset, engineNodeConfigDraft.engine_states);
 
-  engineEditDraft.engine_layout.node_configs[engineSelectedNodeKey] = {
+  const nodeConfig = getEngineNodeConfig(engineSelectedNodeKey);
+  if (!nodeConfig) {
+    return false;
+  }
+
+  const stageIndex = Math.max(1, toInt(engineSelectedStageIndex, 1));
+  const preset = getEnginePresetById(engineNodeConfigDraft.preset_id) || getPresetLibrary().presets[0];
+  const states = mergeEngineStatesWithPreset(preset, engineNodeConfigDraft.engine_states || []);
+  const stageConfigs = Array.isArray(nodeConfig.stage_configs) ? nodeConfig.stage_configs : [];
+  const stageConfigIndex = Math.max(0, stageIndex - 1);
+  const prevStageConfig = stageConfigs[stageConfigIndex] || {};
+
+  const nextStageConfig = {
+    stage_index: stageIndex,
     preset_id: preset.id,
     engine_states: states,
   };
-  engineDirty = true;
+
+  stageConfigs[stageConfigIndex] = nextStageConfig;
+  nodeConfig.stage_configs = stageConfigs;
+  syncNodeLegacyConfig(nodeConfig);
+  engineEditDraft.engine_layout.node_configs[engineSelectedNodeKey] = nodeConfig;
+
+  if (stableSerialize(prevStageConfig) !== stableSerialize(nextStageConfig)) {
+    engineDirty = true;
+  }
+
+  engineNodeEditorDirty = false;
   renderEngineTable();
-  engineSetTab("list");
+  closeEngineNodeEditor(true);
   toast("节点发动机配置已保存", "success");
-}
-
-function exportEnginePresetSvg() {
-  if (!engineEditDraft) {
-    return;
-  }
-
-  const preset = getEnginePresetById(engineSelectedPresetId) || getPresetLibrary().presets[0];
-  if (!preset) {
-    return;
-  }
-
-  const states = engineNodeConfigDraft?.engine_states || buildDefaultEngineStates(preset);
-  const markup = renderEngineSvgMarkup(preset, states, {
-    width: 640,
-    height: 420,
-    interactive: false,
-  });
-  const blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${engineEditModelName || "engine"}_${preset.id}.svg`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  return true;
 }
 
 function ensureEngineEventsBound() {
@@ -3043,33 +4234,24 @@ function ensureEngineEventsBound() {
   }
   engineEventsBound = true;
 
-  if (dom.engineTabListBtn) {
-    dom.engineTabListBtn.addEventListener("click", () => engineSetTab("list"));
-  }
-  if (dom.engineTabPresetBtn) {
-    dom.engineTabPresetBtn.addEventListener("click", () => {
-      ensureEngineSelection();
-      renderEnginePresetItems();
-      renderEnginePresetEditor();
-      engineSetTab("preset");
-    });
-  }
-
   if (dom.engineAllOnBtn) {
     dom.engineAllOnBtn.addEventListener("click", () => setAllEngineState(true));
   }
   if (dom.engineAllOffBtn) {
     dom.engineAllOffBtn.addEventListener("click", () => setAllEngineState(false));
   }
-  if (dom.engineBackToListBtn) {
-    dom.engineBackToListBtn.addEventListener("click", () => engineSetTab("list"));
+
+  if (dom.engineNodeEditorBackdrop) {
+    dom.engineNodeEditorBackdrop.addEventListener("click", closeEngineNodeEditor);
   }
+  if (dom.closeEngineNodeEditorBtn) {
+    dom.closeEngineNodeEditorBtn.addEventListener("click", closeEngineNodeEditor);
+  }
+
   if (dom.saveEngineNodeConfigBtn) {
     dom.saveEngineNodeConfigBtn.addEventListener("click", saveEngineNodeConfig);
   }
-  if (dom.engineExportSvgBtn) {
-    dom.engineExportSvgBtn.addEventListener("click", exportEnginePresetSvg);
-  }
+
   if (dom.saveEngineLayoutBtn) {
     dom.saveEngineLayoutBtn.addEventListener("click", () => {
       saveEngineLayoutModal().catch((error) => toast(error.message || "保存发动机配置失败", "error"));
@@ -3111,23 +4293,23 @@ async function openEngineLayoutEditorModal(source = "model") {
   ensureEngineSelection();
 
   renderEngineTable();
-  renderEnginePresetItems();
-  renderEnginePresetEditor();
-  engineSetTab("list");
+  closeEngineNodeEditor(true);
 
   if (dom.engineLayoutHint) {
+    const stageCount = getEngineStageCountFromDraft(engineEditDraft);
     const hasIgnition = (Array.isArray(engineEditDraft.events) ? engineEditDraft.events : []).some((event) => String(event?.name || "").includes("点火"));
     dom.engineLayoutHint.textContent = hasIgnition
-      ? "仅显示点火及之后节点。"
-      : "未检测到“点火”事件，已从 T0 开始列出节点。";
+      ? `仅显示点火及之后节点；每个节点包含 ${stageCount} 级发动机预览。`
+      : `未检测到“点火”事件，已从 T0 开始列出节点；每个节点包含 ${stageCount} 级发动机预览。`;
   }
 
   dom.engineLayoutModal.classList.remove("hidden");
+  engineLayoutSnapshot = makeEngineLayoutSignature(engineEditDraft);
   engineDirty = false;
 }
 
 function closeEngineLayoutEditorModal(force = false) {
-  if (!force && engineDirty) {
+  if (!force && makeEngineLayoutSignature(engineEditDraft) !== engineLayoutSnapshot) {
     openUnsavedConfirmDialog({
       title: "发动机配置尚未保存",
       message: "当前发动机编辑有未保存修改，是否保存后关闭？",
@@ -3141,7 +4323,7 @@ function closeEngineLayoutEditorModal(force = false) {
   }
 
   dom.engineLayoutModal.classList.add("hidden");
-  engineNodeConfigDraft = null;
+  closeEngineNodeEditor(true);
   return true;
 }
 
@@ -3153,10 +4335,11 @@ async function saveEngineLayoutModal() {
   if (engineEditSource === "config" && configDraft) {
     configDraft.engine_layout = deepClone(engineEditDraft.engine_layout);
     dom.configRawEditor.value = JSON.stringify(configDraft, null, 2);
-    configDraftDirty = true;
+    refreshConfigDirtyState();
     dom.saveConfigModalBtn.disabled = false;
     showConfigValidation("发动机配置已更新，请保存型号配置以落盘。", false);
     toast("发动机配置已写入当前型号草稿", "success");
+    engineLayoutSnapshot = makeEngineLayoutSignature(engineEditDraft);
     engineDirty = false;
     closeEngineLayoutEditorModal(true);
     return true;
@@ -3178,6 +4361,7 @@ async function saveEngineLayoutModal() {
 
   modelsCache[payload.name] = payload;
   toast("发动机配置已保存", "success");
+  engineLayoutSnapshot = makeEngineLayoutSignature(engineEditDraft);
   engineDirty = false;
   closeEngineLayoutEditorModal(true);
   return true;

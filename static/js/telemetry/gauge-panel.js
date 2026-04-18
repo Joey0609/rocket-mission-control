@@ -291,13 +291,34 @@
       if (!nodeKey) {
         continue;
       }
-      const preset = getPresetById(presetLibrary, config?.preset_id) || fallbackPreset;
+      const rawStageConfigs = Array.isArray(config?.stage_configs)
+        ? config.stage_configs
+        : [];
+      const normalizedStageConfigs = rawStageConfigs
+        .map((item, index) => {
+          const preset = getPresetById(presetLibrary, item?.preset_id || config?.preset_id) || fallbackPreset;
+          if (!preset) {
+            return null;
+          }
+          return {
+            stage_index: Math.max(1, toInt(item?.stage_index, index + 1)),
+            preset_id: preset.id,
+            engine_states: mergeEngineStatesWithPreset(preset, item?.engine_states || config?.engine_states),
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.stage_index - b.stage_index);
+
+      const primaryStage = normalizedStageConfigs[0] || null;
+      const preset = getPresetById(presetLibrary, primaryStage?.preset_id || config?.preset_id) || fallbackPreset;
       if (!preset) {
         continue;
       }
+
       nodeConfigs[nodeKey] = {
         preset_id: preset.id,
         engine_states: mergeEngineStatesWithPreset(preset, config?.engine_states),
+        stage_configs: normalizedStageConfigs,
       };
     }
 
@@ -322,20 +343,27 @@
     return `T${sign}${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   }
 
-  function buildEngineTimelineEntries(layout, timelineNodes, presetLibrary) {
+  function buildEngineTimelineEntries(layout, timelineNodes, presetLibrary, stageIndex = 1) {
     const maps = buildTimelineNodeMaps(timelineNodes);
     const nodeConfigs = layout?.node_configs && typeof layout.node_configs === "object"
       ? layout.node_configs
       : {};
+    const normalizedStageIndex = Math.max(1, toInt(stageIndex, 1));
 
     const entries = Object.entries(nodeConfigs)
       .map(([nodeKey, config]) => {
-        const preset = getPresetById(presetLibrary, config?.preset_id);
+        const stageConfigs = Array.isArray(config?.stage_configs) ? config.stage_configs : [];
+        const pickedStage = stageConfigs.find((item) => toInt(item?.stage_index, 0) === normalizedStageIndex)
+          || stageConfigs[normalizedStageIndex - 1]
+          || stageConfigs[0]
+          || null;
+
+        const preset = getPresetById(presetLibrary, pickedStage?.preset_id || config?.preset_id);
         if (!preset) {
           return null;
         }
 
-        const states = mergeEngineStatesWithPreset(preset, config?.engine_states);
+        const states = mergeEngineStatesWithPreset(preset, pickedStage?.engine_states || config?.engine_states);
         const stateMap = new Map(states.map((item) => [item.id, Boolean(item.enabled)]));
 
         return {
@@ -440,6 +468,67 @@
 
     // 未识别到 T0 前点火事件时回退到 T0 前强制关机。
     return 0;
+  }
+
+  function normalizeGaugeSpecEntry(rawSpec, index) {
+    const source = rawSpec && typeof rawSpec === "object" ? rawSpec : {};
+    const type = String(source.type || "metric").trim().toLowerCase() === "engine_layout"
+      ? "engine_layout"
+      : "metric";
+    const side = String(source.side || "left").trim().toLowerCase() === "right" ? "right" : "left";
+    const id = String(source.id || `dashboard_${index + 1}`).trim() || `dashboard_${index + 1}`;
+    const stageIndex = Math.max(1, toInt(source.stageIndex ?? source.stage_index, 1));
+
+    if (type === "engine_layout") {
+      return {
+        id,
+        side,
+        type: "engine_layout",
+        label: String(source.label || "ENGINES"),
+        size: Math.max(112, toInt(source.size, 128)),
+        stageIndex,
+      };
+    }
+
+    return {
+      id,
+      side,
+      type: "metric",
+      metricKey: String(source.metricKey || source.metric_key || "speed_mps"),
+      label: String(source.label || "METRIC"),
+      unit: String(source.unit || ""),
+      maxValue: Math.max(1, toNumber(source.maxValue ?? source.max_value, 100)),
+      fractionDigits: Math.max(0, Math.trunc(toNumber(source.fractionDigits ?? source.fraction_digits, 0))),
+      stageIndex,
+    };
+  }
+
+  function normalizeGaugeSpecList(rawSpecs) {
+    if (!Array.isArray(rawSpecs) || rawSpecs.length <= 0) {
+      return DEFAULT_GAUGES.map((item) => ({ ...item }));
+    }
+    const normalized = rawSpecs.map((item, index) => normalizeGaugeSpecEntry(item, index));
+    return normalized.length > 0
+      ? normalized
+      : DEFAULT_GAUGES.map((item) => ({ ...item }));
+  }
+
+  function buildGaugeSpecsSignature(specs) {
+    const list = Array.isArray(specs) ? specs : [];
+    return list
+      .map((spec) => [
+        spec.id,
+        spec.type,
+        spec.side,
+        spec.metricKey || "",
+        spec.label || "",
+        spec.unit || "",
+        String(spec.maxValue || ""),
+        String(spec.fractionDigits || ""),
+        String(spec.size || ""),
+        String(spec.stageIndex || ""),
+      ].join("|"))
+      .join(";");
   }
 
   class EngineLayoutWidget {
@@ -589,6 +678,7 @@
 
       const telemetryPaused = telemetryEnabled && Boolean(payload.telemetryPaused);
       const missionSeconds = toNumber(payload.missionSeconds, 0);
+      const dashboardStageIndex = Math.max(1, toInt(payload.dashboardStageIndex, 1));
       const hasPauseMissionSeconds = Number.isFinite(payload.telemetryPauseMissionSeconds);
       const pauseMissionSeconds = hasPauseMissionSeconds
         ? toNumber(payload.telemetryPauseMissionSeconds, missionSeconds)
@@ -604,11 +694,12 @@
         buildPresetLibrarySignature(presetLibrary),
         buildLayoutSignature(engineLayout),
         buildTimelineSignature(timelineNodes),
+        `stage:${dashboardStageIndex}`,
       ].join("||");
 
       if (signature !== this.profileSignature) {
         this.profileSignature = signature;
-        this.engineTimelineEntries = buildEngineTimelineEntries(engineLayout, timelineNodes, presetLibrary);
+        this.engineTimelineEntries = buildEngineTimelineEntries(engineLayout, timelineNodes, presetLibrary, dashboardStageIndex);
       }
 
       const activeEntry = this.resolveActiveEntry(activeMissionSeconds);
@@ -725,9 +816,8 @@
     constructor(options = {}) {
       this.leftMountEl = options.leftMountEl || null;
       this.rightMountEl = options.rightMountEl || null;
-      this.gaugeSpecs = Array.isArray(options.gaugeSpecs) && options.gaugeSpecs.length > 0
-        ? options.gaugeSpecs
-        : DEFAULT_GAUGES;
+      this.gaugeSpecs = normalizeGaugeSpecList(options.gaugeSpecs);
+      this.gaugeSpecsSignature = buildGaugeSpecsSignature(this.gaugeSpecs);
 
       this.entries = [];
       this.profile = null;
@@ -788,8 +878,31 @@
       }
     }
 
-    setProfile(profile) {
-      if (this.profile === profile) {
+    setGaugeSpecs(nextGaugeSpecs) {
+      const normalized = normalizeGaugeSpecList(nextGaugeSpecs);
+      const nextSignature = buildGaugeSpecsSignature(normalized);
+      if (nextSignature === this.gaugeSpecsSignature) {
+        return;
+      }
+
+      this.gaugeSpecs = normalized;
+      this.gaugeSpecsSignature = nextSignature;
+
+      for (const entry of this.entries) {
+        if (entry?.widget && typeof entry.widget.destroy === "function") {
+          entry.widget.destroy();
+        }
+      }
+      this.entries = [];
+
+      this.mount();
+      this.setProfile(this.profile, { force: true });
+      this.setVisible(this.visible, { immediate: true });
+    }
+
+    setProfile(profile, options = {}) {
+      const force = Boolean(options.force);
+      if (!force && this.profile === profile) {
         return;
       }
       this.profile = profile && typeof profile === "object" ? profile : null;
@@ -823,10 +936,20 @@
       }
     }
 
-    resolveMetricValue(metricKey, missionSeconds) {
+    resolveMetricValue(metricKey, missionSeconds, stageIndex = 0) {
+      if (metricKey === "__dashboard_3d__") {
+        return 100;
+      }
+
       const curves = this.profileCache[metricKey];
       if (!curves) {
         return 0;
+      }
+
+      const normalizedStage = Math.max(0, toInt(stageIndex, 0));
+      if (normalizedStage >= 1) {
+        const branchByStage = normalizedStage === 1 ? curves.stage1 : curves.upper;
+        return Math.max(0, interpolateLinear(branchByStage, missionSeconds));
       }
 
       const useUpper = this.splitEnabled && missionSeconds > this.separationTime;
@@ -847,6 +970,10 @@
         ? toNumber(payload.telemetryPauseMissionSeconds, missionSeconds)
         : missionSeconds;
 
+      if (Array.isArray(payload.dashboardGaugeSpecs)) {
+        this.setGaugeSpecs(payload.dashboardGaugeSpecs);
+      }
+
       if (!telemetryEnabled) {
         return;
       }
@@ -855,7 +982,7 @@
         const resolvedValues = {};
         for (const entry of this.entries) {
           if (entry.type === "metric") {
-            const value = this.resolveMetricValue(entry.spec.metricKey, pauseMissionSeconds);
+            const value = this.resolveMetricValue(entry.spec.metricKey, pauseMissionSeconds, entry.spec.stageIndex || 0);
             resolvedValues[entry.spec.id] = value;
             entry.widget.setValue(value);
           } else {
@@ -868,6 +995,7 @@
               enginePresetLibrary: payload.enginePresetLibrary,
               timelineNodes: payload.timelineNodes,
               modelName: payload.modelName,
+              dashboardStageIndex: entry.spec.stageIndex || 1,
             });
           }
         }
@@ -878,7 +1006,7 @@
       const resolvedValues = {};
       for (const entry of this.entries) {
         if (entry.type === "metric") {
-          const value = this.resolveMetricValue(entry.spec.metricKey, missionSeconds);
+          const value = this.resolveMetricValue(entry.spec.metricKey, missionSeconds, entry.spec.stageIndex || 0);
           resolvedValues[entry.spec.id] = value;
           entry.widget.setValue(value);
         } else {
@@ -891,6 +1019,7 @@
             enginePresetLibrary: payload.enginePresetLibrary,
             timelineNodes: payload.timelineNodes,
             modelName: payload.modelName,
+            dashboardStageIndex: entry.spec.stageIndex || 1,
           });
         }
       }

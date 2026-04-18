@@ -48,6 +48,10 @@
                 <!-- <label for="payloadInput">载荷</label> -->
                 <input type="text" id="payloadInput" placeholder="载荷">
               </div>
+              <label class="switch-wrap slider" id="ignitionAutoHoldSwitchWrap">
+                <input type="checkbox" id="ignitionAutoHoldToggle">
+                <span id="ignitionAutoHoldText">点火自动继续</span>
+              </label>
             </div>
           </div>
         </div>
@@ -238,6 +242,13 @@
           </div>
           <p class="hint" id="videoMetaHint">视频信息：未加载</p>
         </section>
+
+        <section id="dashboardConfigPane" class="preview-config-pane hidden">
+          <p class="hint">仅配置事件节点。每行最多点亮 4 个条目；保存时若点亮 1 或 3 个会随机补齐 1 个。</p>
+          <div class="dashboard-config-wrap">
+            <table class="fuel-table dashboard-config-table" id="dashboardConfigTable"></table>
+          </div>
+        </section>
       </div>
 
       <div class="modal-actions">
@@ -278,6 +289,8 @@
         <div class="visual-table">
           <div class="visual-head">
             <span>类型</span>
+            <span>观察点</span>
+            <span>隐藏事件</span>
             <span>ID</span>
             <span>名称</span>
             <span>时间</span>
@@ -379,7 +392,7 @@
           <button class="btn" id="telemetryTabAltitudeBtn">高度曲线编辑</button>
           <button class="btn" id="telemetryTabSpeedBtn">速度曲线编辑</button>
           <button class="btn" id="telemetryTabAccelBtn">加速度曲线编辑</button>
-          <button class="btn" id="telemetryTabAngularBtn">角速度曲线编辑</button>
+          <button class="btn" id="telemetryTabAngularBtn">欧拉角曲线编辑</button>
         </div>
       </div>
 
@@ -418,54 +431,11 @@
     <div class="engine-panel panel">
       <div class="config-head">
         <h3>编辑发动机</h3>
-        <div class="row">
-          <button class="btn active" id="engineTabListBtn">列表编辑</button>
-          <button class="btn" id="engineTabPresetBtn">预设编辑</button>
-        </div>
       </div>
 
       <div class="engine-body" id="engineListPane">
         <div class="engine-table-wrap">
           <table class="fuel-table engine-table" id="engineTable"></table>
-        </div>
-      </div>
-
-      <div class="engine-body hidden" id="enginePresetPane">
-        <div class="engine-editor-layout">
-          <aside class="engine-preset-list">
-            <div class="engine-preset-head">
-              <strong>预设</strong>
-            </div>
-            <div class="engine-preset-items" id="enginePresetItems"></div>
-          </aside>
-
-          <section class="engine-preset-editor">
-            <div class="engine-preset-toolbar">
-              <div class="engine-current-node" id="engineCurrentNodeLabel">当前节点：-</div>
-              <div class="row compact">
-                <button class="btn" id="engineAllOnBtn">全部开机</button>
-                <button class="btn" id="engineAllOffBtn">全部关机</button>
-                <button class="btn" id="engineExportSvgBtn">导出SVG</button>
-              </div>
-            </div>
-
-            <p class="hint" id="enginePresetReadonlyHint">预设只读，点火状态仅保存在节点配置里。</p>
-
-            <div class="engine-preview-shell compact" id="enginePresetPreviewShell">
-              <div class="engine-preview-stage" id="enginePresetPreview"></div>
-            </div>
-
-            <p class="hint">点击圆点可切换当前节点点亮状态；保存后列表预览自动刷新。</p>
-
-            <div class="modal-actions">
-              <div class="modal-actions-left">
-                <button class="btn" id="engineBackToListBtn">返回列表</button>
-              </div>
-              <div class="modal-actions-right">
-                <button class="btn accent" id="saveEngineNodeConfigBtn">保存节点配置</button>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
 
@@ -476,6 +446,51 @@
         <p class="hint" id="engineLayoutHint">仅显示点火后的节点；若未检测到“点火”事件则从 T0 开始。</p>
         <div class="modal-actions-right">
           <button class="btn accent" id="saveEngineLayoutBtn">保存发动机配置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="engine-node-modal hidden" id="engineNodeEditorModal" role="dialog" aria-modal="true" aria-label="节点发动机配置">
+    <div class="engine-node-backdrop" id="engineNodeEditorBackdrop"></div>
+    <div class="engine-node-panel panel">
+      <div class="engine-node-head">
+        <div class="engine-node-title-wrap">
+          <strong class="engine-current-node" id="engineCurrentNodeLabel">当前节点：-</strong>
+          <span class="hint" id="engineNodeStageLabel">编辑 一级</span>
+        </div>
+        <button class="btn" id="closeEngineNodeEditorBtn">关闭</button>
+      </div>
+
+      <div class="engine-editor-layout">
+        <aside class="engine-preset-list">
+          <div class="engine-preset-head">
+            <strong>预设</strong>
+          </div>
+          <div class="engine-preset-items" id="enginePresetItems"></div>
+        </aside>
+
+        <section class="engine-preset-editor">
+          <div class="engine-preset-toolbar">
+            <p class="hint" id="enginePresetReadonlyHint">预设只读，点火状态仅保存在节点配置里。</p>
+            <div class="row compact">
+              <button class="btn" id="engineAllOnBtn">全部开机</button>
+              <button class="btn" id="engineAllOffBtn">全部关机</button>
+            </div>
+          </div>
+
+          <div class="engine-preview-shell compact" id="enginePresetPreviewShell">
+            <div class="engine-preview-stage" id="enginePresetPreview"></div>
+          </div>
+
+          <p class="hint">点击圆点可切换当前级别发动机点亮状态。</p>
+        </section>
+      </div>
+
+      <div class="modal-actions">
+        <div class="modal-actions-left"></div>
+        <div class="modal-actions-right">
+          <button class="btn accent" id="saveEngineNodeConfigBtn">保存节点配置</button>
         </div>
       </div>
     </div>
