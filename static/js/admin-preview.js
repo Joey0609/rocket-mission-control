@@ -26,6 +26,14 @@
     { key: "d3", label: "3D" },
   ];
   const DASHBOARD_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+  const PREVIEW_CONFIG_PANE_FADE_MS = 180;
+  const DASHBOARD_SORT_IDLE_MS = 8000;
+  const previewConfigPaneTimers = new WeakMap();
+  let dashboardSortTimer = null;
+  let dashboardActiveInputCount = 0;
+  let dashboardSortPending = false;
+  let dashboardMoveMap = null;
+  let dashboardInputTrackingBound = false;
 
   const dom = {
     previewFrame: document.querySelector(".preview-frame"),
@@ -52,6 +60,7 @@
     videoConfigPane: document.getElementById("videoConfigPane"),
     dashboardConfigPane: document.getElementById("dashboardConfigPane"),
     dashboardConfigTable: document.getElementById("dashboardConfigTable"),
+    addDashboardNodeBtn: document.getElementById("addDashboardNodeBtn"),
     obsResolutionPresetSelect: document.getElementById("obsResolutionPresetSelect"),
     videoResolutionPresetSelect: document.getElementById("videoResolutionPresetSelect"),
     videoSourceInput: document.getElementById("videoSourceInput"),
@@ -153,57 +162,128 @@
     return `stage${Math.max(1, toInt(stageIndex, 1))}:${String(typeKey || "").trim().toLowerCase()}`;
   }
 
-  function normalizeDashboardEditorDraft(rawEditor, stageCount) {
-    const source = rawEditor && typeof rawEditor === "object" ? rawEditor : {};
-    const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
-      ? source.node_configs
-      : {};
-    const maxStage = Math.max(1, toInt(stageCount, 1));
-    const validType = new Set(DASHBOARD_OPTION_DEFS.map((item) => item.key));
-    const nodeConfigs = {};
+  function formatDashboardOptionText(optionKey) {
+    const matched = String(optionKey || "").trim().toLowerCase().match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+    if (!matched) {
+      return String(optionKey || "").trim();
+    }
+    const stageIndex = Math.max(1, toInt(matched[1], 1));
+    const typeKey = matched[2] === "d3" ? "3D" : matched[2];
+    return `stage${stageIndex}:${typeKey}`;
+  }
 
-    for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
-      if (!nodeKey || !config || typeof config !== "object") {
+  function clearDashboardSortTimer() {
+    if (dashboardSortTimer) {
+      clearTimeout(dashboardSortTimer);
+      dashboardSortTimer = null;
+    }
+  }
+
+  function sortDashboardNodes(editor, withAnimation = true) {
+    const rows = Array.isArray(editor?.nodes) ? editor.nodes.slice() : [];
+    if (rows.length <= 1) {
+      editor.nodes = rows;
+      dashboardMoveMap = null;
+      return;
+    }
+
+    const oldOrder = new Map();
+    rows.forEach((row, index) => {
+      oldOrder.set(String(row?.id || `dashboard_node_${index + 1}`), index);
+    });
+
+    rows.sort((a, b) => toInt(a?.time, 0) - toInt(b?.time, 0)
+      || String(a?.name || "").localeCompare(String(b?.name || ""), "zh-CN"));
+
+    const moveMap = new Map();
+    rows.forEach((row, newIndex) => {
+      const rowId = String(row?.id || `dashboard_node_${newIndex + 1}`);
+      const oldIndex = oldOrder.get(rowId);
+      if (typeof oldIndex !== "number" || oldIndex === newIndex) {
+        return;
+      }
+      moveMap.set(rowId, oldIndex < newIndex ? "down" : "up");
+    });
+
+    editor.nodes = rows;
+    dashboardMoveMap = withAnimation && moveMap.size > 0 ? moveMap : null;
+  }
+
+  function scheduleDashboardSort(renderFn) {
+    dashboardSortPending = true;
+    clearDashboardSortTimer();
+
+    dashboardSortTimer = window.setTimeout(() => {
+      dashboardSortTimer = null;
+      if (!dashboardSortPending) {
+        return;
+      }
+      const model = state.dashboard.draftModel;
+      if (!model?.dashboard_editor) {
+        dashboardSortPending = false;
+        return;
+      }
+      sortDashboardNodes(model.dashboard_editor, true);
+      dashboardSortPending = false;
+      renderFn();
+    }, DASHBOARD_SORT_IDLE_MS);
+  }
+
+  function bindDashboardInputTracking(renderFn) {
+    if (!dom.dashboardConfigTable || dashboardInputTrackingBound) {
+      return;
+    }
+
+    dashboardInputTrackingBound = true;
+  }
+
+  function normalizeDashboardSelectionList(rawSelected, allOptionKeys) {
+    const all = Array.isArray(allOptionKeys) ? allOptionKeys : [];
+    const selected = [];
+    const seen = new Set();
+
+    for (const item of Array.isArray(rawSelected) ? rawSelected : []) {
+      const normalized = String(item || "").trim().toLowerCase();
+      if (!all.includes(normalized) || seen.has(normalized)) {
         continue;
       }
-
-      const selected = [];
-      const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
-      for (const item of sourceSelected) {
-        const text = String(item || "").trim().toLowerCase();
-        const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
-        if (!matched) {
-          continue;
-        }
-        const stageIndex = Math.max(1, toInt(matched[1], 1));
-        const typeKey = matched[2];
-        if (stageIndex > maxStage || !validType.has(typeKey)) {
-          continue;
-        }
-        const normalizedKey = buildDashboardOptionKey(stageIndex, typeKey);
-        if (!selected.includes(normalizedKey)) {
-          selected.push(normalizedKey);
-        }
-        if (selected.length >= 4) {
-          break;
-        }
-      }
-
-      if (selected.length > 0) {
-        nodeConfigs[nodeKey] = { selected };
+      seen.add(normalized);
+      selected.push(normalized);
+      if (selected.length >= 4) {
+        break;
       }
     }
 
+    return selected;
+  }
+
+  function buildDashboardNodeLabel(time, events) {
+    const matchedEvent = (Array.isArray(events) ? events : []).find((event) => toInt(event?.time, Number.NaN) === toInt(time, 0));
+    if (matchedEvent) {
+      return String(matchedEvent.name || "未命名节点");
+    }
+
+    return "自定义";
+  }
+
+  function normalizeDashboardNodeDraft(rawNode, index, allOptionKeys, events) {
+    const source = rawNode && typeof rawNode === "object" ? rawNode : {};
+    const time = toInt(source.time, 0);
+    const selected = normalizeDashboardSelectionList(source.selected, allOptionKeys);
+    const name = buildDashboardNodeLabel(time, events);
+
     return {
-      version: 1,
-      node_configs: nodeConfigs,
+      id: String(source.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
+      time,
+      name,
+      selected: selected.length > 0 ? selected : allOptionKeys.slice(0, 4),
     };
   }
 
-  function finalizeDashboardEditorForSave(rawEditor, stageCount) {
+  function normalizeDashboardEditorDraft(rawEditor, stageCount, events = []) {
+    const source = rawEditor && typeof rawEditor === "object" ? rawEditor : {};
     const maxStage = Math.max(1, toInt(stageCount, 1));
-    const normalized = normalizeDashboardEditorDraft(rawEditor, maxStage);
-    const nodeConfigs = {};
+    const validType = new Set(DASHBOARD_OPTION_DEFS.map((item) => item.key));
     const allOptionKeys = [];
 
     for (let stageIndex = 1; stageIndex <= maxStage; stageIndex += 1) {
@@ -212,29 +292,90 @@
       });
     }
 
-    for (const [nodeKey, config] of Object.entries(normalized.node_configs || {})) {
-      let selected = Array.isArray(config?.selected) ? config.selected : [];
-      selected = Array.from(new Set(selected.filter((item) => allOptionKeys.includes(item)))).slice(0, 4);
+    const nodes = [];
 
-      if (selected.length === 1 || selected.length === 3) {
-        const rest = allOptionKeys.filter((item) => !selected.includes(item));
-        if (rest.length > 0) {
-          const randomIndex = Math.floor(Math.random() * rest.length);
-          const picked = rest[Math.max(0, Math.min(rest.length - 1, randomIndex))];
-          if (picked) {
-            selected.push(picked);
+    if (Array.isArray(source.nodes) && source.nodes.length > 0) {
+      source.nodes.forEach((node, index) => {
+        nodes.push(normalizeDashboardNodeDraft(node, index, allOptionKeys, events));
+      });
+    } else {
+      const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
+        ? source.node_configs
+        : {};
+
+      for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+        if (!nodeKey || !config || typeof config !== "object") {
+          continue;
+        }
+
+        const selected = [];
+        const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
+        for (const item of sourceSelected) {
+          const text = String(item || "").trim().toLowerCase();
+          const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+          if (!matched) {
+            continue;
+          }
+          const stageIndex = Math.max(1, toInt(matched[1], 1));
+          const typeKey = matched[2];
+          if (stageIndex > maxStage || !validType.has(typeKey)) {
+            continue;
+          }
+          const normalizedKey = buildDashboardOptionKey(stageIndex, typeKey);
+          if (!selected.includes(normalizedKey)) {
+            selected.push(normalizedKey);
+          }
+          if (selected.length >= 4) {
+            break;
           }
         }
-      }
 
-      if (selected.length > 0) {
-        nodeConfigs[nodeKey] = { selected: selected.slice(0, 4) };
+        if (selected.length <= 0) {
+          continue;
+        }
+
+        const eventId = String(nodeKey).startsWith("event:") ? String(nodeKey).slice(6) : String(nodeKey);
+        const matchedEvent = (Array.isArray(events) ? events : []).find((event) => String(event?.id || "") === eventId);
+        nodes.push({
+          id: String(nodeKey),
+          time: matchedEvent ? toInt(matchedEvent.time, 0) : toInt(config.time, 0),
+          name: matchedEvent ? String(matchedEvent.name || "未命名节点") : String(config.name || config.label || eventId || "自定义"),
+          selected,
+        });
       }
     }
 
+    nodes.sort((a, b) => a.time - b.time || String(a.name || "").localeCompare(String(b.name || ""), "zh-CN"));
+
     return {
-      version: 1,
-      node_configs: nodeConfigs,
+      version: 2,
+      nodes,
+    };
+  }
+
+  function finalizeDashboardEditorForSave(rawEditor, stageCount) {
+    const maxStage = Math.max(1, toInt(stageCount, 1));
+    const allOptionKeys = [];
+
+    for (let stageIndex = 1; stageIndex <= maxStage; stageIndex += 1) {
+      DASHBOARD_OPTION_DEFS.forEach((option) => {
+        allOptionKeys.push(buildDashboardOptionKey(stageIndex, option.key));
+      });
+    }
+
+    const normalized = normalizeDashboardEditorDraft(rawEditor, maxStage, state.dashboard.draftModel?.events || []);
+    const nodes = Array.isArray(normalized.nodes)
+      ? normalized.nodes.map((node) => ({
+        id: String(node.id || "").trim(),
+        time: toInt(node.time, 0),
+        name: String(node.name || "自定义").trim() || "自定义",
+        selected: normalizeDashboardSelectionList(node.selected, allOptionKeys),
+      })).filter((node) => node.id)
+      : [];
+
+    return {
+      version: 2,
+      nodes,
     };
   }
 
@@ -254,7 +395,7 @@
     state.dashboard.modelName = modelName;
     state.dashboard.draftModel = JSON.parse(JSON.stringify(model));
     const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
-    state.dashboard.draftModel.dashboard_editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount);
+    state.dashboard.draftModel.dashboard_editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount, model.events || []);
     state.dashboard.snapshotSignature = stableSerialize(state.dashboard.draftModel.dashboard_editor);
   }
 
@@ -270,9 +411,6 @@
     }
 
     const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
-    const editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount);
-    model.dashboard_editor = editor;
-
     const events = (Array.isArray(model.events) ? model.events : [])
       .map((event, index) => ({
         id: String(event?.id || `evt_${index + 1}`),
@@ -281,32 +419,20 @@
       }))
       .sort((a, b) => a.time - b.time);
 
-    if (events.length <= 0) {
-      dom.dashboardConfigTable.innerHTML = "<tbody><tr><td>当前型号无事件，无法配置仪表盘。</td></tr></tbody>";
-      return;
+    const editor = normalizeDashboardEditorDraft(model.dashboard_editor, stageCount, events);
+    model.dashboard_editor = editor;
+    bindDashboardInputTracking(renderDashboardConfigTable);
+
+    if (dashboardMoveMap && dashboardMoveMap.size <= 0) {
+      dashboardMoveMap = null;
     }
+    const moveMap = dashboardMoveMap;
+    dashboardMoveMap = null;
 
-    const thead = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    const headNode = document.createElement("th");
-    headNode.textContent = "节点";
-    headNode.className = "dashboard-node-col";
-    headRow.appendChild(headNode);
-
-    const headTime = document.createElement("th");
-    headTime.textContent = "时间";
-    headTime.className = "dashboard-time-col";
-    headRow.appendChild(headTime);
-
-    for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
-      const th = document.createElement("th");
-      th.textContent = `${formatDashboardStage(stageIndex)}数据`;
-      headRow.appendChild(th);
+    if (dom.addDashboardNodeBtn) {
+      dom.addDashboardNodeBtn.disabled = false;
+      dom.addDashboardNodeBtn.onclick = () => addRow();
     }
-
-    thead.appendChild(headRow);
-
-    const tbody = document.createElement("tbody");
 
     const allOptionKeys = [];
     for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
@@ -315,80 +441,166 @@
       });
     }
 
-    const normalizeSelectionOrder = (rawSelected) => {
-      const selectedSet = new Set(Array.isArray(rawSelected) ? rawSelected : []);
-      const ordered = allOptionKeys.filter((key) => selectedSet.has(key));
-      return ordered.slice(0, 4);
+    const defaultSelection = allOptionKeys.slice(0, 4);
+    const getRowSelection = (row) => {
+      const selected = normalizeDashboardSelectionList(row?.selected, allOptionKeys);
+      return selected.length > 0 ? selected : defaultSelection;
     };
 
-    const updateSelection = (nodeKey, optionKey) => {
-      const existing = editor.node_configs[nodeKey] && Array.isArray(editor.node_configs[nodeKey].selected)
-        ? editor.node_configs[nodeKey].selected.slice()
-        : [];
-      const selected = normalizeSelectionOrder(existing);
-      const index = selected.indexOf(optionKey);
+    const matchedEventByTime = (time) => events.find((event) => toInt(event.time, 0) === toInt(time, 0)) || null;
 
-      if (index >= 0) {
-        selected.splice(index, 1);
-      } else {
-        if (selected.length >= 4) {
-          notify("每个事件最多点亮 4 个仪表盘数据", "warning");
-          return;
-        }
-        selected.push(optionKey);
+    const updateRow = (rowIndex, patch) => {
+      const rows = Array.isArray(editor.nodes) ? editor.nodes : [];
+      if (!rows[rowIndex]) {
+        return;
       }
-
-      const normalized = normalizeSelectionOrder(selected);
-
-      if (normalized.length > 0) {
-        editor.node_configs[nodeKey] = { selected: normalized };
-      } else {
-        delete editor.node_configs[nodeKey];
-      }
-
+      rows[rowIndex] = {
+        ...rows[rowIndex],
+        ...patch,
+      };
+      editor.nodes = rows;
       state.dashboard.draftModel.dashboard_editor = editor;
+    };
+
+    const addRow = () => {
+      const nextRows = Array.isArray(editor.nodes) ? editor.nodes.slice() : [];
+      const nextTime = nextRows.length > 0
+        ? Math.max(0, toInt(nextRows[nextRows.length - 1]?.time, 0) + 1)
+        : 0;
+      nextRows.push({
+        id: `dashboard_node_${Date.now()}`,
+        time: nextTime,
+        name: "自定义",
+        selected: defaultSelection.slice(),
+      });
+      editor.nodes = nextRows;
+      state.dashboard.draftModel.dashboard_editor = editor;
+      dashboardSortPending = false;
+      clearDashboardSortTimer();
+      sortDashboardNodes(editor, false);
       renderDashboardConfigTable();
     };
 
-    events.forEach((event) => {
+    const deleteRow = (rowIndex) => {
+      const nextRows = Array.isArray(editor.nodes) ? editor.nodes.slice() : [];
+      nextRows.splice(rowIndex, 1);
+      editor.nodes = nextRows;
+      state.dashboard.draftModel.dashboard_editor = editor;
+      dashboardSortPending = false;
+      clearDashboardSortTimer();
+      renderDashboardConfigTable();
+    };
+
+    const renderOptionCell = (row, rowIndex, slotIndex) => {
+      const cell = document.createElement("td");
+      cell.className = "dashboard-stage-cell";
+
+      const select = document.createElement("select");
+      select.className = "dashboard-option-select";
+      const currentSelection = getRowSelection(row);
+      select.appendChild(new Option("未选择", ""));
+      allOptionKeys.forEach((optionKey) => {
+        select.appendChild(new Option(formatDashboardOptionText(optionKey), optionKey));
+      });
+      select.value = currentSelection[slotIndex] || "";
+      select.addEventListener("change", () => {
+        const nextSelection = getRowSelection(row);
+        nextSelection[slotIndex] = select.value;
+        updateRow(rowIndex, {
+          selected: normalizeDashboardSelectionList(nextSelection.filter(Boolean), allOptionKeys),
+        });
+      });
+
+      cell.appendChild(select);
+      return cell;
+    };
+
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+
+    const headTime = document.createElement("th");
+    headTime.textContent = "时间";
+    headTime.className = "dashboard-time-col";
+    headRow.appendChild(headTime);
+
+    const headNode = document.createElement("th");
+    headNode.textContent = "节点";
+    headNode.className = "dashboard-node-col";
+    headRow.appendChild(headNode);
+
+    ["左一数据", "左二数据", "右一数据", "右二数据"].forEach((text) => {
+      const th = document.createElement("th");
+      th.textContent = text;
+      headRow.appendChild(th);
+    });
+
+    const headDelete = document.createElement("th");
+    headDelete.className = "dashboard-delete-col";
+    headRow.appendChild(headDelete);
+
+    thead.appendChild(headRow);
+
+    const tbody = document.createElement("tbody");
+    const rows = Array.isArray(editor.nodes) ? editor.nodes : [];
+
+    rows.forEach((row, rowIndex) => {
       const tr = document.createElement("tr");
-      const nodeKey = `event:${event.id}`;
-      const selected = editor.node_configs[nodeKey]?.selected || [];
+      const rowId = String(row?.id || `dashboard_node_${rowIndex + 1}`);
+      const moveDirection = moveMap instanceof Map ? moveMap.get(rowId) : "";
+      if (moveDirection === "up") {
+        tr.classList.add("dashboard-row-move-up");
+      } else if (moveDirection === "down") {
+        tr.classList.add("dashboard-row-move-down");
+      }
 
       const tdNode = document.createElement("td");
       tdNode.className = "dashboard-node-col";
-      tdNode.textContent = event.name;
-      tr.appendChild(tdNode);
+        const nodeLabel = document.createElement("span");
+        nodeLabel.className = "dashboard-node-display";
+        const matchedEvent = matchedEventByTime(toInt(row.time, 0));
+        const derivedName = matchedEvent ? matchedEvent.name : "自定义";
+        nodeLabel.textContent = derivedName;
+        nodeLabel.title = matchedEvent ? "时间已匹配到型号节点" : "当前时间未匹配到型号节点";
+        tdNode.appendChild(nodeLabel);
 
       const tdTime = document.createElement("td");
       tdTime.className = "dashboard-time-col";
-      tdTime.textContent = `T${event.time >= 0 ? "+" : ""}${event.time}`;
-      tr.appendChild(tdTime);
-
-      for (let stageIndex = 1; stageIndex <= stageCount; stageIndex += 1) {
-        const tdStage = document.createElement("td");
-        tdStage.className = "dashboard-stage-cell";
-
-        const optionsWrap = document.createElement("div");
-        optionsWrap.className = "dashboard-stage-options";
-
-        DASHBOARD_OPTION_DEFS.forEach((option) => {
-          const optionKey = buildDashboardOptionKey(stageIndex, option.key);
-          const orderIndex = selected.indexOf(optionKey);
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "dashboard-option-btn";
-          btn.classList.toggle("active", orderIndex >= 0);
-          btn.textContent = orderIndex >= 0
-            ? `${formatDashboardStage(stageIndex)}${option.label} #${orderIndex + 1}`
-            : `${formatDashboardStage(stageIndex)}${option.label}`;
-          btn.addEventListener("click", () => updateSelection(nodeKey, optionKey));
-          optionsWrap.appendChild(btn);
+      const timeInput = document.createElement("input");
+      timeInput.type = "number";
+      timeInput.className = "dashboard-time-input";
+      timeInput.value = String(toInt(row.time, 0));
+      timeInput.addEventListener("input", () => {
+        const nextTime = toInt(timeInput.value, 0);
+        const nextMatchedEvent = matchedEventByTime(nextTime);
+        const nextName = nextMatchedEvent ? nextMatchedEvent.name : "自定义";
+        updateRow(rowIndex, {
+          time: nextTime,
+          name: nextName,
         });
+        nodeLabel.textContent = nextName;
+        nodeLabel.title = nextMatchedEvent ? "时间已匹配到型号节点" : "当前时间未匹配到型号节点";
+        scheduleDashboardSort(renderDashboardConfigTable);
+      });
+      tdTime.appendChild(timeInput);
 
-        tdStage.appendChild(optionsWrap);
-        tr.appendChild(tdStage);
-      }
+      tr.appendChild(tdTime);
+      tr.appendChild(tdNode);
+
+      tr.appendChild(renderOptionCell(row, rowIndex, 0));
+      tr.appendChild(renderOptionCell(row, rowIndex, 1));
+      tr.appendChild(renderOptionCell(row, rowIndex, 2));
+      tr.appendChild(renderOptionCell(row, rowIndex, 3));
+
+      const tdDelete = document.createElement("td");
+      tdDelete.className = "dashboard-delete-col";
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn row-delete dashboard-delete-btn";
+      deleteBtn.textContent = "×";
+      deleteBtn.title = "删除节点";
+      deleteBtn.addEventListener("click", () => deleteRow(rowIndex));
+      tdDelete.appendChild(deleteBtn);
+      tr.appendChild(tdDelete);
 
       tbody.appendChild(tr);
     });
@@ -701,10 +913,10 @@
         ? "仪表盘设置"
         : "OBS 页面设置";
 
-    dom.obsConfigPane.classList.toggle("hidden", state.configMode !== "obs");
-    dom.videoConfigPane.classList.toggle("hidden", state.configMode !== "video");
+    setPreviewPaneVisible(dom.obsConfigPane, state.configMode === "obs");
+    setPreviewPaneVisible(dom.videoConfigPane, state.configMode === "video");
     if (dom.dashboardConfigPane) {
-      dom.dashboardConfigPane.classList.toggle("hidden", state.configMode !== "dashboard");
+      setPreviewPaneVisible(dom.dashboardConfigPane, state.configMode === "dashboard");
     }
 
     applyResolutionPreset(dom.obsResolutionPresetSelect, state.obsResolutionPresetId);
@@ -722,8 +934,44 @@
   }
 
   function closePreviewConfig() {
+    dashboardSortPending = false;
+    dashboardActiveInputCount = 0;
+    clearDashboardSortTimer();
+    dashboardMoveMap = null;
+    setPreviewPaneVisible(dom.obsConfigPane, false);
+    setPreviewPaneVisible(dom.videoConfigPane, false);
+    if (dom.dashboardConfigPane) {
+      setPreviewPaneVisible(dom.dashboardConfigPane, false);
+    }
     dom.previewConfigModal.classList.remove("mode-dashboard");
     dom.previewConfigModal.classList.add("hidden");
+  }
+
+  function setPreviewPaneVisible(pane, visible) {
+    if (!pane) {
+      return;
+    }
+
+    const existingTimer = previewConfigPaneTimers.get(pane);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      previewConfigPaneTimers.delete(pane);
+    }
+
+    if (visible) {
+      pane.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        pane.classList.add("is-active");
+      });
+      return;
+    }
+
+    pane.classList.remove("is-active");
+    const timer = setTimeout(() => {
+      pane.classList.add("hidden");
+      previewConfigPaneTimers.delete(pane);
+    }, PREVIEW_CONFIG_PANE_FADE_MS);
+    previewConfigPaneTimers.set(pane, timer);
   }
 
   function getVideoDurationForSync() {
@@ -878,6 +1126,12 @@
       const modelName = String(state.dashboard.modelName || "").trim();
       if (!modelName || !state.dashboard.draftModel) {
         throw new Error("仪表盘草稿不存在，请重新打开设置");
+      }
+
+      clearDashboardSortTimer();
+      dashboardSortPending = false;
+      if (state.dashboard.draftModel.dashboard_editor) {
+        sortDashboardNodes(state.dashboard.draftModel.dashboard_editor, false);
       }
 
       const stageCount = Math.max(1, toInt(state.dashboard.draftModel?.rocket_meta?.stage_count, 1));

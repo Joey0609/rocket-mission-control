@@ -353,6 +353,40 @@ function timelineSig(nodesData) {
     .join(";");
 }
 
+function isHiddenTimelineNode(node) {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+  return Boolean(node.hidden || node.is_hidden || node.isHidden);
+}
+
+function getVisibleTimelineNodes(state) {
+  const nodesData = Array.isArray(state?.timeline_nodes) ? state.timeline_nodes : [];
+  return nodesData.filter((item) => item && item.kind !== "stage" && !isHiddenTimelineNode(item));
+}
+
+function resolveCurrentVisibleEventName(state, missionSeconds) {
+  const visibleNodes = getVisibleTimelineNodes(state)
+    .slice()
+    .sort((a, b) => Number(a?.time || 0) - Number(b?.time || 0));
+
+  if (visibleNodes.length <= 0) {
+    return String(state?.current_event || "等待节点");
+  }
+
+  const missionTime = Number(missionSeconds || 0);
+  let currentNode = visibleNodes[0];
+  for (const node of visibleNodes) {
+    if (Number(node?.time || 0) <= missionTime) {
+      currentNode = node;
+      continue;
+    }
+    break;
+  }
+
+  return String(currentNode?.name || state?.current_event || "等待节点");
+}
+
 function toTimelineEvents(nodesData) {
   if (!Array.isArray(nodesData)) {
     return [];
@@ -447,9 +481,7 @@ function renderTimeline(state, missionSeconds) {
     return;
   }
 
-  const timelineNodes = Array.isArray(state.timeline_nodes)
-    ? state.timeline_nodes.filter((item) => item && item.kind !== "stage")
-    : [];
+  const timelineNodes = getVisibleTimelineNodes(state);
   const sig = timelineSig(timelineNodes);
   if (sig !== timelineNodesSignature) {
     timelineNodesSignature = sig;
@@ -487,6 +519,13 @@ function renderTelemetryGauges(state, missionSeconds) {
     enginePresetLibrary: state?.engine_preset_library || null,
     dashboardGaugeSpecs: Array.isArray(state?.dashboard_gauge_specs) ? state.dashboard_gauge_specs : [],
   });
+
+  telemetryGaugePanel.setVisible(telemetryEnabled, { immediate: false });
+  requestAnimationFrame(() => {
+    if (telemetryGaugePanel) {
+      telemetryGaugePanel.setVisible(telemetryEnabled, { immediate: true });
+    }
+  });
 }
 
 function renderState(state) {
@@ -515,7 +554,7 @@ function renderState(state) {
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
   renderMissionOverlay(state, missionMs);
   setTextIfChanged(nodes.currentStage, state.current_stage || "待命");
-  setTextIfChanged(nodes.currentEvent, state.current_event || "等待节点");
+  setTextIfChanged(nodes.currentEvent, resolveCurrentVisibleEventName(state, missionMs / 1000));
   setTextIfChanged(nodes.nextDescription, state.next_description || "暂无说明");
   if (nodes.overlayHoldIndicator) {
     nodes.overlayHoldIndicator.classList.toggle("active", Boolean(state.is_hold));

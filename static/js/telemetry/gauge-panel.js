@@ -107,6 +107,8 @@
     ],
   };
 
+  const GAUGE_SPEC_SWITCH_HIDE_MS = 300;
+
   function toNumber(value, fallback = 0) {
     const parsed = Number.parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -826,6 +828,9 @@
       this.splitEnabled = false;
       this.separationTime = Number.POSITIVE_INFINITY;
       this.visible = false;
+      this.gaugeSpecSwitchTimer = null;
+      this.gaugeSpecSwitchToken = 0;
+      this.pendingUpdatePayload = null;
 
       this.mount();
       this.setVisible(false, { immediate: true });
@@ -887,17 +892,49 @@
 
       this.gaugeSpecs = normalized;
       this.gaugeSpecsSignature = nextSignature;
+      const shouldAnimateSwitch = this.visible && this.entries.length > 0;
 
-      for (const entry of this.entries) {
-        if (entry?.widget && typeof entry.widget.destroy === "function") {
-          entry.widget.destroy();
-        }
+      if (this.gaugeSpecSwitchTimer) {
+        clearTimeout(this.gaugeSpecSwitchTimer);
+        this.gaugeSpecSwitchTimer = null;
       }
-      this.entries = [];
 
-      this.mount();
-      this.setProfile(this.profile, { force: true });
-      this.setVisible(this.visible, { immediate: true });
+      const currentToken = this.gaugeSpecSwitchToken + 1;
+      this.gaugeSpecSwitchToken = currentToken;
+
+      const remountWithLatestSpecs = () => {
+        if (this.gaugeSpecSwitchToken !== currentToken) {
+          return;
+        }
+
+        for (const entry of this.entries) {
+          if (entry?.widget && typeof entry.widget.destroy === "function") {
+            entry.widget.destroy();
+          }
+        }
+        this.entries = [];
+
+        this.mount();
+        this.setProfile(this.profile, { force: true });
+        const shouldAnimateEnter = shouldAnimateSwitch && this.visible;
+        this.setVisible(this.visible, { immediate: !shouldAnimateEnter });
+        this.gaugeSpecSwitchTimer = null;
+
+        if (this.pendingUpdatePayload) {
+          const pendingPayload = this.pendingUpdatePayload;
+          this.pendingUpdatePayload = null;
+          this.update(pendingPayload);
+        }
+      };
+
+      if (shouldAnimateSwitch) {
+        this.pendingUpdatePayload = null;
+        this.setVisible(false, { immediate: false });
+        this.gaugeSpecSwitchTimer = setTimeout(remountWithLatestSpecs, GAUGE_SPEC_SWITCH_HIDE_MS);
+        return;
+      }
+
+      remountWithLatestSpecs();
     }
 
     setProfile(profile, options = {}) {
@@ -974,6 +1011,11 @@
         this.setGaugeSpecs(payload.dashboardGaugeSpecs);
       }
 
+      if (this.gaugeSpecSwitchTimer) {
+        this.pendingUpdatePayload = payload;
+        return;
+      }
+
       if (!telemetryEnabled) {
         return;
       }
@@ -1044,6 +1086,10 @@
     }
 
     destroy() {
+      if (this.gaugeSpecSwitchTimer) {
+        clearTimeout(this.gaugeSpecSwitchTimer);
+        this.gaugeSpecSwitchTimer = null;
+      }
       for (const entry of this.entries) {
         if (entry?.widget && typeof entry.widget.destroy === "function") {
           entry.widget.destroy();
@@ -1051,6 +1097,7 @@
       }
       this.entries = [];
       this.lastValues = {};
+      this.pendingUpdatePayload = null;
     }
   }
 

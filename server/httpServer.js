@@ -500,20 +500,25 @@ function buildAllDashboardOptionKeys(stageCount = 1) {
 function normalizeDashboardEditor(raw, stageCount = 1) {
   const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
   const source = raw && typeof raw === "object" ? raw : {};
+  const sourceNodes = Array.isArray(source.nodes) ? source.nodes : [];
   const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
     ? source.node_configs
     : {};
-
-  const nodeConfigs = {};
-
-  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
-    if (!nodeKey || !config || typeof config !== "object") {
-      continue;
+  const validType = new Set(["altitude", "speed", "accel", "engine", "d3"]);
+  const buildAllOptionKeys = () => {
+    const keys = [];
+    for (let stageIndex = 1; stageIndex <= normalizedStageCount; stageIndex += 1) {
+      for (const typeKey of validType) {
+        keys.push(`stage${stageIndex}:${typeKey}`);
+      }
     }
+    return keys;
+  };
+  const allOptionKeys = buildAllOptionKeys();
 
-    const selectedRaw = Array.isArray(config.selected) ? config.selected : [];
+  const normalizeSelected = (selectedRaw) => {
     const deduped = [];
-    for (const item of selectedRaw) {
+    for (const item of Array.isArray(selectedRaw) ? selectedRaw : []) {
       const normalized = normalizeDashboardOptionKey(item, normalizedStageCount);
       if (!normalized || deduped.includes(normalized)) {
         continue;
@@ -523,13 +528,44 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
         break;
       }
     }
+    return deduped;
+  };
 
-    if (deduped.length <= 0) {
+  if (sourceNodes.length > 0) {
+    const nodes = sourceNodes
+      .map((node, index) => ({
+        id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
+        time: toInt(node?.time, 0),
+        name: String(node?.name || "自定义").trim() || "自定义",
+        selected: normalizeSelected(node?.selected),
+      }))
+      .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN"));
+
+    nodes.forEach((node) => {
+      if (node.selected.length <= 0) {
+        node.selected = allOptionKeys.slice(0, 4);
+      }
+    });
+
+    return {
+      version: 2,
+      nodes,
+    };
+  }
+
+  const nodeConfigs = {};
+  for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
+    if (!nodeKey || !config || typeof config !== "object") {
+      continue;
+    }
+
+    const selected = normalizeSelected(config.selected);
+    if (selected.length <= 0) {
       continue;
     }
 
     nodeConfigs[String(nodeKey)] = {
-      selected: deduped,
+      selected,
     };
   }
 
@@ -572,14 +608,6 @@ function ensureDashboardSelection(selectedRaw, allOptions, seedText) {
     selected = [first, second].filter(Boolean);
   }
 
-  if ((selected.length === 1 || selected.length === 3) && all.length > selected.length) {
-    const rest = all.filter((item) => !selected.includes(item));
-    const picked = pickDeterministicOption(rest, `${seedText}|odd|${selected.join(",")}`);
-    if (picked) {
-      selected.push(picked);
-    }
-  }
-
   return selected.slice(0, 4);
 }
 
@@ -617,18 +645,36 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
     return [];
   }
 
-  let activeEvent = sortedEvents[0];
-  for (const event of sortedEvents) {
-    if (event.time <= missionTime) {
-      activeEvent = event;
-    } else {
-      break;
+  let selectedRaw = [];
+  let seedKey = `time:${Math.max(0, toInt(missionTime, 0))}`;
+  if (Array.isArray(dashboardEditor.nodes) && dashboardEditor.nodes.length > 0) {
+    const activeNode = dashboardEditor.nodes
+      .slice()
+      .sort((a, b) => a.time - b.time || String(a.name || "").localeCompare(String(b.name || ""), "zh-CN"))
+      .reduce((current, node) => {
+        if (node.time <= missionTime) {
+          return node;
+        }
+        return current;
+      }, dashboardEditor.nodes[0]);
+    selectedRaw = Array.isArray(activeNode?.selected) ? activeNode.selected : [];
+    seedKey = String(activeNode?.id || seedKey);
+  } else {
+    let activeEvent = sortedEvents[0];
+    for (const event of sortedEvents) {
+      if (event.time <= missionTime) {
+        activeEvent = event;
+      } else {
+        break;
+      }
     }
+
+    const nodeKey = `event:${activeEvent.id}`;
+    selectedRaw = dashboardEditor.node_configs?.[nodeKey]?.selected || [];
+    seedKey = nodeKey;
   }
 
-  const nodeKey = `event:${activeEvent.id}`;
-  const selectedRaw = dashboardEditor.node_configs?.[nodeKey]?.selected || [];
-  const selected = ensureDashboardSelection(selectedRaw, allOptions, `${nodeKey}|${stageCount}`);
+  const selected = ensureDashboardSelection(selectedRaw, allOptions, `${seedKey}|${stageCount}`);
   if (selected.length <= 0) {
     return [];
   }
@@ -1872,7 +1918,11 @@ function startServer(options = {}) {
     const activeModel = engine.model;
     return engine.snapshot({
       default_theme: appSettings.get().default_theme,
-      engine_layout: normalizeEngineLayout(activeModel?.engine_layout || {}, activeModel?.name || ""),
+      engine_layout: normalizeEngineLayout(
+        activeModel?.engine_layout || {},
+        activeModel?.name || "",
+        activeModel?.rocket_meta?.stage_count || 1,
+      ),
       engine_preset_library: enginePresets.getAll(),
     });
   }
@@ -2172,7 +2222,7 @@ function startServer(options = {}) {
     }
     const model = store.save(req.body);
     broadcastState();
-    res.json({ success: true, model: model.name });
+    res.json({ success: true, model, model_name: model.name });
   });
 
   app.delete("/api/models/:name", requireAdminApi, (req, res) => {

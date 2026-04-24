@@ -244,7 +244,10 @@
         </section>
 
         <section id="dashboardConfigPane" class="preview-config-pane hidden">
-          <p class="hint">仅配置事件节点。每行最多点亮 4 个条目；保存时若点亮 1 或 3 个会随机补齐 1 个。</p>
+          <div class="row dashboard-config-actions">
+            <button class="btn" id="addDashboardNodeBtn">添加节点</button>
+            <p class="hint">按时间管理仪表盘节点。时间匹配到型号节点时，节点名称会自动显示对应名称，否则显示自定义节点。</p>
+          </div>
           <div class="dashboard-config-wrap">
             <table class="fuel-table dashboard-config-table" id="dashboardConfigTable"></table>
           </div>
@@ -291,7 +294,6 @@
             <span>类型</span>
             <span>观察点</span>
             <span>隐藏事件</span>
-            <span>ID</span>
             <span>名称</span>
             <span>时间</span>
             <span>介绍</span>
@@ -516,7 +518,10 @@
   <script src="/static/js/notification.js"></script>
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
-  <script src="/static/js/admin-editors.js"></script>
+  <script src="/static/js/admin-editors/shared-config.js"></script>
+  <script src="/static/js/admin-editors/fuel-editor.js"></script>
+  <script src="/static/js/admin-editors/telemetry-editor.js"></script>
+  <script src="/static/js/admin-editors/engine-editor.js"></script>
   <script src="/static/js/admin-preview.js"></script>
   <script src="/static/js/admin.js"></script>
 </body>

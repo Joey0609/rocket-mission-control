@@ -698,27 +698,75 @@ function normalizeEngineLayoutDraft(rawEngineLayout, stageCount = 1) {
   };
 }
 
-function normalizeDashboardEditorDraft(rawDashboardEditor) {
+function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
   const source = rawDashboardEditor && typeof rawDashboardEditor === "object" ? rawDashboardEditor : {};
+  const sourceNodes = Array.isArray(source.nodes) ? source.nodes : [];
   const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
     ? source.node_configs
     : {};
+  const maxStage = Math.max(1, toInt(stageCount, 1));
+  const validType = new Set(["altitude", "speed", "accel", "engine", "d3"]);
+
+  const allOptionKeys = [];
+  for (let stageIndex = 1; stageIndex <= maxStage; stageIndex += 1) {
+    for (const typeKey of validType) {
+      allOptionKeys.push(`stage${stageIndex}:${typeKey}`);
+    }
+  }
+
+  if (sourceNodes.length > 0) {
+    return {
+      version: 2,
+      nodes: sourceNodes
+        .map((node, index) => ({
+          id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
+          time: toInt(node?.time, 0),
+          name: String(node?.name || "自定义").trim() || "自定义",
+          selected: Array.isArray(node?.selected)
+            ? node.selected
+              .map((item) => String(item || "").trim().toLowerCase())
+              .filter((item) => allOptionKeys.includes(item))
+              .slice(0, 4)
+            : allOptionKeys.slice(0, 4),
+        }))
+        .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN")),
+    };
+  }
 
   const nodeConfigs = {};
   for (const [nodeKey, config] of Object.entries(sourceNodeConfigs)) {
     if (!nodeKey || !config || typeof config !== "object") {
       continue;
     }
-    const selected = Array.isArray(config.selected)
-      ? config.selected
-        .map((item) => String(item || "").trim().toLowerCase())
-        .filter(Boolean)
-      : [];
+    const selected = [];
+    const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
+    for (const item of sourceSelected) {
+      const text = String(item || "").trim().toLowerCase();
+      const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+      if (!matched) {
+        continue;
+      }
+
+      const stageIndex = Math.max(1, toInt(matched[1], 1));
+      const typeKey = matched[2];
+      if (stageIndex > maxStage || !validType.has(typeKey)) {
+        continue;
+      }
+
+      const normalizedKey = `stage${stageIndex}:${typeKey}`;
+      if (!selected.includes(normalizedKey)) {
+        selected.push(normalizedKey);
+      }
+      if (selected.length >= 4) {
+        break;
+      }
+    }
+
     if (selected.length <= 0) {
       continue;
     }
     nodeConfigs[nodeKey] = {
-      selected: Array.from(new Set(selected)).slice(0, 4),
+      selected,
     };
   }
 
@@ -842,7 +890,7 @@ function normalizeDraft(payload, selectedModelName) {
     fuel_editor: fuelEditor,
     telemetry_editor: telemetryEditor,
     engine_layout: normalizeEngineLayoutDraft(payload?.engine_layout, rocketMeta.stage_count),
-    dashboard_editor: normalizeDashboardEditorDraft(payload?.dashboard_editor),
+    dashboard_editor: normalizeDashboardEditorDraft(payload?.dashboard_editor, rocketMeta.stage_count),
   };
 }
 
@@ -1137,7 +1185,7 @@ function quickLaunch(seconds) {
   scheduleApplyLaunch();
 }
 
-// 编辑器逻辑已拆分到 static/js/admin-editors.js
+// 编辑器逻辑已拆分到 static/js/admin-editors/*.js，并在 admin.html 中按顺序加载
 
 function openEngineLayoutModal() {
   if (typeof openEngineLayoutEditorModal === "function") {
@@ -1563,14 +1611,20 @@ function bindEvents() {
   dom.fuelCurveChannelSelect.addEventListener("change", renderFuelCurve);
 
   dom.fuelCurveCanvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
     const rect = dom.fuelCurveCanvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     const hit = findCurvePointAtPosition(x, y);
-    if (!hit) {
+    if (hit) {
+      curveDragState = hit;
       return;
     }
-    curveDragState = hit;
+    if (typeof startFuelCurvePan === "function") {
+      startFuelCurvePan(event.clientX, event.clientY);
+    }
   });
   dom.fuelCurveCanvas.addEventListener("mousemove", (event) => {
     updateFuelCurveHoverByPointer(event.clientX, event.clientY);
@@ -1615,14 +1669,20 @@ function bindEvents() {
   }
   if (dom.telemetryCurveCanvas) {
     dom.telemetryCurveCanvas.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
       const rect = dom.telemetryCurveCanvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const hit = findTelemetryCurvePointAtPosition(x, y);
-      if (!hit) {
+      if (hit) {
+        telemetryDragState = hit;
         return;
       }
-      telemetryDragState = hit;
+      if (typeof startTelemetryCurvePan === "function") {
+        startTelemetryCurvePan(event.clientX, event.clientY);
+      }
     });
     dom.telemetryCurveCanvas.addEventListener("mousemove", (event) => {
       updateTelemetryCurveHoverByPointer(event.clientX, event.clientY);
@@ -1638,17 +1698,28 @@ function bindEvents() {
   }
 
   window.addEventListener("mousemove", (event) => {
-    if (!curveDragState) {
-      updateTelemetryCurvePointByPointer(event.clientX, event.clientY);
-      return;
+    if (curveDragState) {
+      updateCurvePointByPointer(event.clientX, event.clientY);
+    } else if (fuelCurvePanState && typeof updateFuelCurvePanByPointer === "function") {
+      updateFuelCurvePanByPointer(event.clientX);
     }
-    updateCurvePointByPointer(event.clientX, event.clientY);
-    updateTelemetryCurvePointByPointer(event.clientX, event.clientY);
+
+    if (telemetryDragState) {
+      updateTelemetryCurvePointByPointer(event.clientX, event.clientY);
+    } else if (telemetryCurvePanState && typeof updateTelemetryCurvePanByPointer === "function") {
+      updateTelemetryCurvePanByPointer(event.clientX);
+    }
   });
 
   window.addEventListener("mouseup", () => {
     curveDragState = null;
     telemetryDragState = null;
+    if (typeof stopFuelCurvePan === "function") {
+      stopFuelCurvePan();
+    }
+    if (typeof stopTelemetryCurvePan === "function") {
+      stopTelemetryCurvePan();
+    }
   });
 
   dom.openEngineLayoutBtn.addEventListener("click", openEngineLayoutModal);
