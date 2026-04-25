@@ -457,7 +457,7 @@ function normalizeTelemetryEditor(raw) {
   };
 }
 
-const DASHBOARD_DATA_TYPES = ["altitude", "speed", "accel", "engine", "d3"];
+const DASHBOARD_DATA_TYPES = ["altitude", "speed", "accel", "engine"];
 const CHINESE_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 
 function toChineseStageText(stageIndex) {
@@ -468,7 +468,7 @@ function toChineseStageText(stageIndex) {
 function normalizeDashboardOptionKey(rawOptionKey, stageCount = 1) {
   const normalizedStageCount = Math.max(1, toInt(stageCount, 1));
   const text = String(rawOptionKey || "").trim().toLowerCase();
-  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine)$/);
   if (!matched) {
     return "";
   }
@@ -504,7 +504,7 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
   const sourceNodeConfigs = source.node_configs && typeof source.node_configs === "object"
     ? source.node_configs
     : {};
-  const validType = new Set(["altitude", "speed", "accel", "engine", "d3"]);
+  const validType = new Set(["altitude", "speed", "accel", "engine"]);
   const buildAllOptionKeys = () => {
     const keys = [];
     for (let stageIndex = 1; stageIndex <= normalizedStageCount; stageIndex += 1) {
@@ -517,35 +517,26 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
   const allOptionKeys = buildAllOptionKeys();
 
   const normalizeSelected = (selectedRaw) => {
-    const deduped = [];
-    for (const item of Array.isArray(selectedRaw) ? selectedRaw : []) {
-      const normalized = normalizeDashboardOptionKey(item, normalizedStageCount);
-      if (!normalized || deduped.includes(normalized)) {
-        continue;
-      }
-      deduped.push(normalized);
-      if (deduped.length >= 4) {
-        break;
-      }
+    const source = Array.isArray(selectedRaw) ? selectedRaw : [];
+    const slots = [];
+    for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+      slots.push(normalizeDashboardOptionKey(source[slotIndex], normalizedStageCount));
     }
-    return deduped;
+    return slots;
   };
 
   if (sourceNodes.length > 0) {
     const nodes = sourceNodes
-      .map((node, index) => ({
-        id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
-        time: toInt(node?.time, 0),
-        name: String(node?.name || "自定义").trim() || "自定义",
-        selected: normalizeSelected(node?.selected),
-      }))
+      .map((node, index) => {
+        const selected = normalizeSelected(node?.selected);
+        return {
+          id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
+          time: toInt(node?.time, 0),
+          name: String(node?.name || "自定义").trim() || "自定义",
+          selected: selected.some(Boolean) ? selected : allOptionKeys.slice(0, 4),
+        };
+      })
       .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN"));
-
-    nodes.forEach((node) => {
-      if (node.selected.length <= 0) {
-        node.selected = allOptionKeys.slice(0, 4);
-      }
-    });
 
     return {
       version: 2,
@@ -560,7 +551,7 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
     }
 
     const selected = normalizeSelected(config.selected);
-    if (selected.length <= 0) {
+    if (!selected.some(Boolean)) {
       continue;
     }
 
@@ -596,24 +587,23 @@ function pickDeterministicOption(options, seedText) {
 
 function ensureDashboardSelection(selectedRaw, allOptions, seedText) {
   const all = Array.isArray(allOptions) ? allOptions.filter(Boolean) : [];
-  let selected = Array.isArray(selectedRaw)
-    ? selectedRaw.filter((item) => all.includes(item))
-    : [];
-
-  selected = Array.from(new Set(selected)).slice(0, 4);
-
-  if (selected.length === 0 && all.length > 0) {
-    const first = pickDeterministicOption(all, `${seedText}|empty|a`);
-    const second = pickDeterministicOption(all.filter((item) => item !== first), `${seedText}|empty|b`);
-    selected = [first, second].filter(Boolean);
+  const source = Array.isArray(selectedRaw) ? selectedRaw : [];
+  const slots = [];
+  for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+    const normalized = String(source[slotIndex] || "").trim().toLowerCase();
+    slots.push(all.includes(normalized) ? normalized : "");
   }
 
-  return selected.slice(0, 4);
+  if (!slots.some(Boolean) && all.length > 0) {
+    return all.slice(0, 4);
+  }
+
+  return slots;
 }
 
 function parseDashboardOptionKey(optionKey) {
   const text = String(optionKey || "").trim().toLowerCase();
-  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+  const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine)$/);
   if (!matched) {
     return null;
   }
@@ -679,12 +669,10 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
     return [];
   }
 
-  const sideOrder = selected.length >= 4
-    ? ["left", "right", "left", "right"]
-    : ["left", "right"];
+  const sideOrder = ["left", "left", "right", "right"];
 
   return selected
-    .slice(0, sideOrder.length)
+    .slice(0, 4)
     .map((optionKey, index) => {
       const parsed = parseDashboardOptionKey(optionKey);
       if (!parsed) {
@@ -744,15 +732,7 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
         };
       }
 
-      return {
-        ...base,
-        type: "metric",
-        metric_key: "__dashboard_3d__",
-        label: `${stageText}3D`,
-        unit: "3D",
-        max_value: 100,
-        fraction_digits: 0,
-      };
+      return null;
     })
     .filter(Boolean);
 }
@@ -1755,6 +1735,7 @@ class MissionEngine {
       telemetry_profile: telemetryProfile,
       dashboard_editor: normalizeDashboardEditor(model?.dashboard_editor || {}, model?.rocket_meta?.stage_count || 1),
       dashboard_gauge_specs: dashboardGaugeSpecs,
+      fuel_curves: model?.fuel_editor?.curves || {},
       next_poll_hint_ms: timeline.nextPollHintMs,
       change_token: this.lastMutation,
       ...extra,

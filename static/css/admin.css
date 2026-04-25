@@ -448,6 +448,16 @@ textarea {
   font-size: 16px;
 }
 
+.status-item small {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: var(--font-saira);
+}
+
+.status-next-event strong {
+  line-height: 1.2;
+}
+
 #currentModel,
 #currentStatus,
 #missionClock {
@@ -1218,31 +1228,27 @@ textarea {
 }
 
 .dashboard-config-table .dashboard-node-col {
-  min-width: 220px;
+  min-width: 180px;
 }
 
 .dashboard-config-table .dashboard-time-col {
-  width: 78px;
-  min-width: 78px;
+  width: 64px;
+  min-width: 64px;
 }
 
 .dashboard-time-input,
+.dashboard-node-select,
 .dashboard-option-select {
   width: 100%;
   min-width: 0;
 }
 
 .dashboard-time-input {
-  min-width: 72px;
+  min-width: 58px;
 }
 
-.dashboard-node-display {
-  display: inline-block;
-  width: 100%;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.dashboard-node-select {
+  max-width: 100%;
 }
 
 .dashboard-stage-cell {

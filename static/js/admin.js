@@ -3,7 +3,8 @@ const dom = {
   currentModel: document.getElementById("currentModel"),
   currentStatus: document.getElementById("currentStatus"),
   missionClock: document.getElementById("missionClock"),
-  activeCount: document.getElementById("activeCount"),
+  nextEventName: document.getElementById("nextEventName"),
+  nextEventMeta: document.getElementById("nextEventMeta"),
   modelSelect: document.getElementById("modelSelect"),
   openConfigEditorBtn: document.getElementById("openConfigEditorBtn"),
   openFuelEditorBtn: document.getElementById("openFuelEditorBtn"),
@@ -258,6 +259,33 @@ function formatSignedClock(msValue) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `T${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
+}
+
+function formatMissionTimeTag(seconds) {
+  const sign = seconds < 0 ? "-" : "+";
+  const absSeconds = Math.abs(Math.round(seconds));
+  const hours = Math.floor(absSeconds / 3600);
+  const minutes = Math.floor((absSeconds % 3600) / 60);
+  const secs = absSeconds % 60;
+
+  if (hours > 0) {
+    return `T${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+  return `T${sign}${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function findNextTimelineEvent(state, missionTimeSeconds) {
+  const timelineNodes = Array.isArray(state?.timeline_nodes) ? state.timeline_nodes : [];
+  const eventNodes = timelineNodes
+    .filter((item) => item && item.kind === "event" && Number.isFinite(Number(item.time)))
+    .sort((a, b) => Number(a.time) - Number(b.time));
+
+  for (const node of eventNodes) {
+    if (Number(node.time) > missionTimeSeconds) {
+      return node;
+    }
+  }
+  return null;
 }
 
 function tickMissionClock() {
@@ -705,7 +733,7 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
     ? source.node_configs
     : {};
   const maxStage = Math.max(1, toInt(stageCount, 1));
-  const validType = new Set(["altitude", "speed", "accel", "engine", "d3"]);
+  const validType = new Set(["altitude", "speed", "accel", "engine"]);
 
   const allOptionKeys = [];
   for (let stageIndex = 1; stageIndex <= maxStage; stageIndex += 1) {
@@ -713,6 +741,15 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
       allOptionKeys.push(`stage${stageIndex}:${typeKey}`);
     }
   }
+  const normalizeSelectionSlots = (rawSelected) => {
+    const source = Array.isArray(rawSelected) ? rawSelected : [];
+    const slots = [];
+    for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+      const text = String(source[slotIndex] || "").trim().toLowerCase();
+      slots.push(allOptionKeys.includes(text) ? text : "");
+    }
+    return slots;
+  };
 
   if (sourceNodes.length > 0) {
     return {
@@ -722,12 +759,10 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
           id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
           time: toInt(node?.time, 0),
           name: String(node?.name || "自定义").trim() || "自定义",
-          selected: Array.isArray(node?.selected)
-            ? node.selected
-              .map((item) => String(item || "").trim().toLowerCase())
-              .filter((item) => allOptionKeys.includes(item))
-              .slice(0, 4)
-            : allOptionKeys.slice(0, 4),
+          selected: (() => {
+            const slots = normalizeSelectionSlots(node?.selected);
+            return slots.some(Boolean) ? slots : allOptionKeys.slice(0, 4);
+          })(),
         }))
         .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN")),
     };
@@ -738,31 +773,28 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
     if (!nodeKey || !config || typeof config !== "object") {
       continue;
     }
-    const selected = [];
     const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
-    for (const item of sourceSelected) {
-      const text = String(item || "").trim().toLowerCase();
-      const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+    const selected = [];
+    for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+      const text = String(sourceSelected[slotIndex] || "").trim().toLowerCase();
+      const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine)$/);
       if (!matched) {
+        selected.push("");
         continue;
       }
 
       const stageIndex = Math.max(1, toInt(matched[1], 1));
       const typeKey = matched[2];
       if (stageIndex > maxStage || !validType.has(typeKey)) {
+        selected.push("");
         continue;
       }
 
       const normalizedKey = `stage${stageIndex}:${typeKey}`;
-      if (!selected.includes(normalizedKey)) {
-        selected.push(normalizedKey);
-      }
-      if (selected.length >= 4) {
-        break;
-      }
+      selected.push(normalizedKey);
     }
 
-    if (selected.length <= 0) {
+    if (!selected.some(Boolean)) {
       continue;
     }
     nodeConfigs[nodeKey] = {
@@ -1119,10 +1151,10 @@ function renderState(state) {
   };
   setTextIfChanged(dom.missionClock, formatSignedClock(missionAnchor.ms));
 
-  const obsCount = Array.isArray(state.observation_log)
-    ? state.observation_log.filter((item) => item.type === "observation").length
-    : 0;
-  dom.activeCount.textContent = String(obsCount);
+  const missionTimeSeconds = Number(state.unified_countdown_ms ?? 0) / 1000;
+  const nextEvent = findNextTimelineEvent(state, missionTimeSeconds);
+  setTextIfChanged(dom.nextEventName, nextEvent?.name || "无");
+  setTextIfChanged(dom.nextEventMeta, nextEvent ? `时间 ${formatMissionTimeTag(Number(nextEvent.time))}` : "时间 -");
 
   if (state.current_model && modelsCache[state.current_model]) {
     if (!selectingModel || state.current_model === pendingModelName) {

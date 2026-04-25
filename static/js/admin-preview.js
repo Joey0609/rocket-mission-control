@@ -23,7 +23,6 @@
     { key: "speed", label: "速度" },
     { key: "accel", label: "加速度" },
     { key: "engine", label: "发动机" },
-    { key: "d3", label: "3D" },
   ];
   const DASHBOARD_STAGE_TEXT = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
   const PREVIEW_CONFIG_PANE_FADE_MS = 180;
@@ -163,12 +162,12 @@
   }
 
   function formatDashboardOptionText(optionKey) {
-    const matched = String(optionKey || "").trim().toLowerCase().match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+    const matched = String(optionKey || "").trim().toLowerCase().match(/^stage(\d+):(altitude|speed|accel|engine)$/);
     if (!matched) {
       return String(optionKey || "").trim();
     }
     const stageIndex = Math.max(1, toInt(matched[1], 1));
-    const typeKey = matched[2] === "d3" ? "3D" : matched[2];
+    const typeKey = matched[2];
     return `stage${stageIndex}:${typeKey}`;
   }
 
@@ -239,22 +238,13 @@
 
   function normalizeDashboardSelectionList(rawSelected, allOptionKeys) {
     const all = Array.isArray(allOptionKeys) ? allOptionKeys : [];
-    const selected = [];
-    const seen = new Set();
-
-    for (const item of Array.isArray(rawSelected) ? rawSelected : []) {
-      const normalized = String(item || "").trim().toLowerCase();
-      if (!all.includes(normalized) || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      selected.push(normalized);
-      if (selected.length >= 4) {
-        break;
-      }
+    const source = Array.isArray(rawSelected) ? rawSelected : [];
+    const slots = [];
+    for (let index = 0; index < 4; index += 1) {
+      const normalized = String(source[index] || "").trim().toLowerCase();
+      slots.push(all.includes(normalized) ? normalized : "");
     }
-
-    return selected;
+    return slots;
   }
 
   function buildDashboardNodeLabel(time, events) {
@@ -272,11 +262,13 @@
     const selected = normalizeDashboardSelectionList(source.selected, allOptionKeys);
     const name = buildDashboardNodeLabel(time, events);
 
+    const hasSelection = selected.some(Boolean);
+
     return {
       id: String(source.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
       time,
       name,
-      selected: selected.length > 0 ? selected : allOptionKeys.slice(0, 4),
+      selected: hasSelection ? selected : allOptionKeys.slice(0, 4),
     };
   }
 
@@ -308,29 +300,26 @@
           continue;
         }
 
-        const selected = [];
         const sourceSelected = Array.isArray(config.selected) ? config.selected : [];
-        for (const item of sourceSelected) {
-          const text = String(item || "").trim().toLowerCase();
-          const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine|d3)$/);
+        const selected = [];
+        for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+          const text = String(sourceSelected[slotIndex] || "").trim().toLowerCase();
+          const matched = text.match(/^stage(\d+):(altitude|speed|accel|engine)$/);
           if (!matched) {
+            selected.push("");
             continue;
           }
           const stageIndex = Math.max(1, toInt(matched[1], 1));
           const typeKey = matched[2];
           if (stageIndex > maxStage || !validType.has(typeKey)) {
+            selected.push("");
             continue;
           }
           const normalizedKey = buildDashboardOptionKey(stageIndex, typeKey);
-          if (!selected.includes(normalizedKey)) {
-            selected.push(normalizedKey);
-          }
-          if (selected.length >= 4) {
-            break;
-          }
+          selected.push(normalizedKey);
         }
 
-        if (selected.length <= 0) {
+        if (!selected.some(Boolean)) {
           continue;
         }
 
@@ -344,8 +333,6 @@
         });
       }
     }
-
-    nodes.sort((a, b) => a.time - b.time || String(a.name || "").localeCompare(String(b.name || ""), "zh-CN"));
 
     return {
       version: 2,
@@ -444,10 +431,11 @@
     const defaultSelection = allOptionKeys.slice(0, 4);
     const getRowSelection = (row) => {
       const selected = normalizeDashboardSelectionList(row?.selected, allOptionKeys);
-      return selected.length > 0 ? selected : defaultSelection;
+      return selected.some(Boolean) ? selected : defaultSelection;
     };
 
     const matchedEventByTime = (time) => events.find((event) => toInt(event.time, 0) === toInt(time, 0)) || null;
+    const matchedEventById = (eventId) => events.find((event) => String(event.id || "") === String(eventId || "")) || null;
 
     const updateRow = (rowIndex, patch) => {
       const rows = Array.isArray(editor.nodes) ? editor.nodes : [];
@@ -507,12 +495,41 @@
         const nextSelection = getRowSelection(row);
         nextSelection[slotIndex] = select.value;
         updateRow(rowIndex, {
-          selected: normalizeDashboardSelectionList(nextSelection.filter(Boolean), allOptionKeys),
+          selected: normalizeDashboardSelectionList(nextSelection, allOptionKeys),
         });
       });
 
       cell.appendChild(select);
       return cell;
+    };
+
+    const renderNodeSelect = (row, rowIndex, timeInput) => {
+      const select = document.createElement("select");
+      select.className = "dashboard-node-select";
+
+      select.appendChild(new Option("自定义", ""));
+      events.forEach((event) => {
+        const label = `${event.name} · T${event.time >= 0 ? "+" : ""}${event.time}`;
+        select.appendChild(new Option(label, String(event.id || "")));
+      });
+
+      const currentMatchedEvent = matchedEventByTime(toInt(row.time, 0));
+      select.value = currentMatchedEvent ? String(currentMatchedEvent.id || "") : "";
+
+      select.addEventListener("change", () => {
+        const pickedEvent = matchedEventById(select.value);
+        const nextTime = pickedEvent ? toInt(pickedEvent.time, 0) : toInt(timeInput.value, 0);
+        const nextName = pickedEvent ? String(pickedEvent.name || "未命名事件") : "自定义";
+
+        timeInput.value = String(nextTime);
+        updateRow(rowIndex, {
+          time: nextTime,
+          name: nextName,
+        });
+        scheduleDashboardSort(renderDashboardConfigTable);
+      });
+
+      return select;
     };
 
     const thead = document.createElement("thead");
@@ -555,13 +572,6 @@
 
       const tdNode = document.createElement("td");
       tdNode.className = "dashboard-node-col";
-        const nodeLabel = document.createElement("span");
-        nodeLabel.className = "dashboard-node-display";
-        const matchedEvent = matchedEventByTime(toInt(row.time, 0));
-        const derivedName = matchedEvent ? matchedEvent.name : "自定义";
-        nodeLabel.textContent = derivedName;
-        nodeLabel.title = matchedEvent ? "时间已匹配到型号节点" : "当前时间未匹配到型号节点";
-        tdNode.appendChild(nodeLabel);
 
       const tdTime = document.createElement("td");
       tdTime.className = "dashboard-time-col";
@@ -569,6 +579,8 @@
       timeInput.type = "number";
       timeInput.className = "dashboard-time-input";
       timeInput.value = String(toInt(row.time, 0));
+      const nodeSelect = renderNodeSelect(row, rowIndex, timeInput);
+      tdNode.appendChild(nodeSelect);
       timeInput.addEventListener("input", () => {
         const nextTime = toInt(timeInput.value, 0);
         const nextMatchedEvent = matchedEventByTime(nextTime);
@@ -577,8 +589,7 @@
           time: nextTime,
           name: nextName,
         });
-        nodeLabel.textContent = nextName;
-        nodeLabel.title = nextMatchedEvent ? "时间已匹配到型号节点" : "当前时间未匹配到型号节点";
+        nodeSelect.value = nextMatchedEvent ? String(nextMatchedEvent.id || "") : "";
         scheduleDashboardSort(renderDashboardConfigTable);
       });
       tdTime.appendChild(timeInput);
@@ -933,7 +944,24 @@
     dom.previewConfigModal.classList.remove("hidden");
   }
 
-  function closePreviewConfig() {
+  function closePreviewConfig(forceClose = false) {
+    if (!forceClose && state.configMode === "dashboard" && hasDashboardUnsavedChanges()) {
+      if (typeof openUnsavedConfirmDialog === "function") {
+        openUnsavedConfirmDialog({
+          title: "仪表盘设置尚未保存",
+          message: "当前仪表盘设置有未保存修改，是否保存后关闭？",
+          onSave: () => savePreviewConfig(),
+          onDiscard: () => {
+            closePreviewConfig(true);
+            return true;
+          },
+        });
+      } else {
+        closePreviewConfig(true);
+      }
+      return false;
+    }
+
     dashboardSortPending = false;
     dashboardActiveInputCount = 0;
     clearDashboardSortTimer();
@@ -945,6 +973,17 @@
     }
     dom.previewConfigModal.classList.remove("mode-dashboard");
     dom.previewConfigModal.classList.add("hidden");
+    return true;
+  }
+
+  function hasDashboardUnsavedChanges() {
+    if (state.configMode !== "dashboard") {
+      return false;
+    }
+    const draftEditor = state.dashboard.draftModel?.dashboard_editor;
+    const currentSignature = stableSerialize(draftEditor || {});
+    const snapshotSignature = String(state.dashboard.snapshotSignature || "");
+    return currentSignature !== snapshotSignature;
   }
 
   function setPreviewPaneVisible(pane, visible) {
@@ -1146,6 +1185,7 @@
       }
       payload.name = modelName;
       payload.dashboard_editor = finalizeDashboardEditorForSave(payload.dashboard_editor, stageCount);
+      state.dashboard.draftModel.dashboard_editor = payload.dashboard_editor;
 
       const response = await adminFetchJson("/api/models", {
         method: "POST",
@@ -1163,7 +1203,7 @@
 
       closePreviewConfig();
       notify("仪表盘设置已保存", "success");
-      return;
+      return true;
     }
 
     if (state.configMode === "obs") {
@@ -1180,7 +1220,7 @@
       }
       closePreviewConfig();
       notify(`OBS 预览设置已更新 (${preset.label})`, "success");
-      return;
+      return true;
     }
 
     const videoPreset = getResolutionPresetById(dom.videoResolutionPresetSelect?.value || state.videoResolutionPresetId);
@@ -1234,6 +1274,7 @@
     renderVideoConfigFields();
     closePreviewConfig();
     notify(`视频页面设置已更新 (${videoPreset.label})`, "success");
+    return true;
   }
 
   async function copyModeUrl(mode) {
@@ -1335,10 +1376,10 @@
     }
 
     if (dom.previewConfigBackdrop) {
-      dom.previewConfigBackdrop.addEventListener("click", closePreviewConfig);
+      dom.previewConfigBackdrop.addEventListener("click", () => closePreviewConfig());
     }
     if (dom.closePreviewConfigBtn) {
-      dom.closePreviewConfigBtn.addEventListener("click", closePreviewConfig);
+      dom.closePreviewConfigBtn.addEventListener("click", () => closePreviewConfig());
     }
     if (dom.savePreviewConfigBtn) {
       dom.savePreviewConfigBtn.addEventListener("click", () => {
@@ -1405,6 +1446,17 @@
     if (dom.videoMissionEndInput) {
       dom.videoMissionEndInput.addEventListener("input", () => syncVideoCalibration("end"));
     }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (!dom.previewConfigModal || dom.previewConfigModal.classList.contains("hidden")) {
+        return;
+      }
+      event.preventDefault();
+      closePreviewConfig();
+    });
 
     dom.previewFrame.addEventListener("load", () => {
       applyPreviewResolution();

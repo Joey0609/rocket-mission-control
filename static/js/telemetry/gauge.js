@@ -12,6 +12,7 @@
   const DEFAULT_GAUGE_SCALE = 0.78;
   const GAUGE_SHOW_TOTAL_MS = 860;
   const GAUGE_HIDE_TOTAL_MS = 260;
+  const GAUGE_TEXT_SWITCH_MS = 500;
 
   let gaugeSequence = 0;
 
@@ -112,6 +113,8 @@
       this.animatablePaths = [];
       this.visibilityState = "hidden";
       this.visibilityTimer = null;
+      this.valueAnimationFrame = null;
+      this.textSwitchTimer = null;
 
       this.mount();
       this.setConfig({ label: this.label, unit: this.unit, maxValue: this.maxValue, fractionDigits: this.fractionDigits });
@@ -277,7 +280,8 @@
       this.setVisible(false, { immediate: true });
     }
 
-    setConfig(config = {}) {
+    setConfig(config = {}, options = {}) {
+      const fadeText = Boolean(options.fadeText);
       if (Object.prototype.hasOwnProperty.call(config, "label")) {
         this.label = String(config.label || "");
       }
@@ -291,16 +295,34 @@
         this.fractionDigits = Math.max(0, Math.trunc(toNumber(config.fractionDigits, this.fractionDigits)));
       }
 
-      if (this.labelNode) {
-        this.labelNode.textContent = this.label;
+      const applyText = () => {
+        if (this.labelNode) {
+          this.labelNode.textContent = this.label;
+        }
+        if (this.unitNode) {
+          this.unitNode.textContent = this.unit;
+        }
+      };
+
+      if (!fadeText || !this.textRoot) {
+        applyText();
+      } else {
+        if (this.textSwitchTimer) {
+          clearTimeout(this.textSwitchTimer);
+          this.textSwitchTimer = null;
+        }
+        this.textRoot.classList.add("telemetry-gauge-text-switch");
+        this.textSwitchTimer = setTimeout(() => {
+          applyText();
+          this.textRoot.classList.remove("telemetry-gauge-text-switch");
+          this.textSwitchTimer = null;
+        }, GAUGE_TEXT_SWITCH_MS);
       }
-      if (this.unitNode) {
-        this.unitNode.textContent = this.unit;
-      }
+
       this.setValue(this.currentValue);
     }
 
-    setValue(nextValue) {
+    applyValue(nextValue) {
       const numericValue = Math.max(0, toNumber(nextValue, 0));
       const safeMax = this.maxValue > 0 ? this.maxValue : 1;
       const progressRatio = clamp(numericValue / safeMax, 0, 1);
@@ -344,6 +366,40 @@
       if (this.valueNode) {
         this.valueNode.textContent = numericValue.toFixed(this.fractionDigits);
       }
+    }
+
+    setValue(nextValue, options = {}) {
+      const numericValue = Math.max(0, toNumber(nextValue, 0));
+      const animateMs = Math.max(0, Math.trunc(toNumber(options.animateMs, 0)));
+
+      if (this.valueAnimationFrame) {
+        cancelAnimationFrame(this.valueAnimationFrame);
+        this.valueAnimationFrame = null;
+      }
+
+      if (animateMs <= 0) {
+        this.applyValue(numericValue);
+        return;
+      }
+
+      const startValue = this.currentValue;
+      const startAt = performance.now();
+      const tick = (now) => {
+        const ratio = clamp((now - startAt) / animateMs, 0, 1);
+        const eased = ratio < 0.5
+          ? 2 * ratio * ratio
+          : 1 - ((-2 * ratio + 2) ** 2) / 2;
+        const value = startValue + (numericValue - startValue) * eased;
+        this.applyValue(value);
+
+        if (ratio >= 1) {
+          this.valueAnimationFrame = null;
+          return;
+        }
+        this.valueAnimationFrame = requestAnimationFrame(tick);
+      };
+
+      this.valueAnimationFrame = requestAnimationFrame(tick);
     }
 
     setVisible(nextVisible, options = {}) {
@@ -419,6 +475,14 @@
       if (this.visibilityTimer) {
         clearTimeout(this.visibilityTimer);
         this.visibilityTimer = null;
+      }
+      if (this.textSwitchTimer) {
+        clearTimeout(this.textSwitchTimer);
+        this.textSwitchTimer = null;
+      }
+      if (this.valueAnimationFrame) {
+        cancelAnimationFrame(this.valueAnimationFrame);
+        this.valueAnimationFrame = null;
       }
       if (this.rootEl && this.rootEl.parentNode) {
         this.rootEl.parentNode.removeChild(this.rootEl);

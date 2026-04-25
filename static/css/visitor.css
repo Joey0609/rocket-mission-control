@@ -208,7 +208,7 @@ body.viewer-mode-video .theme-modal {
 }
 
 .payload-name {
-  font-size: clamp(14px, 1.6vw, 20px);
+  font-size: clamp(18px, 2.1vw, 28px);
   font-weight: 500;
   letter-spacing: 0.08em;
   color: color-mix(in srgb, var(--ink) 84%, var(--muted));
@@ -458,6 +458,12 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   align-items: flex-end;
   gap: 6px;
   margin-bottom: 8px;
+  opacity: 1;
+  transition: opacity 500ms ease;
+}
+
+.telemetry-gauges.telemetry-gauges-faded {
+  opacity: 0;
 }
 
 .telemetry-gauge-slot {
@@ -505,7 +511,7 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   stroke: rgba(255, 255, 255, 1);
   stroke-width: 1.3;
   opacity: 0.18;
-  transition: opacity 260ms ease;
+  transition: opacity 500ms ease;
 }
 
 .telemetry-engine-node.is-active {
@@ -633,6 +639,10 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   user-select: none;
 }
 
+.telemetry-gauge-text-root.telemetry-gauge-text-switch {
+  animation: telemetryGaugeTextSwitch 500ms ease forwards;
+}
+
 @keyframes telemetryGaugeBgIn {
   from {
     opacity: 0;
@@ -688,6 +698,18 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   }
   to {
     opacity: 0;
+  }
+}
+
+@keyframes telemetryGaugeTextSwitch {
+  0% {
+    opacity: 1;
+  }
+  46% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
   }
 }
 

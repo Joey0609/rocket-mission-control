@@ -241,7 +241,7 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "",
+    "payload": "天舟十号",
     "recovery_capable": true,
     "recovery_enabled": false,
     "auto_hold_at_ignition": false,
@@ -294,7 +294,7 @@
         "booster_0": -1
       },
       "event:evt_f9_maxq": {
-        "stage1_0": 60,
+        "stage1_0": 49,
         "stage2_0": 100,
         "booster_0": -1
       },
@@ -359,17 +359,17 @@
         "booster_0": -1
       },
       "event:obs_f9_arm": {
-        "stage1_0": 44,
+        "stage1_0": 68,
         "stage2_0": 0,
         "booster_0": -1
       },
       "event:item_1776431961521": {
-        "stage1_0": 63,
+        "stage1_0": 77,
         "stage2_0": 0,
         "booster_0": -1
       },
       "event:item_1776431961731": {
-        "stage1_0": 96,
+        "stage1_0": 98,
         "stage2_0": 70,
         "booster_0": -1
       },
@@ -452,6 +452,21 @@
         "stage1_0": 0,
         "stage2_0": 2,
         "booster_0": -1
+      },
+      "observation:stg_f9_stage1": {
+        "stage1_0": 99,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "observation:item_1776432089752": {
+        "stage1_0": 100,
+        "stage2_0": -1,
+        "booster_0": -1
+      },
+      "observation:evt_f9_pitch": {
+        "stage1_0": 96,
+        "stage2_0": -1,
+        "booster_0": -1
       }
     },
     "curves": {
@@ -466,15 +481,15 @@
         },
         {
           "time": -1220,
-          "value": 44
+          "value": 68
         },
         {
           "time": -960,
-          "value": 63
+          "value": 77
         },
         {
           "time": -420,
-          "value": 96
+          "value": 98
         },
         {
           "time": -270,
@@ -509,8 +524,8 @@
           "value": 96
         },
         {
-          "time": 68,
-          "value": 60
+          "time": 56,
+          "value": 56
         },
         {
           "time": 147,
@@ -816,8 +831,8 @@
       },
       "event:evt_f9_maxq": {
         "altitude_km": {
-          "stage1": 10,
-          "upper": 10
+          "stage1": 84.75217321869495,
+          "upper": 84.75217321869495
         },
         "speed_mps": {
           "stage1": 0,
@@ -834,8 +849,8 @@
       },
       "event:evt_f9_stage_sep": {
         "altitude_km": {
-          "stage1": 1.233304961764146,
-          "upper": 1.233304961764146
+          "stage1": 182.338936784329,
+          "upper": 182.338936784329
         },
         "speed_mps": {
           "stage1": 0,
@@ -852,8 +867,8 @@
       },
       "event:evt_f9_second_ignition": {
         "altitude_km": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 182.9876467221823,
+          "upper": 182.9876467221823
         },
         "speed_mps": {
           "stage1": 0,
@@ -892,8 +907,8 @@
           "upper": 0
         },
         "speed_mps": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 3.0182372442107384,
+          "upper": 3.0182372442107384
         },
         "accel_g": {
           "stage1": 0.04136292200359405,
@@ -942,8 +957,8 @@
       },
       "event:item_1776432089952": {
         "altitude_km": {
-          "stage1": 0.8896607778297734,
-          "upper": 0.8896607778297734
+          "stage1": 171.02193284778244,
+          "upper": 171.02193284778244
         },
         "speed_mps": {
           "stage1": 0,
@@ -960,8 +975,8 @@
       },
       "event:item_1776432090133": {
         "altitude_km": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 138.84859468871505,
+          "upper": 138.84859468871505
         },
         "speed_mps": {
           "stage1": 0,
@@ -978,12 +993,12 @@
       },
       "event:item_1776432315386": {
         "altitude_km": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 164.62960789633294,
+          "upper": 164.62960789633294
         },
         "speed_mps": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 1.1311915536044865,
+          "upper": 1.1311915536044865
         },
         "accel_g": {
           "stage1": 0,
@@ -1000,8 +1015,8 @@
           "upper": 0
         },
         "speed_mps": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 2.863834915190268,
+          "upper": 2.863834915190268
         },
         "accel_g": {
           "stage1": 0,
@@ -1018,8 +1033,8 @@
           "upper": 0
         },
         "speed_mps": {
-          "stage1": 0,
-          "upper": 0
+          "stage1": 3.1619628272683924,
+          "upper": 3.1619628272683924
         },
         "accel_g": {
           "stage1": 0.028588542461675234,
@@ -1080,19 +1095,19 @@
           },
           {
             "time": 68,
-            "value": 10
+            "value": 84.75217321869495
           },
           {
             "time": 147,
-            "value": 1.233304961764146
+            "value": 182.338936784329
           },
           {
             "time": 151,
-            "value": 0.8896607778297734
+            "value": 171.02193284778244
           },
           {
             "time": 157,
-            "value": 0
+            "value": 182.9876467221823
           },
           {
             "time": 179,
@@ -1100,11 +1115,11 @@
           },
           {
             "time": 361,
-            "value": 0
+            "value": 138.84859468871505
           },
           {
             "time": 380,
-            "value": 0
+            "value": 164.62960789633294
           },
           {
             "time": 470,
@@ -1142,19 +1157,19 @@
           },
           {
             "time": 68,
-            "value": 10
+            "value": 84.75217321869495
           },
           {
             "time": 147,
-            "value": 1.233304961764146
+            "value": 182.338936784329
           },
           {
             "time": 151,
-            "value": 0.8896607778297734
+            "value": 171.02193284778244
           },
           {
             "time": 157,
-            "value": 0
+            "value": 182.9876467221823
           },
           {
             "time": 179,
@@ -1162,11 +1177,11 @@
           },
           {
             "time": 361,
-            "value": 0
+            "value": 138.84859468871505
           },
           {
             "time": 380,
-            "value": 0
+            "value": 164.62960789633294
           },
           {
             "time": 470,
@@ -1230,19 +1245,19 @@
           },
           {
             "time": 380,
-            "value": 0
+            "value": 1.1311915536044865
           },
           {
             "time": 470,
-            "value": 0
+            "value": 2.863834915190268
           },
           {
             "time": 492,
-            "value": 0
+            "value": 3.1619628272683924
           },
           {
             "time": 521,
-            "value": 0
+            "value": 3.0182372442107384
           },
           {
             "time": 3177,
@@ -1292,19 +1307,19 @@
           },
           {
             "time": 380,
-            "value": 0
+            "value": 1.1311915536044865
           },
           {
             "time": 470,
-            "value": 0
+            "value": 2.863834915190268
           },
           {
             "time": 492,
-            "value": 0
+            "value": 3.1619628272683924
           },
           {
             "time": 521,
-            "value": 0
+            "value": 3.0182372442107384
           },
           {
             "time": 3177,
@@ -3481,19 +3496,8 @@
     "version": 2,
     "nodes": [
       {
-        "id": "dashboard_node_1777029102781",
-        "time": 0,
-        "name": "起飞",
-        "selected": [
-          "stage1:altitude",
-          "stage1:speed",
-          "stage1:accel",
-          "stage1:engine"
-        ]
-      },
-      {
-        "id": "dashboard_node_1777029103377",
-        "time": 1,
+        "id": "dashboard_node_test_dup",
+        "time": -6,
         "name": "自定义",
         "selected": [
           "stage1:altitude",
@@ -3503,14 +3507,36 @@
         ]
       },
       {
-        "id": "dashboard_node_1777029103852",
-        "time": 2,
+        "id": "dashboard_node_1777105974077",
+        "time": 10,
+        "name": "自定义",
+        "selected": [
+          "stage1:altitude",
+          "stage1:engine",
+          "stage1:accel",
+          "stage1:engine"
+        ]
+      },
+      {
+        "id": "dashboard_node_1777105974761",
+        "time": 15,
         "name": "自定义",
         "selected": [
           "stage1:altitude",
           "stage1:speed",
           "stage1:accel",
           "stage1:engine"
+        ]
+      },
+      {
+        "id": "dashboard_node_1777105975329",
+        "time": 25,
+        "name": "自定义",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage2:speed"
         ]
       }
     ]

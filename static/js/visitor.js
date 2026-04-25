@@ -399,6 +399,109 @@ function toTimelineEvents(nodesData) {
   }));
 }
 
+function parseDashboardOptionKey(optionKey) {
+  const matched = String(optionKey || "").trim().toLowerCase().match(/^stage(\d+):(altitude|speed|accel|engine)$/);
+  if (!matched) {
+    return null;
+  }
+  return {
+    stageIndex: Math.max(1, Number.parseInt(matched[1], 10) || 1),
+    type: matched[2],
+  };
+}
+
+function resolveDashboardGaugeSpecsByEditor(state, missionSeconds) {
+  const editor = state?.dashboard_editor && typeof state.dashboard_editor === "object"
+    ? state.dashboard_editor
+    : null;
+  if (!editor || !Array.isArray(editor.nodes) || editor.nodes.length <= 0) {
+    return Array.isArray(state?.dashboard_gauge_specs) ? state.dashboard_gauge_specs : [];
+  }
+
+  const sortedNodes = editor.nodes
+    .map((item, index) => ({
+      id: String(item?.id || `dashboard_node_${index + 1}`),
+      time: Number(item?.time || 0),
+      selected: Array.isArray(item?.selected) ? item.selected : [],
+    }))
+    .sort((a, b) => a.time - b.time || a.id.localeCompare(b.id, "zh-CN"));
+
+  let activeNode = sortedNodes[0];
+  for (const node of sortedNodes) {
+    if (node.time <= missionSeconds) {
+      activeNode = node;
+      continue;
+    }
+    break;
+  }
+
+  const sideOrder = ["left", "left", "right", "right"];
+  return activeNode.selected
+    .slice(0, 4)
+    .map((optionKey, index) => {
+      const parsed = parseDashboardOptionKey(optionKey);
+      if (!parsed) {
+        return null;
+      }
+
+      const stageText = `${parsed.stageIndex}级`;
+      const base = {
+        id: `dashboard_${index + 1}`,
+        side: sideOrder[index] || "right",
+        stage_index: parsed.stageIndex,
+        option_key: optionKey,
+      };
+
+      if (parsed.type === "altitude") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "altitude_km",
+          label: `${stageText}高度`,
+          unit: "KM",
+          max_value: 700,
+          fraction_digits: 1,
+        };
+      }
+
+      if (parsed.type === "speed") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "speed_mps",
+          label: `${stageText}速度`,
+          unit: "M/S",
+          max_value: 8500,
+          fraction_digits: 0,
+        };
+      }
+
+      if (parsed.type === "accel") {
+        return {
+          ...base,
+          type: "metric",
+          metric_key: "accel_g",
+          label: `${stageText}加速度`,
+          unit: "G",
+          max_value: 8,
+          fraction_digits: 2,
+        };
+      }
+
+      if (parsed.type === "engine") {
+        return {
+          ...base,
+          type: "engine_layout",
+          label: `${stageText}发动机`,
+          size: 128,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function ensureTimelineRenderer() {
   if (timelineRenderer || !nodes.timelineMount) {
     return;
@@ -506,6 +609,8 @@ function renderTelemetryGauges(state, missionSeconds) {
     return;
   }
 
+  const localDashboardSpecs = resolveDashboardGaugeSpecsByEditor(state, missionSeconds);
+
   telemetryGaugePanel.update({
     missionSeconds,
     telemetryEnabled,
@@ -517,7 +622,8 @@ function renderTelemetryGauges(state, missionSeconds) {
     timelineNodes: Array.isArray(state?.timeline_nodes) ? state.timeline_nodes : [],
     engineLayout: state?.engine_layout || null,
     enginePresetLibrary: state?.engine_preset_library || null,
-    dashboardGaugeSpecs: Array.isArray(state?.dashboard_gauge_specs) ? state.dashboard_gauge_specs : [],
+    fuelCurves: state?.fuel_curves && typeof state.fuel_curves === "object" ? state.fuel_curves : {},
+    dashboardGaugeSpecs: localDashboardSpecs,
   });
 
   telemetryGaugePanel.setVisible(telemetryEnabled, { immediate: false });

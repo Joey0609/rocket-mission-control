@@ -672,30 +672,11 @@ function updateCurvePointByPointer(clientX, clientY) {
   const rect = dom.fuelCurveCanvas.getBoundingClientRect();
   const m = curveCanvasMetrics();
   const { width, height, padLeft, padRight, padTop, padBottom } = m;
-  const plotW = width - padLeft - padRight;
   const localY = (clientY - rect.top) * (height / rect.height);
-  const localX = (clientX - rect.left) * (width / rect.width);
 
   const plotH = Math.max(1, height - padTop - padBottom);
-  const clampedX = Math.max(padLeft, Math.min(width - padRight, localX));
   const y = Math.max(padTop, Math.min(height - padBottom, localY));
   const value = Math.max(0, Math.min(100, Math.round(100 - ((y - padTop) / plotH) * 100)));
-
-  if (plotW > 1) {
-    const baseDomain = timeDomain();
-    const baseSpan = baseDomain.maxTime - baseDomain.minTime;
-    if (baseSpan > 0) {
-      const prevPoint = points[curveDragState.index - 1] || null;
-      const nextPoint = points[curveDragState.index + 1] || null;
-      const minBound = prevPoint ? prevPoint.time + 1 : baseDomain.minTime;
-      const maxBound = nextPoint ? nextPoint.time - 1 : baseDomain.maxTime;
-      const ratio = (clampedX - padLeft) / plotW;
-      const rawTime = baseDomain.minTime + ratio * baseSpan;
-      if (maxBound >= minBound) {
-        currentPoint.time = Math.round(Math.max(minBound, Math.min(maxBound, rawTime)));
-      }
-    }
-  }
 
   currentPoint.value = value;
   points.sort((a, b) => a.time - b.time);
