@@ -236,8 +236,8 @@ const TELEMETRY_CURVE_KEYS = [...TELEMETRY_METRICS, ...TELEMETRY_EULER_CURVE_KEY
 const TELEMETRY_PROFILE_METRIC_DEFS = {
   speed_mps: {
     sourceKey: "speed_mps",
-    unit: "M/S",
-    max_value: 8500,
+    unit: "KM/H",
+    max_value: 30600,
     fraction_digits: 0,
     fallback: 0,
   },
@@ -387,7 +387,7 @@ function loadCSVTelemetryData(csvPath) {
   // CSV 列名映射（大小写不敏感）
   const COLUMN_MAP = {
     real_time: "time",
-    altitude_asl: "altitude_m",
+    altitude_true: "altitude_m",
     speed_surface: "speed_mps",
     acceleration: "accel_mps2",
   };
@@ -417,7 +417,7 @@ function loadCSVTelemetryData(csvPath) {
     rows.push({
       time,
       alt_m: colIdx.altitude_m !== undefined ? toNumber(vals[colIdx.altitude_m], 0) : 0,
-      speed: colIdx.speed_mps !== undefined ? toNumber(vals[colIdx.speed_mps], 0) : 0,
+      speed: colIdx.speed_mps !== undefined ? toNumber(vals[colIdx.speed_mps], 0) * 3.6 : 0,
       accel: colIdx.accel_mps2 !== undefined ? toNumber(vals[colIdx.accel_mps2], 0) : 0,
     });
   }
@@ -809,8 +809,8 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
           type: "metric",
           metric_key: "speed_mps",
           label: `${stageText}速度`,
-          unit: "M/S",
-          max_value: 8500,
+          unit: "KM/H",
+          max_value: 30600,
           fraction_digits: 0,
         };
       }

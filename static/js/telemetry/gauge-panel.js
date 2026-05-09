@@ -5,8 +5,8 @@
       side: "left",
       metricKey: "speed_mps",
       label: "SPEED",
-      unit: "M/S",
-      maxValue: 8500,
+      unit: "KM/H",
+      maxValue: 30600,
       fractionDigits: 0,
     },
     {
@@ -1238,7 +1238,7 @@
             resolvedValues[entry.spec.id] = value;
             const animateMs = contentSwitchAnimateMs > 0
               ? contentSwitchAnimateMs
-              : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 0);
+              : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 60);
             entry.widget.setValue(value, {
               animateMs,
             });
@@ -1273,7 +1273,7 @@
           resolvedValues[entry.spec.id] = value;
           const animateMs = contentSwitchAnimateMs > 0
             ? contentSwitchAnimateMs
-            : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 0);
+            : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 60);
           entry.widget.setValue(value, {
             animateMs,
           });

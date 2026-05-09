@@ -507,8 +507,8 @@ function resolveDashboardGaugeSpecsByEditor(state, missionSeconds) {
           type: "metric",
           metric_key: "speed_mps",
           label: `${stageText}速度`,
-          unit: "M/S",
-          max_value: 8500,
+          unit: "KM/H",
+          max_value: 30600,
           fraction_digits: 0,
         };
       }
@@ -665,11 +665,6 @@ function renderTelemetryGauges(state, missionSeconds) {
   });
 
   telemetryGaugePanel.setVisible(telemetryEnabled, { immediate: false });
-  requestAnimationFrame(() => {
-    if (telemetryGaugePanel) {
-      telemetryGaugePanel.setVisible(telemetryEnabled, { immediate: true });
-    }
-  });
 }
 
 function renderState(state) {

@@ -1,6 +1,6 @@
 const TELEMETRY_METRIC_DEFS = [
   { key: "altitude_km", label: "高度 (km)", shortLabel: "高度", defaultValue: 0 },
-  { key: "speed_mps", label: "速度 (m/s)", shortLabel: "速度", defaultValue: 0 },
+  { key: "speed_mps", label: "速度 (km/h)", shortLabel: "速度", defaultValue: 0 },
   { key: "accel_g", label: "加速度 (g)", shortLabel: "加速度", defaultValue: 0 },
   { key: "angular_velocity_dps", label: "欧拉角 (deg)", shortLabel: "欧拉角", defaultValue: 0 },
 ];
