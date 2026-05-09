@@ -1764,15 +1764,16 @@ class MissionEngine {
       nodes.push({ id: stg.id, kind: "stage", name: stg.name, time: stg.start_time, description: stg.description });
     }
     for (const evt of model.events) {
-      if (Boolean(evt.hidden)) {
-        nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description, hidden: true });
-      } else {
-        nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description });
-      }
+      nodes.push({
+        id: evt.id,
+        kind: "event",
+        name: evt.name,
+        time: evt.time,
+        description: evt.description,
+        ...(Boolean(evt.hidden) ? { hidden: true } : {}),
+      });
     }
-    for (const obs of (model.events || []).filter((e) => Boolean(e.observation))) {
-      nodes.push({ id: obs.id, kind: "observation", name: obs.name, time: toFixed2(obs.time, 0), description: obs.description || "" });
-    }
+    // 观察点节点：无论 hidden 与否都在 observation_points 中，但不在时间线上显示
     nodes.sort((a, b) => a.time - b.time);
 
     const upcoming = nodes

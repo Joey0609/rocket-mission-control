@@ -40,11 +40,7 @@
     const transitionEndOffset = -colorTransitionDuration / 2;
     const launchZoomScale = typeof computeLaunchZoomScale === "function"
       ? computeLaunchZoomScale(currentTimelineTime, {
-        startTime: constants.LAUNCH_SCALE_START_TIME,
-        peakTime: constants.LAUNCH_SCALE_PEAK_TIME,
-        endTime: constants.LAUNCH_SCALE_END_TIME,
-        recoverDuration: constants.LAUNCH_SCALE_RECOVER_DURATION,
-        maxScale: constants.LAUNCH_SCALE_MAX,
+        waypoints: constants.LAUNCH_SCALE_WAYPOINTS,
       })
       : 1;
 
@@ -60,18 +56,14 @@
 
     const halfReferencePathLength = svgWidth / 2;
     const halfMissionSeconds = missionDuration / 2;
-    const virtualPastHalfRange = Math.abs(mapTime(currentTimelineTime - halfMissionSeconds) - mapTime(currentTimelineTime));
-    const virtualFutureHalfRange = Math.abs(mapTime(currentTimelineTime + halfMissionSeconds) - mapTime(currentTimelineTime));
-    const safePastHalfRange = Math.max(virtualPastHalfRange, halfMissionSeconds);
-    const safeFutureHalfRange = Math.max(virtualFutureHalfRange, halfMissionSeconds);
 
     return normalizedEvents.map((event, originalIndex) => {
       const mappedTimestamp = mapTime(event.time);
       const mappedCurrentTime = mapTime(currentTimelineTime);
       const virtualTimeRelativeToNow = mappedTimestamp - mappedCurrentTime;
 
-      const effectiveHalfDuration = virtualTimeRelativeToNow < 0 ? safePastHalfRange : safeFutureHalfRange;
-      const targetArcLengthOffset = (virtualTimeRelativeToNow / effectiveHalfDuration) * halfReferencePathLength;
+      const rawArcOffset = (virtualTimeRelativeToNow / halfMissionSeconds) * halfReferencePathLength;
+      const targetArcLengthOffset = Math.max(-halfReferencePathLength, Math.min(halfReferencePathLength, rawArcOffset));
       const angularOffset = targetArcLengthOffset / (circleRadius + 1e-9);
       const angleRad = angularOffset - (Math.PI / 2);
 

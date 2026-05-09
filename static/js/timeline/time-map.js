@@ -3,50 +3,42 @@
 
   const easing = window.MissionTimeline.easing;
   const constants = window.MissionTimeline.constants;
-  let lastLoggedScaleTarget = null;
-
-  function maybeLogScaleTargetSwitch(targetScale, currentTime) {
-    if (lastLoggedScaleTarget === null) {
-      lastLoggedScaleTarget = targetScale;
-      return;
-    }
-    if (lastLoggedScaleTarget === targetScale) {
-      return;
-    }
-    lastLoggedScaleTarget = targetScale;
-    const sign = currentTime >= 0 ? "+" : "";
-    console.info(`[MissionTimeline] target scale -> ${targetScale} at T${sign}${currentTime.toFixed(2)}s`);
-  }
 
   function computeLaunchZoomScale(currentTime, options) {
-    const startTime = Number(options?.startTime ?? constants.LAUNCH_SCALE_START_TIME);
-    const peakTime = Number(options?.peakTime ?? constants.LAUNCH_SCALE_PEAK_TIME);
-    const endTime = Number(options?.endTime ?? constants.LAUNCH_SCALE_END_TIME);
-    const recoverDuration = Math.max(0.1, Number(options?.recoverDuration ?? constants.LAUNCH_SCALE_RECOVER_DURATION));
-    const maxScale = Math.max(1, Number(options?.maxScale ?? constants.LAUNCH_SCALE_MAX));
-    const targetScale = (currentTime > startTime && currentTime <= endTime) ? maxScale : 1;
-    maybeLogScaleTargetSwitch(targetScale, currentTime);
-
-    if (currentTime <= startTime) {
+    const waypoints = Array.isArray(options?.waypoints) ? options.waypoints : constants.LAUNCH_SCALE_WAYPOINTS;
+    if (waypoints.length === 0) {
       return 1;
     }
 
-    if (currentTime <= peakTime) {
-      const segment = Math.max(1e-9, peakTime - startTime);
-      const progress = easing.easeOutQuart((currentTime - startTime) / segment);
-      return easing.lerp(1, maxScale, progress);
+    const transitionWindow = 6; // 每个 waypoint 切换耗时 6 秒
+
+    // 找到当前时间之前最后一个已到达的 waypoint，和下一个 waypoint
+    let prev = waypoints[0];
+    let next = null;
+    for (const wp of waypoints) {
+      if (wp.time <= currentTime) {
+        prev = wp;
+      }
+      if (wp.time > currentTime && next === null) {
+        next = wp;
+      }
     }
 
-    if (currentTime <= endTime) {
-      return maxScale;
+    // T < 第一个 waypoint：直接使用第一个
+    if (currentTime <= waypoints[0].time) {
+      return waypoints[0].scale;
     }
 
-    if (currentTime >= endTime + recoverDuration) {
-      return 1;
+    // 没有下一个 waypoint，或未进入切换窗口：保持上一个的值
+    if (!next || currentTime < next.time - transitionWindow) {
+      return prev.scale;
     }
 
-    const progress = easing.easeInOutSine((currentTime - endTime) / recoverDuration);
-    return easing.lerp(maxScale, 1, progress);
+    // 在 6s 切换窗口内：从 prev.scale 过渡到 next.scale
+    const elapsed = currentTime - (next.time - transitionWindow);
+    const progress = Math.min(1, Math.max(0, elapsed / transitionWindow));
+    const eased = easing.easeInOutSine(progress);
+    return easing.lerp(prev.scale, next.scale, eased);
   }
 
   function createTimeMapFunction(currentTime, avgScale, pastScale, futureScale, launchZoomScale) {

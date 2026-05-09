@@ -122,7 +122,7 @@
       "id": "evt_l7_takeoff",
       "name": "起飞",
       "time": 2,
-      "hidden": false,
+      "hidden": true,
       "observation": true,
       "description": "火箭开始上升，飞离发射塔架"
     },

@@ -13,11 +13,15 @@
     ANIMATION_DURATION: 4,
     COLOR_TRANSITION_DURATION: 1.0,
 
-    LAUNCH_SCALE_START_TIME: -120,
-    LAUNCH_SCALE_PEAK_TIME: -114,
-    LAUNCH_SCALE_END_TIME: 210,
-    LAUNCH_SCALE_RECOVER_DURATION: 6,
-    LAUNCH_SCALE_MAX: 3.6,
+    LAUNCH_SCALE_WAYPOINTS: [
+      { time: -3600, scale: 1 },
+      { time: -120, scale: 3},
+      { time: -30, scale: 5 },
+      { time: 50, scale: 4 },
+      { time: 240, scale: 2 },
+      { time: 530, scale: 5 },
+      { time: 630, scale: 1.5 },
+    ],
 
     GEOMETRY_TRANSITION_START_TIME: 0,
     GEOMETRY_TRANSITION_DURATION: 300,
