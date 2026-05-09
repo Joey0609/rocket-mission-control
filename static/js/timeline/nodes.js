@@ -58,15 +58,20 @@
 
     const normalizedEvents = normalizeEvents(options.events);
 
+    const halfReferencePathLength = svgWidth / 2;
+    const halfMissionSeconds = missionDuration / 2;
+    const virtualPastHalfRange = Math.abs(mapTime(currentTimelineTime - halfMissionSeconds) - mapTime(currentTimelineTime));
+    const virtualFutureHalfRange = Math.abs(mapTime(currentTimelineTime + halfMissionSeconds) - mapTime(currentTimelineTime));
+    const safePastHalfRange = Math.max(virtualPastHalfRange, halfMissionSeconds);
+    const safeFutureHalfRange = Math.max(virtualFutureHalfRange, halfMissionSeconds);
+
     return normalizedEvents.map((event, originalIndex) => {
       const mappedTimestamp = mapTime(event.time);
       const mappedCurrentTime = mapTime(currentTimelineTime);
       const virtualTimeRelativeToNow = mappedTimestamp - mappedCurrentTime;
 
-      const halfReferencePathLength = svgWidth / 2;
-      const halfMissionDuration = missionDuration / 2;
-
-      const targetArcLengthOffset = (virtualTimeRelativeToNow / halfMissionDuration) * halfReferencePathLength;
+      const effectiveHalfDuration = virtualTimeRelativeToNow < 0 ? safePastHalfRange : safeFutureHalfRange;
+      const targetArcLengthOffset = (virtualTimeRelativeToNow / effectiveHalfDuration) * halfReferencePathLength;
       const angularOffset = targetArcLengthOffset / (circleRadius + 1e-9);
       const angleRad = angularOffset - (Math.PI / 2);
 

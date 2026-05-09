@@ -481,7 +481,8 @@ function resolveDashboardGaugeSpecsByEditor(state, missionSeconds) {
         return null;
       }
 
-      const stageText = `${parsed.stageIndex}级`;
+      const CHINESE_NUMERALS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+      const stageText = `${CHINESE_NUMERALS[parsed.stageIndex] || parsed.stageIndex}级`;
       const base = {
         id: `dashboard_${index + 1}`,
         side: sideOrder[index] || "right",

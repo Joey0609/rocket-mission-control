@@ -556,6 +556,7 @@
       this.activePresetId = "";
       this.engineTimelineEntries = [];
       this.profileSignature = "";
+      this.presetAnimToken = 0;
 
       this.mount();
     }
@@ -595,9 +596,15 @@
       this.metaEl = null;
     }
 
-    renderPreset(preset) {
+    renderPreset(preset, stateMap) {
       if (!this.canvasEl || !preset) {
         return;
+      }
+
+      // 旧 SVG 播退出动画
+      const oldSvg = this.canvasEl.querySelector(".telemetry-engine-svg");
+      if (oldSvg) {
+        oldSvg.classList.add("telemetry-engine-preset-exit");
       }
 
       const width = this.size;
@@ -641,32 +648,66 @@
           const px = (width / 2) + (point.x - cx) * scale;
           const py = (height / 2) + (point.y - cy) * scale;
           const pr = Math.max(3, point.r * scale);
-          return `<circle class=\"telemetry-engine-node is-inactive\" data-engine-id=\"${point.id}\" cx=\"${px.toFixed(2)}\" cy=\"${py.toFixed(2)}\" r=\"${pr.toFixed(2)}\" />`;
+          const isActive = Boolean(stateMap?.get(point.id));
+          const nodeClass = isActive ? "is-active" : "is-inactive";
+          return `<circle class=\"telemetry-engine-node ${nodeClass}\" data-engine-id=\"${point.id}\" cx=\"${px.toFixed(2)}\" cy=\"${py.toFixed(2)}\" r=\"${pr.toFixed(2)}\" />`;
         })
         .join("");
 
-      this.canvasEl.innerHTML = `
-        <svg class=\"telemetry-engine-svg\" viewBox=\"0 0 ${width} ${height}\" xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"发动机布局\">
-          ${backgroundMarkup}
-          ${nodesMarkup}
-        </svg>
-      `;
+      // 新 SVG 先设为不可见，等 200ms 后播进入动画
+      const newSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      newSvg.setAttribute("class", "telemetry-engine-svg");
+      newSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      newSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      newSvg.setAttribute("role", "img");
+      newSvg.setAttribute("aria-label", "发动机布局");
+      newSvg.style.opacity = "0";
+      newSvg.innerHTML = `${backgroundMarkup}${nodesMarkup}`;
+      this.canvasEl.appendChild(newSvg);
 
-      this.nodeElements.clear();
-      for (const node of this.canvasEl.querySelectorAll("[data-engine-id]")) {
-        const id = toInt(node.getAttribute("data-engine-id"), -1);
-        if (id >= 0) {
-          this.nodeElements.set(id, node);
+      // 200ms 重叠后：新 SVG 播进入动画
+      setTimeout(() => {
+        newSvg.style.opacity = "";
+        newSvg.classList.add("telemetry-engine-preset-enter");
+      }, 200);
+
+      // 400ms 退出动画完成后移除旧 SVG
+      setTimeout(() => {
+        if (oldSvg && oldSvg.parentNode) {
+          oldSvg.parentNode.removeChild(oldSvg);
         }
-      }
+      }, 400);
+
+      // 600ms 全部动画完成后重建 nodeElements
+      const fullAnimToken = Date.now();
+      this.presetAnimToken = fullAnimToken;
+      setTimeout(() => {
+        if (this.presetAnimToken !== fullAnimToken) {
+          return;
+        }
+        newSvg.classList.remove("telemetry-engine-preset-enter");
+        this.nodeElements.clear();
+        for (const node of this.canvasEl.querySelectorAll("[data-engine-id]")) {
+          const id = toInt(node.getAttribute("data-engine-id"), -1);
+          if (id >= 0) {
+            this.nodeElements.set(id, node);
+          }
+        }
+      }, 600);
     }
 
     applyStateMap(stateMap) {
-      this.nodeElements.forEach((nodeEl, engineId) => {
-        const enabled = Boolean(stateMap.get(engineId));
-
-        nodeEl.classList.toggle("is-active", enabled);
-        nodeEl.classList.toggle("is-inactive", !enabled);
+      stateMap.forEach((enabled, engineId) => {
+        const nodeEl = this.nodeElements.get(engineId);
+        if (!nodeEl) {
+          return;
+        }
+        const prevEnabled = this.lastStateMap.get(engineId);
+        // 只有状态变化的节点才播动画，不变的不做任何操作
+        if (prevEnabled === undefined || prevEnabled !== enabled) {
+          nodeEl.classList.toggle("is-active", enabled);
+          nodeEl.classList.toggle("is-inactive", !enabled);
+        }
       });
 
       this.lastStateMap = new Map(stateMap.entries());
@@ -769,8 +810,8 @@
       if (effectiveEntry.preset.id !== this.activePresetId) {
         // console.log(`[DEBUG-engine-switch] preset: "${this.activePresetId}" → "${effectiveEntry.preset.id}", entry="${effectiveEntry.key}", time=${effectiveEntry.time}, shouldForceAllOff=${shouldForceAllOff}`);
         this.activePresetId = effectiveEntry.preset.id;
-        this.renderPreset(effectiveEntry.preset);
-        this.lastStateMap = new Map();
+        this.renderPreset(effectiveEntry.preset, effectiveEntry.stateMap);
+        this.lastStateMap = new Map(effectiveEntry.stateMap.entries());
       }
 
       if (shouldForceAllOff) {

@@ -519,12 +519,14 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  opacity: 0;
 }
 
 .telemetry-engine-svg {
   width: 72%;
   height: 72%;
   overflow: visible;
+  transform-origin: center center;
 }
 
 .telemetry-engine-canvas {
@@ -532,6 +534,11 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   height: 100%;
   display: grid;
   place-items: center;
+  position: relative;
+}
+
+.telemetry-engine-canvas .telemetry-engine-svg {
+  position: absolute;
 }
 
 .telemetry-engine-bg {
@@ -543,7 +550,7 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   stroke: rgba(255, 255, 255, 1);
   stroke-width: 1.3;
   opacity: 0.18;
-  transition: opacity 500ms ease;
+  transition: opacity 600ms ease;
 }
 
 .telemetry-engine-node.is-active {
@@ -552,6 +559,37 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
 
 .telemetry-engine-node.is-inactive {
   opacity: 0.18;
+}
+
+/* 预设切换动画 */
+.telemetry-engine-preset-exit {
+  animation: enginePresetExit 400ms ease forwards;
+}
+
+.telemetry-engine-preset-enter {
+  animation: enginePresetEnter 400ms ease forwards;
+}
+
+@keyframes enginePresetExit {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes enginePresetEnter {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .telemetry-engine-caption {
@@ -602,6 +640,10 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   opacity: 1;
 }
 
+.telemetry-gauge-widget.telemetry-gauge-visible .telemetry-engine-overlay {
+  opacity: 1;
+}
+
 .telemetry-gauge-widget.telemetry-gauge-hidden .telemetry-gauge-circle {
   opacity: 0;
 }
@@ -612,6 +654,10 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
 }
 
 .telemetry-gauge-widget.telemetry-gauge-hidden .telemetry-gauge-text-root {
+  opacity: 0;
+}
+
+.telemetry-gauge-widget.telemetry-gauge-hidden .telemetry-engine-overlay {
   opacity: 0;
 }
 

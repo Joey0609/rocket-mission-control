@@ -15,6 +15,14 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function toFixed2(value, fallback = 0) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.round(parsed * 100) / 100;
+}
+
 function newId(prefix) {
   return `${prefix}_${Math.random().toString(16).slice(2, 10)}`;
 }
@@ -60,8 +68,8 @@ function normalizeStages(stages) {
   if (hasRange) {
     return stages
       .map((s) => {
-        const start = toInt(s.start_time, 0);
-        const endRaw = toInt(s.end_time, start);
+        const start = toFixed2(s.start_time, 0);
+        const endRaw = toFixed2(s.end_time, start);
         const end = endRaw < start ? start : endRaw;
         return {
           id: String(s.id || newId("stg")),
@@ -78,7 +86,7 @@ function normalizeStages(stages) {
     .map((s) => ({
       id: String(s.id || newId("stg")),
       name: String(s.name || "未命名阶段"),
-      time: toInt(s.time, 0),
+      time: toFixed2(s.time, 0),
       description: String(s.description || ""),
     }))
     .sort((a, b) => a.time - b.time);
@@ -107,7 +115,7 @@ function normalizeEvents(events) {
       return {
         id: String(e.id || newId("evt")),
         name: String(e.name || "未命名事件"),
-        time: toInt(e.time, 0),
+        time: toFixed2(e.time, 0),
         hidden,
         observation,
         description: String(e.description || ""),
@@ -123,10 +131,10 @@ function normalizeObservations(items) {
   return items.map((p) => {
     const id = String(p.id || newId("obs"));
     const name = String(p.name || "未命名观察点");
-    const fallbackCountdown = Math.max(0, toInt(p.new_countdown, 0));
+    const fallbackCountdown = Math.max(0, toFixed2(p.new_countdown, 0));
     const hasTime = Object.prototype.hasOwnProperty.call(p, "time");
-    const time = hasTime ? toInt(p.time, -fallbackCountdown) : -fallbackCountdown;
-    const newCountdown = Math.max(0, toInt(p.new_countdown, Math.max(0, -time)));
+    const time = hasTime ? toFixed2(p.time, -fallbackCountdown) : -fallbackCountdown;
+    const newCountdown = Math.max(0, toFixed2(p.new_countdown, Math.max(0, -time)));
     return {
       id,
       name,
@@ -280,7 +288,7 @@ function normalizeTelemetryCurveArray(raw) {
   }
   return raw
     .map((p) => ({
-      time: toInt(p?.time, 0),
+      time: toNumber(p?.time, 0),
       value: Math.max(0, toNumber(p?.value, 0)),
     }))
     .sort((a, b) => a.time - b.time);
@@ -633,7 +641,7 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
         const telemetryAuto = String(node?.telemetry_auto || "").trim().toLowerCase();
         return {
           id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
-          time: toInt(node?.time, 0),
+          time: toFixed2(node?.time, 0),
           name: String(node?.name || "自定义").trim() || "自定义",
           selected: selected.some(Boolean) ? selected : allOptionKeys.slice(0, 4),
           telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
@@ -729,7 +737,7 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
     .map((event) => ({
       id: String(event?.id || ""),
       name: String(event?.name || "未命名事件"),
-      time: toInt(event?.time, 0),
+      time: toFixed2(event?.time, 0),
     }))
     .filter((event) => event.id)
     .sort((a, b) => a.time - b.time);
@@ -1653,7 +1661,7 @@ class MissionEngine {
     }
 
     const now = Date.now();
-    const targetMissionTime = toInt(point.time, -Math.max(0, toInt(point.new_countdown, 0)));
+    const targetMissionTime = toFixed2(point.time, -Math.max(0, toFixed2(point.new_countdown, 0)));
     this.running = true;
     this.clearHold();
 
@@ -1763,7 +1771,7 @@ class MissionEngine {
       }
     }
     for (const obs of (model.events || []).filter((e) => Boolean(e.observation))) {
-      nodes.push({ id: obs.id, kind: "observation", name: obs.name, time: toInt(obs.time, 0), description: obs.description || "" });
+      nodes.push({ id: obs.id, kind: "observation", name: obs.name, time: toFixed2(obs.time, 0), description: obs.description || "" });
     }
     nodes.sort((a, b) => a.time - b.time);
 

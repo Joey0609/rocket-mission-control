@@ -322,7 +322,7 @@
       this.setValue(this.currentValue);
     }
 
-    applyValue(nextValue) {
+    applyValue(nextValue, skipText = false) {
       const numericValue = Math.max(0, toNumber(nextValue, 0));
       const safeMax = this.maxValue > 0 ? this.maxValue : 1;
       const progressRatio = clamp(numericValue / safeMax, 0, 1);
@@ -363,7 +363,7 @@
       this.startTick.style.display = progressRatio > 0.001 ? "" : "none";
       this.endTick.style.stroke = "rgba(163, 163, 163, 0.82)";
 
-      if (this.valueNode) {
+      if (!skipText && this.valueNode) {
         this.valueNode.textContent = numericValue.toFixed(this.fractionDigits);
       }
     }
@@ -382,6 +382,11 @@
         return;
       }
 
+      // 数字立刻跳变到最终值，弧线逐帧动画
+      if (this.valueNode) {
+        this.valueNode.textContent = numericValue.toFixed(this.fractionDigits);
+      }
+
       const startValue = this.currentValue;
       const startAt = performance.now();
       const tick = (now) => {
@@ -390,7 +395,7 @@
           ? 2 * ratio * ratio
           : 1 - ((-2 * ratio + 2) ** 2) / 2;
         const value = startValue + (numericValue - startValue) * eased;
-        this.applyValue(value);
+        this.applyValue(value, true);
 
         if (ratio >= 1) {
           this.valueAnimationFrame = null;
