@@ -21,13 +21,11 @@
           <div class="signal" id="channelMode">实时通道: 连接中</div>
         </div>
         <button class="theme-btn" id="openThemeModalBtn">主题</button>
-        <!-- <div class="copyright">Copyright Joey0609，北斗-玉衡</div> -->
       </div>
       <h1 class="hero-title">
         <span id="modelName">等待选择型号</span>
         <span id="payloadName" class="payload-name hidden"></span>
       </h1>
-      <p id="statusLine">等待任务初始化</p>
     </header>
 
     <section class="clock-board">
@@ -43,12 +41,20 @@
         <div class="big" id="currentStage">待命</div>
       </div>
       <div class="panel">
-        <h2>当前事件</h2>
-        <div class="big" id="currentEvent">等待节点</div>
+        <h2>上一事件</h2>
+        <div class="event-node" id="prevEventNode">
+          <div class="event-name" id="prevEventName">无</div>
+          <div class="event-time" id="prevEventTime"></div>
+          <div class="event-desc" id="prevEventDesc"></div>
+        </div>
       </div>
       <div class="panel">
-        <h2>说明</h2>
-        <p id="nextDescription">暂无</p>
+        <h2>下一事件</h2>
+        <div class="event-node" id="nextEventNode">
+          <div class="event-name" id="nextEventName">无</div>
+          <div class="event-time" id="nextEventTime"></div>
+          <div class="event-desc" id="nextEventDesc"></div>
+        </div>
       </div>
     </section>
 
@@ -96,6 +102,7 @@
   <script src="/static/js/notification.js"></script>
   <script src="/static/js/themes.js"></script>
   <script src="/static/js/live-channel.js"></script>
+  <script src="/static/js/mission-telemetry.js"></script>
   <script src="/static/js/timeline/constants.js"></script>
   <script src="/static/js/timeline/easing.js"></script>
   <script src="/static/js/timeline/color.js"></script>

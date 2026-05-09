@@ -39,6 +39,20 @@
       "description": "27台Merlin同时点火"
     },
     {
+      "id": "obs_fh_side_sep",
+      "name": "侧助推器分离",
+      "time": -160,
+      "observation": true,
+      "description": "观察到侧助推器分离"
+    },
+    {
+      "id": "obs_fh_arm",
+      "name": "摆杆摆开",
+      "time": -95,
+      "observation": true,
+      "description": "观察到摆杆已打开"
+    },
+    {
       "id": "evt_fh_maxq",
       "name": "Max Q",
       "time": 58,
@@ -67,22 +81,6 @@
       "name": "有效载荷部署",
       "time": 660,
       "description": "任务完成"
-    }
-  ],
-  "observation_points": [
-    {
-      "id": "obs_fh_arm",
-      "name": "摆杆摆开",
-      "time": -95,
-      "new_countdown": 95,
-      "description": "观察到摆杆已打开"
-    },
-    {
-      "id": "obs_fh_side_sep",
-      "name": "侧助推器分离",
-      "time": -160,
-      "new_countdown": 160,
-      "description": "观察到侧助推器分离"
     }
   ],
   "rocket_meta": {

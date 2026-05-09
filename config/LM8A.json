@@ -60,6 +60,27 @@
       "description": "进入发射前末段"
     },
     {
+      "id": "obs_l8_pressurize",
+      "name": "停止增压",
+      "time": -80,
+      "observation": true,
+      "description": "卸压阀关闭，停止冒出白气"
+    },
+    {
+      "id": "obs_l8_disconnect",
+      "name": "补加口脱离",
+      "time": -60,
+      "observation": true,
+      "description": "地面补加口脱离"
+    },
+    {
+      "id": "obs_l8_arm",
+      "name": "摆杆摆开",
+      "time": -20,
+      "observation": true,
+      "description": "摆杆摆开确认"
+    },
+    {
       "id": "evt_l8_ignition",
       "name": "点火",
       "time": 0,
@@ -76,29 +97,6 @@
       "name": "助推器分离",
       "time": 80,
       "description": "助推器分离完成"
-    }
-  ],
-  "observation_points": [
-    {
-      "id": "obs_l8_pressurize",
-      "name": "停止增压",
-      "time": -80,
-      "new_countdown": 80,
-      "description": "卸压阀关闭，停止冒出白气"
-    },
-    {
-      "id": "obs_l8_disconnect",
-      "name": "补加口脱离",
-      "time": -60,
-      "new_countdown": 60,
-      "description": "地面补加口脱离"
-    },
-    {
-      "id": "obs_l8_arm",
-      "name": "摆杆摆开",
-      "time": -20,
-      "new_countdown": 20,
-      "description": "摆杆摆开确认"
     }
   ],
   "rocket_meta": {

@@ -242,10 +242,10 @@ function validateRawDraft() {
 
   const selectedName = dom.modelSelect.value;
   const normalized = normalizeDraft(parsed, selectedName);
-  if (!Array.isArray(normalized.stages) || !Array.isArray(normalized.events) || !Array.isArray(normalized.observation_points)) {
+  if (!Array.isArray(normalized.stages) || !Array.isArray(normalized.events)) {
     configDraftValid = false;
     dom.saveConfigModalBtn.disabled = true;
-    showConfigValidation("配置必须包含 stages/events/observation_points 数组。", true);
+    showConfigValidation("配置必须包含 stages/events 数组。", true);
     return false;
   }
 
@@ -339,24 +339,15 @@ function registerVisualInputBlur() {
 }
 
 function isVisualEventRow(row) {
-  return row?.kind === "event" || row?.kind === "observation";
+  return row?.kind === "event";
 }
 
 function normalizeVisualEventFlags(row) {
   if (!row || typeof row !== "object") {
     return;
   }
-  row.isObservation = isVisualEventRow(row) ? Boolean(row.isObservation || row.kind === "observation") : false;
-  row.isHidden = isVisualEventRow(row) ? Boolean(row.isHidden) : false;
-  if (row.isObservation && row.isHidden) {
-    row.isHidden = false;
-  }
-}
-
-function parseObservationTime(observation) {
-  const fallbackCountdown = Math.max(0, toInt(observation?.new_countdown, 0));
-  const hasTime = Object.prototype.hasOwnProperty.call(observation || {}, "time");
-  return hasTime ? toInt(observation?.time, -fallbackCountdown) : -fallbackCountdown;
+  row.isObservation = isVisualEventRow(row) ? Boolean(row.isObservation) : false;
+  row.isHidden = isVisualEventRow(row) ? Boolean(row.hidden || row.isHidden) : false;
 }
 
 function buildVisualEventRow(seed = {}, fallbackIndex = 0) {
@@ -369,7 +360,8 @@ function buildVisualEventRow(seed = {}, fallbackIndex = 0) {
     end_time: 0,
     time: toInt(seed?.time, 0),
     description: String(seed?.description || ""),
-    isObservation: Boolean(seed?.isObservation),
+    isObservation: Boolean(seed?.observation),
+    hidden: Boolean(seed?.hidden),
     isHidden: Boolean(seed?.hidden),
   };
   normalizeVisualEventFlags(row);
@@ -423,8 +415,6 @@ function draftToVisualRows(draft) {
     rows.push(buildVisualEventRow(evt, index));
   });
 
-  mergeObservationRowsIntoEvents(rows, Array.isArray(draft.observation_points) ? draft.observation_points : []);
-
   visualRows = rows;
   sortVisualRows();
 }
@@ -432,11 +422,11 @@ function draftToVisualRows(draft) {
 function visualRowsToDraft() {
   const selectedName = dom.modelSelect.value;
   const draft = {
-    version: 2,
+    version: 3,
     name: selectedName,
     stages: [],
     events: [],
-    observation_points: [],
+    rocket_meta: deepClone(configDraft.rocket_meta || {}),
     rocket_meta: deepClone(configDraft.rocket_meta || {}),
     fuel_editor: deepClone(configDraft.fuel_editor || { version: 1, node_values: {}, curves: {} }),
     telemetry_editor: deepClone(configDraft.telemetry_editor || { version: 1, node_values: {}, curves: {} }),
@@ -475,23 +465,13 @@ function visualRowsToDraft() {
       name: eventName,
       time,
       hidden: isHidden,
+      observation: Boolean(row.isObservation),
       description: eventDescription,
     });
-
-    if (Boolean(row.isObservation) && !isHidden) {
-      draft.observation_points.push({
-        id: eventId,
-        name: eventName,
-        time,
-        new_countdown: Math.max(0, -time),
-        description: eventDescription,
-      });
-    }
   }
 
   draft.stages.sort((a, b) => a.start_time - b.start_time);
   draft.events.sort((a, b) => a.time - b.time);
-  draft.observation_points.sort((a, b) => a.time - b.time);
 
   return normalizeDraft(draft, selectedName);
 }
@@ -593,7 +573,8 @@ function makeVisualFlagButton(row, flagKey, label) {
   const icon = document.createElement("span");
   icon.className = "icon-mask";
   icon.setAttribute("aria-hidden", "true");
-  icon.style.setProperty("--icon-url", "url('/assets/observe.svg')");
+  const iconSrc = flagKey === "observation" ? "/assets/observe.svg" : "/assets/hidden.svg";
+  icon.style.setProperty("--icon-url", `url('${iconSrc}')`);
   btn.appendChild(icon);
 
   const canToggle = isVisualEventRow(row);
@@ -603,24 +584,17 @@ function makeVisualFlagButton(row, flagKey, label) {
   }
 
   const active = flagKey === "observation"
-    ? Boolean(row.isObservation) && !Boolean(row.isHidden)
-    : Boolean(row.isHidden);
+      ? Boolean(row.isObservation)
+      : Boolean(row.isHidden);
   btn.classList.toggle("active", active);
 
   btn.addEventListener("click", () => {
     pushVisualUndo();
     if (flagKey === "observation") {
       row.isObservation = !Boolean(row.isObservation);
-      if (row.isObservation) {
-        row.isHidden = false;
-      }
     } else {
       row.isHidden = !Boolean(row.isHidden);
-      if (row.isHidden) {
-        row.isObservation = false;
-      }
     }
-
     normalizeVisualEventFlags(row);
     syncRawFromVisual();
     renderVisualEditor();
@@ -1288,15 +1262,12 @@ function buildFuelNodes(draft) {
     });
   });
 
-  const observations = Array.isArray(draft?.observation_points) ? draft.observation_points : [];
-  observations.forEach((observation, index) => {
-    const obsId = String(observation?.id || `obs_${index + 1}`);
-    const fallbackCountdown = Math.max(0, toInt(observation?.new_countdown, 0));
-    const hasTime = Object.prototype.hasOwnProperty.call(observation || {}, "time");
-    const obsTime = hasTime ? toInt(observation?.time, -fallbackCountdown) : -fallbackCountdown;
+  const observations = Array.isArray(draft?.events) ? draft.events.filter((e) => Boolean(e.observation)) : [];
+  observations.forEach((observation) => {
+    const obsId = String(observation?.id || "");
     nodes.push({
       key: `observation:${obsId}`,
-      time: obsTime,
+      time: toInt(observation?.time, 0),
       name: String(observation?.name || "未命名观察点"),
     });
   });

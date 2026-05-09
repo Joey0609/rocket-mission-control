@@ -92,8 +92,8 @@ h3 {
 }
 
 .signal.poll::before {
-  background: var(--warn);
-  box-shadow: 0 0 12px rgba(255, 159, 67, 0.48);
+  background: var(--danger);
+  box-shadow: 0 0 12px rgba(255, 96, 115, 0.48);
 }
 
 .panel {

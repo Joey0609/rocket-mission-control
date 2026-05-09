@@ -45,6 +45,20 @@
       "description": "Starship起飞"
     },
     {
+      "id": "obs_ss_ignition",
+      "name": "点火确认",
+      "time": -5,
+      "observation": true,
+      "description": "观察到发动机已点火"
+    },
+    {
+      "id": "obs_ss_arm",
+      "name": "摆杆摆开",
+      "time": -95,
+      "observation": true,
+      "description": "观察到摆杆已打开"
+    },
+    {
       "id": "evt_ss_maxq",
       "name": "Max Q",
       "time": 50,
@@ -61,22 +75,6 @@
       "name": "进入轨道",
       "time": 600,
       "description": "进入轨道高度"
-    }
-  ],
-  "observation_points": [
-    {
-      "id": "obs_ss_arm",
-      "name": "摆杆摆开",
-      "time": -95,
-      "new_countdown": 95,
-      "description": "观察到摆杆已打开"
-    },
-    {
-      "id": "obs_ss_ignition",
-      "name": "点火确认",
-      "time": -5,
-      "new_countdown": 5,
-      "description": "观察到发动机已点火"
     }
   ],
   "rocket_meta": {

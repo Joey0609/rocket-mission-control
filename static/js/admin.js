@@ -149,6 +149,11 @@ let defaultThemeId = currentThemeId;
 let themeModalDraftId = currentThemeId;
 let themeModalOriginId = currentThemeId;
 
+let savedSettings = {
+  selectedModel: "",
+  launchAt: "",
+};
+
 let configDraft = null;
 let configDraftValid = false;
 let configDraftDirty = false;
@@ -230,6 +235,18 @@ function setTextIfChanged(element, text) {
   }
 }
 
+function resolveTelemetryButtonsState(state, missionSeconds) {
+  if (window.MissionTelemetryRules && typeof window.MissionTelemetryRules.resolveTelemetryAutoState === "function") {
+    return window.MissionTelemetryRules.resolveTelemetryAutoState(state, missionSeconds);
+  }
+
+  return {
+    enabled: Boolean(state?.telemetry_enabled),
+    autoControlled: false,
+    activeNode: null,
+  };
+}
+
 function dateToInputValue(dateObj) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
@@ -292,6 +309,10 @@ function tickMissionClock() {
   const nowPerf = performance.now();
   const missionMs = missionAnchor.running ? missionAnchor.ms + (nowPerf - missionAnchor.anchorPerf) : missionAnchor.ms;
   setTextIfChanged(dom.missionClock, formatSignedClock(missionMs));
+
+  if (lastState) {
+    renderTelemetryButtons(lastState, missionMs / 1000);
+  }
 }
 
 function setChannelMode(mode) {
@@ -518,6 +539,9 @@ async function loadAdminSettings() {
   }
   defaultThemeId = data.settings?.default_theme || window.MissionThemes.defaultId;
   applyTheme(defaultThemeId);
+
+  savedSettings.selectedModel = String(data.settings?.selected_model || "").trim();
+  savedSettings.launchAt = String(data.settings?.launch_at || "").trim();
 }
 
 function renderThemeCards() {
@@ -755,15 +779,19 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
     return {
       version: 2,
       nodes: sourceNodes
-        .map((node, index) => ({
-          id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
-          time: toInt(node?.time, 0),
-          name: String(node?.name || "自定义").trim() || "自定义",
-          selected: (() => {
-            const slots = normalizeSelectionSlots(node?.selected);
-            return slots.some(Boolean) ? slots : allOptionKeys.slice(0, 4);
-          })(),
-        }))
+        .map((node, index) => {
+          const telemetryAuto = String(node?.telemetry_auto || "").trim().toLowerCase();
+          return {
+            id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
+            time: toInt(node?.time, 0),
+            name: String(node?.name || "自定义").trim() || "自定义",
+            selected: (() => {
+              const slots = normalizeSelectionSlots(node?.selected);
+              return slots.some(Boolean) ? slots : allOptionKeys.slice(0, 4);
+            })(),
+            telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+          };
+        })
         .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN")),
     };
   }
@@ -826,23 +854,9 @@ function normalizeDraft(payload, selectedModelName) {
       name: String(item.name || ""),
       time: toInt(item.time, 0),
       hidden: Boolean(item.hidden),
+      observation: Boolean(item.observation),
       description: String(item.description || ""),
     }))
-    : [];
-
-  const normalizedObs = Array.isArray(payload?.observation_points)
-    ? payload.observation_points.map((item) => {
-      const fallback = Math.max(0, toInt(item.new_countdown, 0));
-      const hasTime = Object.prototype.hasOwnProperty.call(item, "time");
-      const time = hasTime ? toInt(item.time, -fallback) : -fallback;
-      return {
-        id: String(item.id || "").trim() || `obs_${Date.now()}`,
-        name: String(item.name || ""),
-        time,
-        new_countdown: Math.max(0, toInt(item.new_countdown, Math.max(0, -time))),
-        description: String(item.description || ""),
-      };
-    })
     : [];
 
   const rocketMeta = payload?.rocket_meta && typeof payload.rocket_meta === "object"
@@ -903,6 +917,9 @@ function normalizeDraft(payload, selectedModelName) {
 
   const telemetryEditor = {
     version: 1,
+    data_src: typeof payload?.telemetry_editor?.data_src === "string" && payload.telemetry_editor.data_src.trim()
+      ? payload.telemetry_editor.data_src.trim()
+      : null,
     node_values: payload?.telemetry_editor?.node_values && typeof payload.telemetry_editor.node_values === "object"
       ? deepClone(payload.telemetry_editor.node_values)
       : {},
@@ -912,12 +929,11 @@ function normalizeDraft(payload, selectedModelName) {
   };
 
   return {
-    version: 2,
+    version: 3,
     model_id: String(payload?.model_id || "").trim(),
     name: normalizedName,
     stages: normalizedStages,
     events: normalizedEvents,
-    observation_points: normalizedObs,
     rocket_meta: rocketMeta,
     fuel_editor: fuelEditor,
     telemetry_editor: telemetryEditor,
@@ -964,6 +980,18 @@ async function fetchModels() {
   }
 }
 
+async function saveSettingToServer(key, value) {
+  try {
+    await adminFetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: value }),
+    });
+  } catch {
+    // 静默失败，不影响主流程
+  }
+}
+
 async function applySelectedModel(name) {
   const modelName = String(name || "").trim();
   if (!modelName) {
@@ -993,6 +1021,10 @@ async function applySelectedModel(name) {
     return;
   }
 
+  // 型号切换成功，自动保存
+  savedSettings.selectedModel = modelName;
+  saveSettingToServer("selected_model", modelName);
+
   toast(`已切换型号: ${modelName}`, "success");
   selectingModel = false;
 }
@@ -1002,7 +1034,8 @@ function observationSignature(points) {
 }
 
 function renderObservationButtons(state) {
-  const points = state.observation_points || [];
+  const allEvents = Array.isArray(state.events) ? state.events : [];
+  const points = allEvents.filter((e) => Boolean(e.observation));
   const sig = observationSignature(points);
   if (sig === observationButtonsSig) {
     return;
@@ -1122,8 +1155,9 @@ function renderRocketConfigCard(state) {
   }
 }
 
-function renderTelemetryButtons(state) {
-  const telemetryEnabled = Boolean(state.telemetry_enabled);
+function renderTelemetryButtons(state, missionSeconds = Number(state?.unified_countdown_ms ?? 0) / 1000) {
+  const telemetryState = resolveTelemetryButtonsState(state, missionSeconds);
+  const telemetryEnabled = Boolean(telemetryState.enabled);
   const telemetryPaused = Boolean(state.telemetry_paused);
 
   if (dom.telemetryToggleBtn) {
@@ -1169,7 +1203,7 @@ function renderState(state) {
 
   renderObservationButtons(state);
   renderRocketConfigCard(state);
-  renderTelemetryButtons(state);
+  renderTelemetryButtons(state, missionTimeSeconds);
   syncLaunchInputFromState(state);
 }
 
@@ -1188,6 +1222,11 @@ async function launchByInput() {
     toast(data.message || "设置失败", "error");
     return;
   }
+
+  // 发射时间设置成功，自动保存
+  savedSettings.launchAt = launchAt;
+  saveSettingToServer("launch_at", launchAt);
+
   toast("发射时间已更新", "success");
 }
 
@@ -1822,7 +1861,16 @@ async function init() {
   await loadAdminSettings();
   await fetchModels();
 
-  dom.launchAt.value = dateToInputValue(new Date(Date.now() + 600000));
+  // 恢复上次保存的型号
+  if (savedSettings.selectedModel && modelsCache[savedSettings.selectedModel]) {
+    dom.modelSelect.value = savedSettings.selectedModel;
+    pendingModelName = savedSettings.selectedModel;
+  }
+
+  // 恢复上次保存的发射时间
+  if (savedSettings.launchAt) {
+    dom.launchAt.value = savedSettings.launchAt;
+  }
 
   bindEvents();
 

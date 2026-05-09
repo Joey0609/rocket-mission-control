@@ -103,11 +103,13 @@ function normalizeEvents(events) {
   return events
     .map((e) => {
       const hidden = Boolean(e?.hidden);
+      const observation = Boolean(e?.observation);
       return {
         id: String(e.id || newId("evt")),
         name: String(e.name || "未命名事件"),
         time: toInt(e.time, 0),
         hidden,
+        observation,
         description: String(e.description || ""),
       };
     })
@@ -381,10 +383,108 @@ function resolveTelemetryMetricCurves(model, metricKey, fallback = 0) {
   };
 }
 
-function buildTelemetryProfile(model) {
+function loadCSVTelemetryData(csvPath) {
+  // CSV 列名映射（大小写不敏感）
+  const COLUMN_MAP = {
+    real_time: "time",
+    altitude_asl: "altitude_m",
+    speed_surface: "speed_mps",
+    acceleration: "accel_mps2",
+  };
+
+  const raw = fs.readFileSync(csvPath, "utf8").trim();
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) {
+    return null;
+  }
+
+  // 解析表头
+  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const colIdx = {};
+  for (const [csvCol, mappedKey] of Object.entries(COLUMN_MAP)) {
+    const idx = headers.indexOf(csvCol);
+    if (idx >= 0) colIdx[mappedKey] = idx;
+  }
+
+  if (colIdx.time === undefined) return null;
+
+  // 解析数据行
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i].split(",");
+    const time = toNumber(vals[colIdx.time]);
+    if (!Number.isFinite(time)) continue;
+    rows.push({
+      time,
+      alt_m: colIdx.altitude_m !== undefined ? toNumber(vals[colIdx.altitude_m], 0) : 0,
+      speed: colIdx.speed_mps !== undefined ? toNumber(vals[colIdx.speed_mps], 0) : 0,
+      accel: colIdx.accel_mps2 !== undefined ? toNumber(vals[colIdx.accel_mps2], 0) : 0,
+    });
+  }
+
+  rows.sort((a, b) => a.time - b.time);
+
+  // 构建 telemetry 曲线
+  const curves = {
+    altitude_km: rows.map((r) => ({ time: r.time, value: r.alt_m / 1000 })),
+    speed_mps: rows.map((r) => ({ time: r.time, value: r.speed })),
+    accel_g: rows.map((r) => ({ time: r.time, value: Math.max(0, r.accel) })),
+  };
+
+  return curves;
+}
+
+function buildTelemetryProfile(model, rootDir) {
   const splitMode = resolveTelemetrySplitMode(model);
   const metrics = {};
 
+  // ---- 检查是否从 CSV 文件加载遥测数据 ----
+  const dataSrc = model?.telemetry_editor?.data_src;
+  console.log(`[INFO] Telemetry data source: ${dataSrc || "N/A"}`);
+  if (typeof dataSrc === "string" && dataSrc && rootDir) {
+    const csvPath = path.resolve(rootDir, dataSrc);
+    console.log(`[INFO] Attempting to load telemetry data from CSV: ${csvPath}`);
+    if (fs.existsSync(csvPath)) {
+      console.log(`[INFO] Found telemetry CSV file at: ${csvPath}`);
+      const csvCurves = loadCSVTelemetryData(csvPath);
+      if (csvCurves) {
+        for (const [metricName, metricDef] of Object.entries(TELEMETRY_PROFILE_METRIC_DEFS)) {
+          const sourceKey = metricDef.sourceKey;
+          const rawPoints = csvCurves[sourceKey];
+          const curves = rawPoints
+            ? {
+                stage1: finalizeTelemetryCurve(rawPoints, metricDef.fallback),
+                upper: [],
+              }
+            : resolveTelemetryMetricCurves(model, sourceKey, metricDef.fallback);
+
+          const stage1 = mapTelemetryCurveValues(curves.stage1, metricDef.transform);
+          let upper = mapTelemetryCurveValues(curves.upper, metricDef.transform);
+
+          if (!splitMode.enabled || curves.upper.length === 0) {
+            upper = stage1.map((point) => ({ ...point }));
+          }
+
+          metrics[metricName] = {
+            unit: metricDef.unit,
+            max_value: metricDef.max_value,
+            fraction_digits: metricDef.fraction_digits,
+            curves: { stage1, upper },
+          };
+        }
+
+        return {
+          version: 1,
+          split_enabled: splitMode.enabled,
+          separation_time: splitMode.separation_time,
+          separation_name: splitMode.separation_name,
+          metrics,
+        };
+      }
+    }
+  }
+
+  // ---- 回退：从 JSON curves 加载 ----
   for (const [metricName, metricDef] of Object.entries(TELEMETRY_PROFILE_METRIC_DEFS)) {
     const sourceCurves = resolveTelemetryMetricCurves(model, metricDef.sourceKey, metricDef.fallback);
     const stage1 = mapTelemetryCurveValues(sourceCurves.stage1, metricDef.transform);
@@ -452,6 +552,7 @@ function normalizeTelemetryEditor(raw) {
 
   return {
     version: 1,
+    data_src: typeof raw?.data_src === "string" && raw.data_src.trim() ? raw.data_src.trim() : null,
     node_values: nodeValues,
     curves,
   };
@@ -529,11 +630,13 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
     const nodes = sourceNodes
       .map((node, index) => {
         const selected = normalizeSelected(node?.selected);
+        const telemetryAuto = String(node?.telemetry_auto || "").trim().toLowerCase();
         return {
           id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
           time: toInt(node?.time, 0),
           name: String(node?.name || "自定义").trim() || "自定义",
           selected: selected.some(Boolean) ? selected : allOptionKeys.slice(0, 4),
+          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
         };
       })
       .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN"));
@@ -649,6 +752,7 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
       }, dashboardEditor.nodes[0]);
     selectedRaw = Array.isArray(activeNode?.selected) ? activeNode.selected : [];
     seedKey = String(activeNode?.id || seedKey);
+    // console.log(`[DEBUG-dashboard] missionTime=${missionTime}, activeNode=(id="${activeNode?.id || "?"}", time=${activeNode?.time ?? "?"}, name="${activeNode?.name || "?"}"), selected=[${(selectedRaw || []).join(", ")}]`);
   } else {
     let activeEvent = sortedEvents[0];
     for (const event of sortedEvents) {
@@ -1083,16 +1187,38 @@ function normalizeModel(raw) {
   const modelId = deriveModelId(modelName, raw?.model_id || raw?.id);
   const stages = normalizeStages(raw?.stages || []);
   const events = normalizeEvents(raw?.events || []);
-  const observation_points = normalizeObservations(raw?.observation_points || []);
+
+  // 向后兼容：将 observation_points 合并到 events 中
+  const observationPoints = normalizeObservations(raw?.observation_points || []);
+  if (observationPoints.length > 0) {
+    const eventMap = new Map(events.map((e) => [e.id, e]));
+    for (const obs of observationPoints) {
+      const matched = eventMap.get(obs.id);
+      if (matched) {
+        matched.observation = true;
+      } else {
+        // observation_point 没有对应 event → 创建新 event
+        events.push({
+          id: obs.id,
+          name: obs.name,
+          time: obs.time,
+          hidden: false,
+          observation: true,
+          description: obs.description,
+        });
+      }
+    }
+    events.sort((a, b) => a.time - b.time);
+  }
+
   const rocketMeta = normalizeRocketMeta(raw?.rocket_meta || {});
   const dashboardEditor = normalizeDashboardEditor(raw?.dashboard_editor || {}, rocketMeta.stage_count);
   return {
-    version: 2,
+    version: 3,
     model_id: modelId,
     name: modelName,
     stages,
     events,
-    observation_points,
     rocket_meta: rocketMeta,
     fuel_editor: normalizeFuelEditor(raw?.fuel_editor || {}),
     telemetry_editor: normalizeTelemetryEditor(raw?.telemetry_editor || {}),
@@ -1103,9 +1229,13 @@ function normalizeModel(raw) {
 
 function normalizeAppSettings(raw) {
   const theme = String(raw?.default_theme || "lavender-mist").trim() || "lavender-mist";
+  const selectedModel = String(raw?.selected_model || "").trim();
+  const launchAt = String(raw?.launch_at || "").trim();
   return {
-    version: 1,
+    version: 2,
     default_theme: theme,
+    selected_model: selectedModel,
+    launch_at: launchAt,
   };
 }
 
@@ -1259,6 +1389,17 @@ class AppSettingsStore {
     this.save();
     return this.get();
   }
+
+  update(partial) {
+    const allowed = new Set(["default_theme", "selected_model", "launch_at"]);
+    for (const [key, value] of Object.entries(partial || {})) {
+      if (allowed.has(key)) {
+        this.settings[key] = String(value ?? "").trim();
+      }
+    }
+    this.save();
+    return this.get();
+  }
 }
 
 class EnginePresetStore {
@@ -1300,8 +1441,9 @@ class EnginePresetStore {
 }
 
 class MissionEngine {
-  constructor(store) {
+  constructor(store, rootDir) {
     this.store = store;
+    this.rootDir = rootDir;
     this.currentModelName = null;
     this.launchEpoch = null;
     this.ignitionEpoch = null;
@@ -1417,9 +1559,21 @@ class MissionEngine {
     if (!this.store.get(name)) {
       return false;
     }
+
+    // 切换型号时保留当前的发射时间
+    const savedLaunchEpoch = this.launchEpoch;
+    const savedRunning = this.running;
+
     this.currentModelName = name;
     this.reset();
     this.currentModelName = name;
+
+    // 恢复发射时间
+    if (savedLaunchEpoch) {
+      this.launchEpoch = savedLaunchEpoch;
+      this.running = savedRunning;
+    }
+
     this.markDirty();
     return true;
   }
@@ -1485,12 +1639,13 @@ class MissionEngine {
       return [false, "请先选择型号"];
     }
 
+    const obsEvents = Array.isArray(model.events) ? model.events.filter((e) => Boolean(e.observation)) : [];
     let point = null;
     if (pointId) {
-      point = model.observation_points.find((p) => p.id === pointId) || null;
+      point = obsEvents.find((p) => p.id === pointId) || null;
     }
     if (!point && Number.isInteger(pointIndex) && pointIndex >= 0) {
-      point = model.observation_points[pointIndex] || null;
+      point = obsEvents[pointIndex] || null;
     }
 
     if (!point) {
@@ -1600,10 +1755,14 @@ class MissionEngine {
     for (const stg of model.stages) {
       nodes.push({ id: stg.id, kind: "stage", name: stg.name, time: stg.start_time, description: stg.description });
     }
-    for (const evt of visibleEvents) {
-      nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description });
+    for (const evt of model.events) {
+      if (Boolean(evt.hidden)) {
+        nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description, hidden: true });
+      } else {
+        nodes.push({ id: evt.id, kind: "event", name: evt.name, time: evt.time, description: evt.description });
+      }
     }
-    for (const obs of model.observation_points || []) {
+    for (const obs of (model.events || []).filter((e) => Boolean(e.observation))) {
       nodes.push({ id: obs.id, kind: "observation", name: obs.name, time: toInt(obs.time, 0), description: obs.description || "" });
     }
     nodes.sort((a, b) => a.time - b.time);
@@ -1690,7 +1849,8 @@ class MissionEngine {
     const missionTime = this.missionTimeSec(now);
     const missionTimeMs = this.missionTimeMs(now);
     const timeline = this.timelineSummary(missionTime);
-    const telemetryProfile = buildTelemetryProfile(model);
+
+    const telemetryProfile = buildTelemetryProfile(model, this.rootDir);
     const dashboardGaugeSpecs = resolveDashboardGaugeSpecs(model, missionTime);
     const unifiedFormatted = this.running
       ? (missionTime >= 0 ? this.fmtPlus(missionTime) : this.fmtMinus(Math.abs(missionTime)))
@@ -1727,7 +1887,13 @@ class MissionEngine {
       current_event: timeline.event,
       next_description: timeline.description,
       active_countdowns: activeCountdowns,
-      observation_points: model?.observation_points || [],
+      observation_points: (model?.events || []).filter((e) => Boolean(e.observation)).map((e) => ({
+        id: e.id,
+        name: e.name,
+        time: e.time,
+        new_countdown: Math.max(0, -(e.time || 0)),
+        description: e.description || "",
+      })),
       rocket_meta: model?.rocket_meta || null,
       observation_log: this.observationLog.slice(-100),
       focus_nodes: timeline.focusNodes,
@@ -1759,13 +1925,25 @@ function startServer(options = {}) {
   const store = new ModelStore(path.join(rootDir, "config"));
   const appSettings = new AppSettingsStore(path.join(rootDir, "config", "app-settings.json"));
   const enginePresets = new EnginePresetStore(path.join(rootDir, "config", "engine_preset.json"));
-  const engine = new MissionEngine(store);
+  const engine = new MissionEngine(store, rootDir);
 
   const modelNames = Object.keys(store.all());
-  if (modelNames.length > 0) {
+
+  // 从 app-settings.json 读取初始型号
+  const settings = appSettings.get();
+  let initialModel = settings.selected_model || modelNames[0] || "";
+  if (initialModel && store.get(initialModel)) {
+    engine.selectModel(initialModel);
+  } else if (modelNames.length > 0) {
     engine.selectModel(modelNames[0]);
   }
-  engine.launchIn(600);
+
+  // 从 app-settings.json 读取发射时间，否则默认 10 分钟后
+  if (settings.launch_at) {
+    engine.launchAt(settings.launch_at);
+  } else {
+    engine.launchIn(600);
+  }
 
   function getLanIPv4() {
     const all = os.networkInterfaces();
@@ -1986,6 +2164,13 @@ function startServer(options = {}) {
     res.json({ success: true, settings });
   });
 
+  app.post("/api/admin/settings", requireAdminApi, (req, res) => {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const settings = appSettings.update(body);
+    broadcastState();
+    res.json({ success: true, settings });
+  });
+
   app.post("/api/admin/login", (req, res) => {
     const username = String(req.body?.username || "");
     const password = String(req.body?.password || "");
@@ -2019,6 +2204,24 @@ function startServer(options = {}) {
 
   app.get("/api/visitor_state", (req, res) => {
     res.json(buildStateSnapshot());
+  });
+
+  // 调试：设置发射时间
+  app.get("/api/debug/launch", (req, res) => {
+    const seconds = Math.max(0, toInt(req.query.seconds, 10));
+    engine.launchIn(seconds);
+    broadcastState();
+    res.json({ success: true, message: `发射时间设为 ${seconds} 秒后`, launch_in_seconds: seconds });
+  });
+
+  // 调试：观察 T=1 时的仪表盘规格
+  app.get("/api/debug/dashboard_at", (req, res) => {
+    const t = toInt(req.query.t, 1);
+    const model = engine.model;
+    const specs = model ? resolveDashboardGaugeSpecs(model, t) : [];
+    const summary = specs.map((s) => `${s.id}: stage=${s.stage_index} ${s.type} ${s.label}`);
+    console.log(`[DEBUG-dashboard_at] t=${t}, specs: [${summary.join(" | ")}]`);
+    res.json({ success: true, mission_time: t, specs_count: specs.length, specs });
   });
 
   app.get("/api/visitor_url", requireAdminApi, (req, res) => {

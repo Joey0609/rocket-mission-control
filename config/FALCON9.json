@@ -73,6 +73,7 @@
       "name": "发射支撑臂后撤",
       "time": -270,
       "hidden": false,
+      "observation": true,
       "description": "第一级发动机工作"
     },
     {
@@ -108,6 +109,7 @@
       "name": "点火",
       "time": -3,
       "hidden": false,
+      "observation": true,
       "description": "9台Merlin发动机点火"
     },
     {
@@ -122,6 +124,7 @@
       "name": "程序转弯",
       "time": 13,
       "hidden": false,
+      "observation": true,
       "description": "火箭开始程序转弯"
     },
     {
@@ -216,29 +219,6 @@
       "description": "任务完成"
     }
   ],
-  "observation_points": [
-    {
-      "id": "stg_f9_stage1",
-      "name": "发射支撑臂后撤",
-      "time": -270,
-      "new_countdown": 270,
-      "description": "第一级发动机工作"
-    },
-    {
-      "id": "item_1776432089752",
-      "name": "点火",
-      "time": -3,
-      "new_countdown": 3,
-      "description": "9台Merlin发动机点火"
-    },
-    {
-      "id": "evt_f9_pitch",
-      "name": "程序转弯",
-      "time": 13,
-      "new_countdown": 0,
-      "description": "火箭开始程序转弯"
-    }
-  ],
   "rocket_meta": {
     "mission_name": "",
     "payload": "天舟十号",
@@ -269,15 +249,9 @@
       }
     ],
     "boosters": {
-      "enabled": true,
-      "count": 1,
-      "fuels": [
-        {
-          "phase": "液体",
-          "oxidizer": "液氧",
-          "fuel": "煤油"
-        }
-      ]
+      "enabled": false,
+      "count": 0,
+      "fuels": []
     }
   },
   "fuel_editor": {
@@ -315,12 +289,12 @@
       },
       "event:evt_f9_seco": {
         "stage1_0": 0,
-        "stage2_0": 4,
+        "stage2_0": 3,
         "booster_0": -1
       },
       "event:evt_f9_payload": {
         "stage1_0": 0,
-        "stage2_0": 2,
+        "stage2_0": 1,
         "booster_0": -1
       },
       "stage:stg_f9_fuel:start": {
@@ -445,27 +419,27 @@
       },
       "event:item_1776432414839": {
         "stage1_0": 0,
-        "stage2_0": 2,
+        "stage2_0": 3,
         "booster_0": -1
       },
       "event:item_1776432415133": {
         "stage1_0": 0,
-        "stage2_0": 2,
+        "stage2_0": 1,
         "booster_0": -1
       },
       "observation:stg_f9_stage1": {
         "stage1_0": 99,
-        "stage2_0": -1,
+        "stage2_0": 91,
         "booster_0": -1
       },
       "observation:item_1776432089752": {
         "stage1_0": 100,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       },
       "observation:evt_f9_pitch": {
         "stage1_0": 96,
-        "stage2_0": -1,
+        "stage2_0": 100,
         "booster_0": -1
       }
     },
@@ -524,8 +498,8 @@
           "value": 96
         },
         {
-          "time": 56,
-          "value": 56
+          "time": 68,
+          "value": 49
         },
         {
           "time": 147,
@@ -667,19 +641,19 @@
         },
         {
           "time": 521,
-          "value": 4
+          "value": 3
         },
         {
           "time": 3177,
-          "value": 2
+          "value": 3
         },
         {
           "time": 3178,
-          "value": 2
+          "value": 1
         },
         {
           "time": 3708,
-          "value": 2
+          "value": 1
         }
       ],
       "booster_0": [
@@ -1971,45 +1945,6 @@
     "version": 4,
     "node_configs": {
       "event:evt_f9_ignition": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          },
-          {
-            "id": 4,
-            "enabled": true
-          },
-          {
-            "id": 5,
-            "enabled": true
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": true
-          },
-          {
-            "id": 8,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2066,45 +2001,6 @@
         ]
       },
       "event:evt_f9_pitch": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          },
-          {
-            "id": 4,
-            "enabled": true
-          },
-          {
-            "id": 5,
-            "enabled": true
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": true
-          },
-          {
-            "id": 8,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2161,45 +2057,6 @@
         ]
       },
       "event:evt_f9_maxq": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          },
-          {
-            "id": 4,
-            "enabled": true
-          },
-          {
-            "id": 5,
-            "enabled": true
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": true
-          },
-          {
-            "id": 8,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2256,45 +2113,6 @@
         ]
       },
       "event:evt_f9_stage_sep": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2351,45 +2169,6 @@
         ]
       },
       "event:evt_f9_second_ignition": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2446,45 +2225,6 @@
         ]
       },
       "event:evt_f9_fairing_sep": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2541,45 +2281,6 @@
         ]
       },
       "event:evt_f9_seco": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2636,45 +2337,6 @@
         ]
       },
       "event:evt_f9_payload": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2731,45 +2393,6 @@
         ]
       },
       "event:item_1776432089752": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          },
-          {
-            "id": 4,
-            "enabled": true
-          },
-          {
-            "id": 5,
-            "enabled": true
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": true
-          },
-          {
-            "id": 8,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2826,45 +2449,6 @@
         ]
       },
       "event:item_1776432089952": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -2921,45 +2505,6 @@
         ]
       },
       "event:item_1776432090133": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -3016,45 +2561,6 @@
         ]
       },
       "event:item_1776432315386": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -3111,45 +2617,6 @@
         ]
       },
       "event:item_1776432315538": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": true
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -3206,45 +2673,6 @@
         ]
       },
       "event:item_1776432414486": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -3301,45 +2729,6 @@
         ]
       },
       "event:item_1776432414839": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -3396,45 +2785,6 @@
         ]
       },
       "event:item_1776432415133": {
-        "preset_id": "falcon9_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          },
-          {
-            "id": 6,
-            "enabled": false
-          },
-          {
-            "id": 7,
-            "enabled": false
-          },
-          {
-            "id": 8,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,

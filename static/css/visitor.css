@@ -275,8 +275,14 @@ body.viewer-mode-video .theme-modal {
 
 .timeline-info {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 2fr 3fr 3fr;
   gap: 14px;
+}
+
+@media (max-width: 768px), (orientation: portrait) {
+  .timeline-info {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .timeline-info .panel {
@@ -292,6 +298,32 @@ body.viewer-mode-video .theme-modal {
 .timeline-info .big {
   font-size: clamp(18px, 2.8vw, 28px);
   font-weight: 700;
+}
+
+.event-node {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.event-name {
+  font-size: clamp(18px, 2.8vw, 26px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.event-time {
+  font-size: 15px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.event-desc {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-top: 2px;
 }
 
 .focus-nodes-wrap {
@@ -503,7 +535,7 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
 }
 
 .telemetry-engine-bg {
-  display: none !important;
+  pointer-events: none;
 }
 
 .telemetry-engine-node {

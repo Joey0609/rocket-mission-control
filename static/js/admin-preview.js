@@ -261,7 +261,7 @@
     const time = toInt(source.time, 0);
     const selected = normalizeDashboardSelectionList(source.selected, allOptionKeys);
     const name = buildDashboardNodeLabel(time, events);
-
+    const telemetryAuto = String(source.telemetry_auto || "").trim().toLowerCase();
     const hasSelection = selected.some(Boolean);
 
     return {
@@ -269,6 +269,7 @@
       time,
       name,
       selected: hasSelection ? selected : allOptionKeys.slice(0, 4),
+      telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
     };
   }
 
@@ -352,12 +353,16 @@
 
     const normalized = normalizeDashboardEditorDraft(rawEditor, maxStage, state.dashboard.draftModel?.events || []);
     const nodes = Array.isArray(normalized.nodes)
-      ? normalized.nodes.map((node) => ({
-        id: String(node.id || "").trim(),
-        time: toInt(node.time, 0),
-        name: String(node.name || "自定义").trim() || "自定义",
-        selected: normalizeDashboardSelectionList(node.selected, allOptionKeys),
-      })).filter((node) => node.id)
+      ? normalized.nodes.map((node) => {
+        const telemetryAuto = String(node.telemetry_auto || "").trim().toLowerCase();
+        return {
+          id: String(node.id || "").trim(),
+          time: toInt(node.time, 0),
+          name: String(node.name || "自定义").trim() || "自定义",
+          selected: normalizeDashboardSelectionList(node.selected, allOptionKeys),
+          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+        };
+      }).filter((node) => node.id)
       : [];
 
     return {
@@ -460,6 +465,7 @@
         time: nextTime,
         name: "自定义",
         selected: defaultSelection.slice(),
+        telemetry_auto: "",
       });
       editor.nodes = nextRows;
       state.dashboard.draftModel.dashboard_editor = editor;
@@ -544,7 +550,12 @@
     headNode.textContent = "节点";
     headNode.className = "dashboard-node-col";
     headRow.appendChild(headNode);
-
+    
+    const headTelemetry = document.createElement("th");
+    headTelemetry.textContent = "遥测";
+    headTelemetry.className = "dashboard-telemetry-col";
+    headRow.appendChild(headTelemetry);
+    
     ["左一数据", "左二数据", "右一数据", "右二数据"].forEach((text) => {
       const th = document.createElement("th");
       th.textContent = text;
@@ -597,10 +608,28 @@
       tr.appendChild(tdTime);
       tr.appendChild(tdNode);
 
+      const tdTelemetry = document.createElement("td");
+      tdTelemetry.className = "dashboard-telemetry-col";
+      const telemetrySwitch = document.createElement("select");
+      telemetrySwitch.className = "dashboard-telemetry-select";
+      const currentTelemetry = String(row?.telemetry_auto || "").trim().toLowerCase();
+      telemetrySwitch.appendChild(new Option("开启", "on"));
+      telemetrySwitch.appendChild(new Option("关闭", "off"));
+      telemetrySwitch.value = ["on", "off"].includes(currentTelemetry) ? currentTelemetry : "off";
+      telemetrySwitch.addEventListener("change", () => {
+        updateRow(rowIndex, {
+          telemetry_auto: telemetrySwitch.value || "",
+        });
+      });
+      tdTelemetry.appendChild(telemetrySwitch);
+      tr.appendChild(tdTelemetry);
+
       tr.appendChild(renderOptionCell(row, rowIndex, 0));
       tr.appendChild(renderOptionCell(row, rowIndex, 1));
       tr.appendChild(renderOptionCell(row, rowIndex, 2));
       tr.appendChild(renderOptionCell(row, rowIndex, 3));
+
+      
 
       const tdDelete = document.createElement("td");
       tdDelete.className = "dashboard-delete-col";

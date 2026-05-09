@@ -1,7 +1,6 @@
 const nodes = {
   modelName: document.getElementById("modelName"),
   payloadName: document.getElementById("payloadName"),
-  statusLine: document.getElementById("statusLine"),
   channelMode: document.getElementById("channelMode"),
   missionClock: document.getElementById("missionClock"),
   overlayClockSign: document.getElementById("overlayClockSign"),
@@ -12,8 +11,12 @@ const nodes = {
   overlayPayloadChunk: document.getElementById("overlayPayloadChunk"),
   currentStage: document.getElementById("currentStage"),
   overlayHoldIndicator: document.getElementById("overlayHoldIndicator"),
-  currentEvent: document.getElementById("currentEvent"),
-  nextDescription: document.getElementById("nextDescription"),
+  prevEventName: document.getElementById("prevEventName"),
+  prevEventTime: document.getElementById("prevEventTime"),
+  prevEventDesc: document.getElementById("prevEventDesc"),
+  nextEventName: document.getElementById("nextEventName"),
+  nextEventTime: document.getElementById("nextEventTime"),
+  nextEventDesc: document.getElementById("nextEventDesc"),
   missionCard: document.getElementById("missionCard"),
   timelineMount: document.getElementById("timelineMount"),
   telemetryGaugesLeft: document.getElementById("telemetryGaugesLeft"),
@@ -96,6 +99,18 @@ function setTextIfChanged(element, text) {
     element.textContent = text;
     element.dataset.lastText = text;
   }
+}
+
+function resolveTelemetryDisplayState(state, missionSeconds) {
+  if (window.MissionTelemetryRules && typeof window.MissionTelemetryRules.resolveTelemetryAutoState === "function") {
+    return window.MissionTelemetryRules.resolveTelemetryAutoState(state, missionSeconds);
+  }
+
+  return {
+    enabled: Boolean(state?.telemetry_enabled),
+    autoControlled: false,
+    activeNode: null,
+  };
 }
 
 function applyTheme(themeId) {
@@ -365,26 +380,46 @@ function getVisibleTimelineNodes(state) {
   return nodesData.filter((item) => item && item.kind !== "stage" && !isHiddenTimelineNode(item));
 }
 
-function resolveCurrentVisibleEventName(state, missionSeconds) {
+function formatMissionTimeTag(seconds) {
+  const sign = seconds < 0 ? "-" : "+";
+  const absSeconds = Math.abs(Math.round(seconds));
+  const hours = Math.floor(absSeconds / 3600);
+  const minutes = Math.floor((absSeconds % 3600) / 60);
+  const secs = absSeconds % 60;
+
+  if (hours > 0) {
+    return `T${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+  return `T${sign}${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function resolvePrevNextEvents(state, missionSeconds) {
   const visibleNodes = getVisibleTimelineNodes(state)
     .slice()
     .sort((a, b) => Number(a?.time || 0) - Number(b?.time || 0));
 
   if (visibleNodes.length <= 0) {
-    return String(state?.current_event || "等待节点");
+    return { prev: null, next: null };
   }
 
   const missionTime = Number(missionSeconds || 0);
-  let currentNode = visibleNodes[0];
+  let prevNode = null;
+  let nextNode = null;
+
   for (const node of visibleNodes) {
-    if (Number(node?.time || 0) <= missionTime) {
-      currentNode = node;
-      continue;
+    const nodeTime = Number(node?.time || 0);
+    if (nodeTime <= missionTime) {
+      prevNode = node;
+    } else {
+      nextNode = node;
+      break;
     }
-    break;
   }
 
-  return String(currentNode?.name || state?.current_event || "等待节点");
+  return {
+    prev: prevNode ? { name: prevNode.name, time: prevNode.time, description: prevNode.description || "" } : null,
+    next: nextNode ? { name: nextNode.name, time: nextNode.time, description: nextNode.description || "" } : null,
+  };
 }
 
 function toTimelineEvents(nodesData) {
@@ -434,6 +469,8 @@ function resolveDashboardGaugeSpecsByEditor(state, missionSeconds) {
     }
     break;
   }
+
+  // console.log(`[DEBUG-visitor-dashboard] missionSeconds=${missionSeconds}, activeNode=(id="${activeNode?.id || "?"}", time=${activeNode?.time ?? "?"}), selected=[${(activeNode?.selected || []).join(", ")}]`);
 
   const sideOrder = ["left", "left", "right", "right"];
   return activeNode.selected
@@ -602,7 +639,8 @@ function renderTelemetryGauges(state, missionSeconds) {
     return;
   }
 
-  const telemetryEnabled = forceDashboardMode ? true : Boolean(state?.telemetry_enabled);
+  const telemetryState = resolveTelemetryDisplayState(state, missionSeconds);
+  const telemetryEnabled = forceDashboardMode ? true : Boolean(telemetryState.enabled);
   setTelemetryDashboardVisibility(telemetryEnabled);
   telemetryGaugePanel.setProfile(state?.telemetry_profile || null);
   if (!telemetryEnabled) {
@@ -660,21 +698,33 @@ function renderState(state) {
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
   renderMissionOverlay(state, missionMs);
   setTextIfChanged(nodes.currentStage, state.current_stage || "待命");
-  setTextIfChanged(nodes.currentEvent, resolveCurrentVisibleEventName(state, missionMs / 1000));
-  setTextIfChanged(nodes.nextDescription, state.next_description || "暂无说明");
+
+  // 上一事件 / 下一事件
+  const missionSeconds = missionMs / 1000;
+  const { prev, next } = resolvePrevNextEvents(state, missionSeconds);
+  if (prev) {
+    setTextIfChanged(nodes.prevEventName, prev.name || "无");
+    setTextIfChanged(nodes.prevEventTime, formatMissionTimeTag(Number(prev.time) || 0));
+    setTextIfChanged(nodes.prevEventDesc, prev.description || "");
+  } else {
+    setTextIfChanged(nodes.prevEventName, "无");
+    setTextIfChanged(nodes.prevEventTime, "");
+    setTextIfChanged(nodes.prevEventDesc, "");
+  }
+  if (next) {
+    setTextIfChanged(nodes.nextEventName, next.name || "无");
+    setTextIfChanged(nodes.nextEventTime, formatMissionTimeTag(Number(next.time) || 0));
+    setTextIfChanged(nodes.nextEventDesc, next.description || "");
+  } else {
+    setTextIfChanged(nodes.nextEventName, "无");
+    setTextIfChanged(nodes.nextEventTime, "");
+    setTextIfChanged(nodes.nextEventDesc, "");
+  }
+
   if (nodes.overlayHoldIndicator) {
     nodes.overlayHoldIndicator.classList.toggle("active", Boolean(state.is_hold));
   }
 
-  const statusText = state.status === "countdown"
-    ? "倒计时运行中"
-    : state.status === "flight"
-      ? "正计时运行中"
-      : state.status === "hold"
-        ? "倒计时 HOLD"
-        : "等待任务启动";
-
-  setTextIfChanged(nodes.statusLine, `${statusText} · ${state.now}`);
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
   renderTimeline(state, missionMs / 1000);
@@ -692,8 +742,31 @@ function tickClocks() {
   }
 
   if (lastState) {
-    renderTimeline(lastState, missionMs / 1000);
-    renderTelemetryGauges(lastState, missionMs / 1000);
+    const missionSeconds = missionMs / 1000;
+    renderTimeline(lastState, missionSeconds);
+
+    // 每次 tick 重新解析上一/下一事件（时间推进时实时更新）
+    const { prev, next } = resolvePrevNextEvents(lastState, missionSeconds);
+    if (prev) {
+      setTextIfChanged(nodes.prevEventName, prev.name || "无");
+      setTextIfChanged(nodes.prevEventTime, formatMissionTimeTag(Number(prev.time) || 0));
+      setTextIfChanged(nodes.prevEventDesc, prev.description || "");
+    } else {
+      setTextIfChanged(nodes.prevEventName, "无");
+      setTextIfChanged(nodes.prevEventTime, "");
+      setTextIfChanged(nodes.prevEventDesc, "");
+    }
+    if (next) {
+      setTextIfChanged(nodes.nextEventName, next.name || "无");
+      setTextIfChanged(nodes.nextEventTime, formatMissionTimeTag(Number(next.time) || 0));
+      setTextIfChanged(nodes.nextEventDesc, next.description || "");
+    } else {
+      setTextIfChanged(nodes.nextEventName, "无");
+      setTextIfChanged(nodes.nextEventTime, "");
+      setTextIfChanged(nodes.nextEventDesc, "");
+    }
+
+    renderTelemetryGauges(lastState, missionSeconds);
   }
 }
 

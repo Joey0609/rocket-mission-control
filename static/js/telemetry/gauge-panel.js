@@ -321,7 +321,7 @@
 
       nodeConfigs[nodeKey] = {
         preset_id: preset.id,
-        engine_states: mergeEngineStatesWithPreset(preset, config?.engine_states),
+        engine_states: primaryStage ? primaryStage.engine_states : mergeEngineStatesWithPreset(preset, []),
         stage_configs: normalizedStageConfigs,
       };
     }
@@ -448,12 +448,17 @@
 
       const name = String(node?.name || "").trim().toLowerCase();
       const id = String(node?.id || "").trim().toLowerCase();
-      const matched = name.includes("点火")
+      const isShutdown = name.includes("关机") || name.includes("关闭") || name.includes("熄火");
+      const isSeparation = name.includes("分离");
+
+      const matched = !isShutdown && !isSeparation && (
+        name.includes("点火")
         || name.includes("ignition")
         || name.includes("liftoff")
         || id.includes("ignition")
         || id.includes("lift_off")
-        || id.includes("liftoff");
+        || id.includes("liftoff")
+      );
 
       if (!matched) {
         continue;
@@ -598,7 +603,9 @@
       const width = this.size;
       const height = this.size;
       const nodes = Array.isArray(preset.engines) ? preset.engines : [];
+      const bgCircles = Array.isArray(preset.background_circles) ? preset.background_circles : [];
       const allCircles = [
+        ...bgCircles.map((item) => ({ x: item.x, y: item.y, r: item.r })),
         ...nodes.map((item) => ({ x: item.x, y: item.y, r: item.r })),
       ];
 
@@ -612,10 +619,22 @@
       const maxY = Math.max(...allCircles.map((item) => item.y + item.r));
       const spanW = Math.max(1, maxX - minX);
       const spanH = Math.max(1, maxY - minY);
-      const padding = 12;
-      const scale = Math.min((width - padding * 2) / spanW, (height - padding * 2) / spanH, 1.2);
+      const padding = 8;
+      const scale = Math.min((width - padding * 2) / spanW, (height - padding * 2) / spanH);
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
+
+      // 仪表盘中只显示 outline（fill=none）的 background circle，fill 填充层不渲染
+      const backgroundMarkup = bgCircles
+        .filter((item) => String(item.fill || "").trim().toLowerCase() === "none")
+        .map((item) => {
+          const px = (width / 2) + (item.x - cx) * scale;
+          const py = (height / 2) + (item.y - cy) * scale;
+          const pr = Math.max(1, item.r * scale);
+          const strokeWidth = Math.max(0, (item.stroke_width || 0) * scale);
+          return `<circle class="telemetry-engine-bg" cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${pr.toFixed(2)}" fill="${item.fill || "none"}" stroke="${item.stroke || "rgba(128,128,128,0.3)"}" stroke-width="${strokeWidth.toFixed(2)}" />`;
+        })
+        .join("");
 
       const nodesMarkup = nodes
         .map((point) => {
@@ -628,6 +647,7 @@
 
       this.canvasEl.innerHTML = `
         <svg class=\"telemetry-engine-svg\" viewBox=\"0 0 ${width} ${height}\" xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"发动机布局\">
+          ${backgroundMarkup}
           ${nodesMarkup}
         </svg>
       `;
@@ -666,6 +686,32 @@
         }
       }
       return active;
+    }
+
+    resolveIgnitionEntry() {
+      for (const entry of this.engineTimelineEntries) {
+        const name = String(entry.name || "").trim().toLowerCase();
+        const id = String(entry.key || "").trim().toLowerCase();
+        if (
+          name.includes("点火")
+          || name.includes("ignition")
+          || name.includes("liftoff")
+          || id.includes("ignition")
+          || id.includes("lift_off")
+          || id.includes("liftoff")
+        ) {
+          return entry;
+        }
+      }
+
+      // 退而求其次找 time >= 0 的第一个节点
+      for (const entry of this.engineTimelineEntries) {
+        if (entry.time >= 0) {
+          return entry;
+        }
+      }
+
+      return this.engineTimelineEntries[0] || null;
     }
 
     setVisible(nextVisible, options = {}) {
@@ -708,22 +754,28 @@
         this.engineTimelineEntries = buildEngineTimelineEntries(engineLayout, timelineNodes, presetLibrary, dashboardStageIndex);
       }
 
-      const activeEntry = this.resolveActiveEntry(activeMissionSeconds);
-      if (!activeEntry) {
+      const forceOffThreshold = resolveEngineForceOffThreshold(timelineNodes);
+      const shouldForceAllOff = activeMissionSeconds < forceOffThreshold;
+
+      // T<0 时用点火节点的 preset 渲染布局，但强制全部关机
+      const effectiveEntry = shouldForceAllOff
+        ? (this.resolveIgnitionEntry() || this.resolveActiveEntry(activeMissionSeconds))
+        : this.resolveActiveEntry(activeMissionSeconds);
+
+      if (!effectiveEntry) {
         return;
       }
 
-      if (activeEntry.preset.id !== this.activePresetId) {
-        this.activePresetId = activeEntry.preset.id;
-        this.renderPreset(activeEntry.preset);
+      if (effectiveEntry.preset.id !== this.activePresetId) {
+        // console.log(`[DEBUG-engine-switch] preset: "${this.activePresetId}" → "${effectiveEntry.preset.id}", entry="${effectiveEntry.key}", time=${effectiveEntry.time}, shouldForceAllOff=${shouldForceAllOff}`);
+        this.activePresetId = effectiveEntry.preset.id;
+        this.renderPreset(effectiveEntry.preset);
         this.lastStateMap = new Map();
       }
 
-      const forceOffThreshold = resolveEngineForceOffThreshold(timelineNodes);
-      const shouldForceAllOff = activeMissionSeconds < forceOffThreshold;
       if (shouldForceAllOff) {
         const forcedOffStateMap = new Map();
-        activeEntry.stateMap.forEach((_enabled, id) => {
+        effectiveEntry.stateMap.forEach((_enabled, id) => {
           forcedOffStateMap.set(id, false);
         });
         this.applyStateMap(forcedOffStateMap);
@@ -733,7 +785,7 @@
         return;
       }
 
-      this.applyStateMap(activeEntry.stateMap);
+      this.applyStateMap(effectiveEntry.stateMap);
       if (this.gauge && typeof this.gauge.setValue === "function") {
         this.gauge.setValue(Number.isFinite(stageFuelPercent) ? stageFuelPercent : 0, {
           animateMs: contentSwitchAnimateMs,
@@ -1056,6 +1108,9 @@
       if (nextSignature === this.gaugeSpecsSignature) {
         return;
       }
+
+      console.log(`[DEBUG-gauge-switch] BEFORE: signature="${this.gaugeSpecsSignature}", specs=[${(this.gaugeSpecs || []).map((s) => `${s.id}: stage=${s.stageIndex ?? s.stage_index} ${s.type}`).join(" | ")}]`);
+      console.log(`[DEBUG-gauge-switch] AFTER:  signature="${nextSignature}", specs=[${normalized.map((s) => `${s.id}: stage=${s.stageIndex ?? s.stage_index} ${s.type}`).join(" | ")}]`);
       this.gaugeSpecs = normalized;
       this.gaugeSpecsSignature = nextSignature;
 
