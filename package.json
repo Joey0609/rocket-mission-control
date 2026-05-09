@@ -1,7 +1,7 @@
 {
   "name": "rocket-mission-control",
-  "version": "2.0.0",
-  "description": "Node.js 前后端一体的火箭任务控制系统",
+  "version": "2.1.0",
+  "description": "航天发射任务直播UI控制系统",
   "main": "server/index.js",
   "scripts": {
     "start": "node ./server/index.js",

@@ -1,113 +1,108 @@
-# 火箭任务控制系统（纯 Node.js）
+# 🚀 火箭任务控制系统
 
-本项目已重构为纯 Node.js Web 架构：
+一个功能完整的火箭发射任务控制台，支持倒计时、遥测仪表盘、发动机布局可视化、时间轴事件、多型号管理、实时推送等功能。
 
-- 不再依赖 Electron 桌面程序。
-- 管理端和游客端都由同一个 Node.js 服务提供。
-- 保留原有倒计时、时间轴、SSE 实时推送、型号配置编辑等功能。
-- 已支持 16 套主题配色，管理员可设置默认主题并持久化。
-- 支持 HOLD 暂停倒计时（发射时间自动顺延）。
+---
 
-## 快速启动
+## ✨ 功能特性
 
-1. 安装依赖
+### ⏱ 任务计时与控制
+- **倒计时 / 飞行计时** — 精确到毫秒的任务时钟，从 T- 自动切换到 T+
+- **HOLD / RESUME** — 随时暂停倒计时，发射时间自动顺延 ⏸️
+- **点火确认** — 手动点火或配置自动点火，支持点火时自动 HOLD 🔥
+- **观察点跳转** — 一键将任务计时对齐到任意时间点 📍
+
+### 📊 遥测仪表盘
+- **弧形仪表盘** — 速度、高度、加速度等遥测数据，以精美圆弧仪表盘呈现 🎯
+- **发动机布局图** — 直观展示发动机排列方式，实时显示每台发动机的开关状态 🔧
+- **仪表盘编辑器** — 自由配置每个任务阶段的仪表盘内容（类型、级数、布局）
+- **遥测曲线编辑器** — 编辑速度、高度、加速度的时序曲线，支持 CSV 数据导入 📈
+
+### 🕐 可视化时间轴
+- **弧形时间轴** — 火箭发射计时器风格的圆弧形时间线 🌙
+- **事件节点** — 显示起飞、级间分离、整流罩分离、入轨等关键事件
+- **智能缩放** — 关键时段自动放大，重要节点更清晰 🔍
+- **颜色过渡** — 已过事件亮白色，未来事件半透明，穿越当前时刻时平滑渐变
+- **多阶段显示** — 支持多级火箭的阶段标注
+
+### 🎨 主题系统
+- **16 套精美主题** — 从暗色科技风到明亮极简风，总有一款适合你 🎭
+- **实时切换** — 管理员切换主题后，所有客户端即时同步
+- **默认主题持久化** — 可保存默认主题，重启后自动加载
+
+### 📋 型号管理
+- **多型号配置** — Falcon 9、长征系列等多型号自由切换 🛰️
+- **可视化编辑器** — 图形化编辑时间线事件、阶段、推进剂配方
+- **发动机预设库** — 内置多种发动机布局预设，自由切换
+- **回收配置** — 支持火箭回收开关和推进剂配置
+
+### 🔄 实时推送
+- **SSE 实时推送** — 所有状态变更即时推送到所有客户端 ⚡
+- **多端同步** — 管理端操作后，游客端和 OBS 端即时同步
+
+### 🖥 多端适配
+- **管理控制台** — 完整的任务控制后台 🎛️
+- **游客页面** — 面向公众的发射直播视图 👀
+- **OBS 模式** — 专为直播设计的 OBS 场景模式 📺
+- **Video 模式** — 视频叠加模式
+
+---
+
+## 🚀 快速启动
 
 ```bash
+# 1️⃣ 安装依赖
 npm install
-```
 
-2. 启动服务
-
-```bash
+# 2️⃣ 启动服务
 npm start
 ```
 
-默认监听：`http://0.0.0.0:5000`
+| 页面 | 地址 |
+|------|------|
+| 🏠 游客页面 | `http://127.0.0.1:5000/` |
+| 🔐 管理登录 | `http://127.0.0.1:5000/admin/login` |
+| 🎛️ 管理控制台 | `http://127.0.0.1:5000/admin` |
 
-- 游客页面：`http://127.0.0.1:5000/`
-- 管理登录页：`http://127.0.0.1:5000/admin/login`
-- 管理控制台：`http://127.0.0.1:5000/admin`（需要登录）
+> 默认管理员：`admin` / `admin123`
 
-## 主题机制
+### ⚙️ 环境变量
 
-- 系统内置 16 套主题。
-- 管理员在控制台选择主题后，可点击“设为默认主题”保存。
-- 默认主题会写入本地文件：`config/app-settings.json`，下次启动自动读取。
-- 游客页面可临时切换主题，但刷新后会恢复为管理员设置的默认主题。
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `ADMIN_USERNAME` | 管理员用户名 | `admin` |
+| `ADMIN_PASSWORD` | 管理员密码 | `admin123` |
+| `SESSION_SECRET` | 会话签名密钥 | `mission-control-secret` |
+| `SESSION_TTL_SECONDS` | 会话有效期（秒） | `28800` |
 
-## HOLD 与观察点逻辑
+---
 
-- HOLD：
-	- 点击 HOLD 后，任务计时暂停。
-	- 现实时间继续流逝，发射控制中的发射时间会自动顺延。
-	- 再次点击（RESUME）后恢复计时。
+## 🔧 配置管理
 
-- 观察点触发：
-	- 每个观察点包含一个目标任务时间（`time`，例如 `-50`）。
-	- 点击观察点后，系统会把主任务计时直接对齐到该时间点（例如 `T-50`）。
-	- 观察点按钮数量始终与 `observation_points` 配置项数量一致。
+配置文件位于 `config/` 目录：
 
-## 管理员登录
+- 📄 `*.json` — 各型号的完整配置（事件、阶段、发动机、遥测等）
+- ⚙️ `app-settings.json` — 系统设置（默认主题、发射时间、默认型号）
+- 🔩 `engine_preset.json` — 发动机布局预设库
+- 📊 `*.csv` — 遥测数据源文件
 
-默认管理员账号：
+---
 
-- 用户名：`admin`
-- 密码：`admin123`
+## 🏗️ 技术栈
 
-建议通过环境变量修改：
+| 组件 | 技术 |
+|------|------|
+| 🖥️ 服务端 | Node.js + Express |
+| 🌐 前端 | 原生 JavaScript + CSS3 |
+| 🔄 实时推送 | SSE (Server-Sent Events) |
+| 📊 图形 | SVG + CSS Animations |
+| 🎨 主题 | CSS 自定义属性 |
+| 📦 数据 | JSON 文件存储 |
 
-- `ADMIN_USERNAME`：管理员用户名
-- `ADMIN_PASSWORD`：管理员密码
-- `SESSION_SECRET`：会话签名密钥
-- `SESSION_TTL_SECONDS`：会话有效期（秒，默认 28800）
+---
 
-示例：
+## 🔗 更多
 
-```bash
-set ADMIN_USERNAME=your_admin
-set ADMIN_PASSWORD=your_password
-set SESSION_SECRET=change_me
-set SESSION_TTL_SECONDS=14400
-npm start
-```
-
-## 项目结构
-
-- 服务端入口：`server/index.js`
-- 服务端核心：`server/httpServer.js`
-- 管理端页面：`templates/admin.html`
-- 管理登录页：`templates/admin-login.html`
-- 游客页面：`templates/visitor.html`
-- 管理端脚本：`static/js/admin.js`
-- 登录脚本：`static/js/admin-login.js`
-- 游客端脚本：`static/js/visitor.js`
-
-## API 概览
-
-公开 API（游客可访问）：
-
-- `GET /api/state`
-- `GET /api/stream`
-
-管理员 API（需登录）：
-
-- `GET /api/admin/settings`
-- `POST /api/admin/settings/theme`
-- `GET /api/admin/session`
-- `POST /api/admin/login`
-- `POST /api/admin/logout`
-- `POST /api/hold`
-- `GET /api/visitor_url`
-- `GET /api/visitor_qr`
-- `GET /api/models`
-- `POST /api/select_model`
-- `POST /api/launch`
-- `POST /api/observation`
-- `POST /api/ignition`
-- `POST /api/reset`
-- `POST /api/models`
-- `DELETE /api/models/:name`
-
-公共配置 API：
-
-- `GET /api/public_config`
+- 🌍 局域网访问：服务启动后控制台会显示局域网地址
+- 📱 二维码分享：管理员可生成游客页面的二维码
+- 📺 OBS 集成：`http://你的IP:5000/obs` 可直接作为 OBS 浏览器源
