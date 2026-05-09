@@ -1034,8 +1034,7 @@ function observationSignature(points) {
 }
 
 function renderObservationButtons(state) {
-  const allEvents = Array.isArray(state.events) ? state.events : [];
-  const points = allEvents.filter((e) => Boolean(e.observation));
+  const points = Array.isArray(state.observation_points) ? state.observation_points : [];
   const sig = observationSignature(points);
   if (sig === observationButtonsSig) {
     return;
