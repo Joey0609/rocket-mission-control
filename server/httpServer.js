@@ -192,7 +192,6 @@ function normalizeRocketMeta(raw) {
     payload: String(raw?.payload || "").trim(),
     recovery_capable: recoveryCapable,
     recovery_enabled: recoveryCapable ? raw?.recovery_enabled !== false : false,
-    auto_hold_at_ignition: Boolean(raw?.auto_hold_at_ignition),
     stage_count: Math.max(stageCount, stages.length),
     stages,
     boosters: {
@@ -1240,10 +1239,11 @@ function normalizeAppSettings(raw) {
   const selectedModel = String(raw?.selected_model || "").trim();
   const launchAt = String(raw?.launch_at || "").trim();
   return {
-    version: 2,
+    version: 3,
     default_theme: theme,
     selected_model: selectedModel,
     launch_at: launchAt,
+    auto_hold_at_ignition: Boolean(raw?.auto_hold_at_ignition),
   };
 }
 
@@ -1399,10 +1399,14 @@ class AppSettingsStore {
   }
 
   update(partial) {
-    const allowed = new Set(["default_theme", "selected_model", "launch_at"]);
+    const allowed = new Set(["default_theme", "selected_model", "launch_at", "auto_hold_at_ignition"]);
     for (const [key, value] of Object.entries(partial || {})) {
       if (allowed.has(key)) {
-        this.settings[key] = String(value ?? "").trim();
+        if (key === "auto_hold_at_ignition") {
+          this.settings[key] = Boolean(value);
+        } else {
+          this.settings[key] = String(value ?? "").trim();
+        }
       }
     }
     this.save();
@@ -1485,6 +1489,17 @@ class MissionEngine {
     this.holdAccumulatedMs = 0;
   }
 
+  flushHold(now) {
+    // 将累积的 hold 时长加到 launchEpoch 上，使发射时间同步顺延
+    const elapsed = this.holdElapsedMs(now);
+    if (elapsed > 0 && this.launchEpoch) {
+      this.launchEpoch += elapsed;
+    }
+    this.holdAccumulatedMs = 0;
+    this.holdActive = false;
+    this.holdStartedAt = null;
+  }
+
   holdElapsedMs(now) {
     if (!this.running || !this.launchEpoch) {
       return 0;
@@ -1515,11 +1530,8 @@ class MissionEngine {
       return [true, "已进入 HOLD"];
     }
 
-    if (this.holdStartedAt) {
-      this.holdAccumulatedMs += Math.max(0, now - this.holdStartedAt);
-    }
-    this.holdActive = false;
-    this.holdStartedAt = null;
+    // RESUME：将累计 hold 时长顺延到 launchEpoch，然后清零 hold 状态
+    this.flushHold(now);
     this.observationLog.push({
       type: "resume",
       timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
@@ -1609,8 +1621,9 @@ class MissionEngine {
     this.running = true;
     this.runtimeCountdowns = [];
     this.observationLog = [];
-    this.clearHold();
-    this.autoHoldAtIgnitionLatched = false;
+    // 调整发射时间时不取消 HOLD
+    // this.clearHold();
+    // this.autoHoldAtIgnitionLatched = false;
     this.markDirty();
     return true;
   }
@@ -1726,7 +1739,11 @@ class MissionEngine {
     if (!this.running || !this.launchEpoch) {
       return 0;
     }
-    return now - this.launchEpoch - this.holdElapsedMs(now);
+    // HOLD 期间：返回进入 HOLD 时刻的冻结值
+    if (this.holdActive && this.holdStartedAt) {
+      return this.holdStartedAt - this.launchEpoch;
+    }
+    return now - this.launchEpoch;
   }
 
   timelineSummary(missionTime) {
@@ -1814,29 +1831,6 @@ class MissionEngine {
   snapshot(extra = {}) {
     const now = Date.now();
     const model = this.model;
-
-    if (this.running && this.launchEpoch && !this.ignitionEpoch && !this.holdActive && now >= this.launchEpoch) {
-      const autoHoldAtIgnition = Boolean(model?.rocket_meta?.auto_hold_at_ignition);
-      if (autoHoldAtIgnition && !this.autoHoldAtIgnitionLatched) {
-        this.holdActive = true;
-        this.holdStartedAt = now;
-        this.autoHoldAtIgnitionLatched = true;
-        this.observationLog.push({
-          type: "auto_hold_at_ignition",
-          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-        });
-        this.markDirty();
-      } else {
-        this.ignitionEpoch = this.launchEpoch;
-        this.clearHold();
-        this.autoHoldAtIgnitionLatched = false;
-        this.observationLog.push({
-          type: "auto_ignition",
-          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-        });
-        this.markDirty();
-      }
-    }
 
     let status = "idle";
     let mainSec = 0;
@@ -2086,6 +2080,7 @@ function startServer(options = {}) {
     const activeModel = engine.model;
     return engine.snapshot({
       default_theme: appSettings.get().default_theme,
+      auto_hold_at_ignition: appSettings.get().auto_hold_at_ignition,
       engine_layout: normalizeEngineLayout(
         activeModel?.engine_layout || {},
         activeModel?.name || "",

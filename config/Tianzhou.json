@@ -27,9 +27,9 @@
     {
       "id": "stg_l7_ignition",
       "name": "发动机点火",
-      "start_time": -6,
+      "start_time": -7,
       "end_time": 0,
-      "description": "芯级和助推器发动机启动至满推力"
+      "description": "启动发射程序"
     },
     {
       "id": "stg_l7_stage1",
@@ -105,10 +105,10 @@
     {
       "id": "evt_l7_engine_start",
       "name": "发动机启动",
-      "time": -6,
-      "hidden": false,
+      "time": -7,
+      "hidden": true,
       "observation": false,
-      "description": "芯级及四台助推器发动机同时启动"
+      "description": ""
     },
     {
       "id": "evt_l7_liftoff",
@@ -117,6 +117,14 @@
       "hidden": false,
       "observation": true,
       "description": "发动机达到额定推力，火箭离开发射台"
+    },
+    {
+      "id": "item_1778393725190",
+      "name": "助推器点火",
+      "time": 1,
+      "hidden": true,
+      "observation": false,
+      "description": "助推器点火"
     },
     {
       "id": "evt_l7_takeoff",
@@ -212,7 +220,6 @@
     "payload": "天舟十号",
     "recovery_capable": false,
     "recovery_enabled": false,
-    "auto_hold_at_ignition": false,
     "stage_count": 2,
     "stages": [
       {
@@ -990,19 +997,19 @@
           },
           {
             "id": 2,
-            "enabled": true
+            "enabled": false
           },
           {
             "id": 3,
-            "enabled": true
+            "enabled": false
           },
           {
             "id": 4,
-            "enabled": true
+            "enabled": false
           },
           {
             "id": 5,
-            "enabled": true
+            "enabled": false
           }
         ],
         "stage_configs": [
@@ -1020,19 +1027,19 @@
               },
               {
                 "id": 2,
-                "enabled": true
+                "enabled": false
               },
               {
                 "id": 3,
-                "enabled": true
+                "enabled": false
               },
               {
                 "id": 4,
-                "enabled": true
+                "enabled": false
               },
               {
                 "id": 5,
-                "enabled": true
+                "enabled": false
               }
             ]
           },
@@ -1762,6 +1769,192 @@
               },
               {
                 "id": 3,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l7_engine_start": {
+        "preset_id": "cz7a_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7a_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1778393725190": {
+        "preset_id": "cz7a_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          },
+          {
+            "id": 4,
+            "enabled": true
+          },
+          {
+            "id": 5,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7a_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              },
+              {
+                "id": 4,
+                "enabled": true
+              },
+              {
+                "id": 5,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
                 "enabled": false
               }
             ]

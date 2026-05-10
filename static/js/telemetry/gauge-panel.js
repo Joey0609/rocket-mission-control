@@ -665,6 +665,15 @@
       newSvg.innerHTML = `${backgroundMarkup}${nodesMarkup}`;
       this.canvasEl.appendChild(newSvg);
 
+      // 立即重建 nodeElements，确保 applyStateMap 可以同步找到节点
+      this.nodeElements.clear();
+      for (const node of newSvg.querySelectorAll("[data-engine-id]")) {
+        const id = toInt(node.getAttribute("data-engine-id"), -1);
+        if (id >= 0) {
+          this.nodeElements.set(id, node);
+        }
+      }
+
       // 200ms 重叠后：新 SVG 播进入动画
       setTimeout(() => {
         newSvg.style.opacity = "";
@@ -677,23 +686,6 @@
           oldSvg.parentNode.removeChild(oldSvg);
         }
       }, 400);
-
-      // 600ms 全部动画完成后重建 nodeElements
-      const fullAnimToken = Date.now();
-      this.presetAnimToken = fullAnimToken;
-      setTimeout(() => {
-        if (this.presetAnimToken !== fullAnimToken) {
-          return;
-        }
-        newSvg.classList.remove("telemetry-engine-preset-enter");
-        this.nodeElements.clear();
-        for (const node of this.canvasEl.querySelectorAll("[data-engine-id]")) {
-          const id = toInt(node.getAttribute("data-engine-id"), -1);
-          if (id >= 0) {
-            this.nodeElements.set(id, node);
-          }
-        }
-      }, 600);
     }
 
     applyStateMap(stateMap) {

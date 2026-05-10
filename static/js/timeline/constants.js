@@ -20,7 +20,7 @@
       { time: 50, scale: 4 },
       { time: 240, scale: 2 },
       { time: 530, scale: 5 },
-      { time: 630, scale: 1.5 },
+      { time: 630, scale: 3 },
     ],
 
     GEOMETRY_TRANSITION_START_TIME: 0,

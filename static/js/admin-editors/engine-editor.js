@@ -21,11 +21,9 @@ function buildEngineListNodes(draft) {
     }))
     .sort((a, b) => (a.time - b.time) || a.name.localeCompare(b.name, "zh-CN"));
 
-  const ignitionEvent = events.find((event) => event.name.includes("点火"));
-  const startTime = ignitionEvent ? ignitionEvent.time : 0;
-  const nodes = events.filter((event) => event.time >= startTime);
+  const nodes = events.filter((event) => event.time > -30);
 
-  if (nodes.length === 0 || (!ignitionEvent && !nodes.some((node) => node.time === 0))) {
+  if (nodes.length === 0) {
     nodes.unshift({
       key: "event:__engine_t0__",
       id: "__engine_t0__",
@@ -755,10 +753,7 @@ async function openEngineLayoutEditorModal(source = "model") {
 
   if (dom.engineLayoutHint) {
     const stageCount = getEngineStageCountFromDraft(engineEditDraft);
-    const hasIgnition = (Array.isArray(engineEditDraft.events) ? engineEditDraft.events : []).some((event) => String(event?.name || "").includes("点火"));
-    dom.engineLayoutHint.textContent = hasIgnition
-      ? `仅显示点火及之后节点；每个节点包含 ${stageCount} 级发动机预览。`
-      : `未检测到“点火”事件，已从 T0 开始列出节点；每个节点包含 ${stageCount} 级发动机预览。`;
+    dom.engineLayoutHint.textContent = `已列出 T-30s 后的事件节点；每个节点包含 ${stageCount} 级发动机预览。`;
   }
 
   dom.engineLayoutModal.classList.remove("hidden");

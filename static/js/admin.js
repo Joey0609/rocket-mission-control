@@ -143,6 +143,7 @@ let pendingModelName = "";
 let selectingModel = false;
 let launchInputDirtyUntil = 0;
 let observationButtonsSig = "";
+let autoHoldLatched = false;
 
 let currentThemeId = window.MissionThemes.defaultId;
 let defaultThemeId = currentThemeId;
@@ -312,6 +313,37 @@ function tickMissionClock() {
 
   if (lastState) {
     renderTelemetryButtons(lastState, missionMs / 1000);
+
+    // 点火自动 HOLD：客户端检查，与服务端 "打开遥测" 同逻辑
+    const missionSec = missionMs / 1000;
+    const autoHoldEnabled = Boolean(lastState?.auto_hold_at_ignition);
+
+    // 仅当引擎停止或切换型号时重置 latch，手动恢复 HOLD 不重置
+    if (!lastState?.running) {
+      autoHoldLatched = false;
+    }
+
+    if (autoHoldEnabled && !autoHoldLatched && lastState?.status === "countdown" && missionSec >= -30 && missionSec <= 0) {
+      const timelineNodes = Array.isArray(lastState?.timeline_nodes) ? lastState.timeline_nodes : [];
+      const launchEvents = timelineNodes
+        .filter((n) => {
+          const name = String(n?.name || "").trim().toLowerCase();
+          return name.includes("启动") || name.includes("点火");
+        })
+        .sort((a, b) => Number(a.time) - Number(b.time));
+
+      if (launchEvents.length > 0) {
+        const firstEvent = launchEvents[0];
+        if (missionSec >= Number(firstEvent.time)) {
+          autoHoldLatched = true;
+          adminFetch("/api/hold", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hold: true }),
+          }).catch(() => {});
+        }
+      }
+    }
   }
 }
 
@@ -865,7 +897,6 @@ function normalizeDraft(payload, selectedModelName) {
       payload: String(payload.rocket_meta.payload || "").trim(),
       recovery_capable: payload.rocket_meta.recovery_capable !== false,
       recovery_enabled: payload.rocket_meta.recovery_capable === false ? false : payload.rocket_meta.recovery_enabled !== false,
-      auto_hold_at_ignition: Boolean(payload.rocket_meta.auto_hold_at_ignition),
       stage_count: Math.max(1, toInt(payload.rocket_meta.stage_count, 1)),
       stages: Array.isArray(payload.rocket_meta.stages)
         ? payload.rocket_meta.stages.map((stage, idx) => ({
@@ -888,7 +919,6 @@ function normalizeDraft(payload, selectedModelName) {
       payload: "",
       recovery_capable: true,
       recovery_enabled: true,
-      auto_hold_at_ignition: false,
       stage_count: 1,
       stages: [{ stage_index: 1, fuels: [normalizeFuelSpec({})] }],
       boosters: { enabled: false, count: 0, fuels: [] },
@@ -1126,7 +1156,7 @@ function renderRocketConfigCard(state) {
 
   const capable = meta.recovery_capable !== false;
   const enabled = capable ? meta.recovery_enabled !== false : false;
-  const autoHoldAtIgnitionEnabled = Boolean(meta.auto_hold_at_ignition);
+  const autoHoldAtIgnitionEnabled = Boolean(state?.auto_hold_at_ignition);
   updatingRecoverToggle = true;
   dom.recoverToggle.checked = enabled;
   dom.recoverToggle.disabled = !capable;
@@ -1250,6 +1280,12 @@ function adjustLaunchTime(deltaSeconds) {
 }
 
 function quickLaunch(seconds) {
+  // 快捷控制：先取消 HOLD，再立即调整发射时间
+  adminFetch("/api/hold", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hold: false }),
+  }).catch(() => {});
   const next = new Date(Date.now() + Number(seconds) * 1000);
   dom.launchAt.value = dateToInputValue(next);
   scheduleApplyLaunch();
@@ -1307,13 +1343,8 @@ async function updateIgnitionAutoHoldToggle(enabled) {
     return;
   }
 
-  const modelName = dom.modelSelect.value;
-  if (!modelName || !modelsCache[modelName]) {
-    return;
-  }
-
   const nextEnabled = Boolean(enabled);
-  const currentEnabled = Boolean(modelsCache[modelName]?.rocket_meta?.auto_hold_at_ignition);
+  const currentEnabled = Boolean(lastState?.auto_hold_at_ignition);
   if (nextEnabled === currentEnabled) {
     setIgnitionAutoHoldText(nextEnabled);
     return;
@@ -1322,28 +1353,21 @@ async function updateIgnitionAutoHoldToggle(enabled) {
   ignitionAutoHoldToggleSaving = true;
   renderRocketConfigCard(lastState || {});
 
-  const draft = normalizeDraft(modelsCache[modelName], modelName);
-  draft.rocket_meta.auto_hold_at_ignition = nextEnabled;
-
   try {
-    const res = await adminFetch("/api/models", {
+    const res = await adminFetch("/api/admin/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
+      body: JSON.stringify({ auto_hold_at_ignition: nextEnabled }),
     });
     const data = await res.json();
     if (!data.success) {
       throw new Error(data.message || "更新点火自动 HOLD 配置失败");
     }
 
-    modelsCache[modelName] = draft;
-    if (lastState && lastState.current_model === modelName) {
+    if (lastState) {
       lastState = {
         ...lastState,
-        rocket_meta: {
-          ...(lastState.rocket_meta || {}),
-          auto_hold_at_ignition: nextEnabled,
-        },
+        auto_hold_at_ignition: nextEnabled,
       };
     }
 

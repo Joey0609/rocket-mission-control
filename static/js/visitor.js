@@ -30,7 +30,7 @@ const nodes = {
   cancelThemeBtn: document.getElementById("cancelThemeBtn"),
 };
 
-const CLOCK_TICK_MS = 20;
+const CLOCK_TICK_MS = 18;
 const TIME_JUMP_SMOOTH_MS = 1000;
 const DEFAULT_MISSION_WINDOW_SECONDS = 3600;
 
