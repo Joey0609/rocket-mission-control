@@ -641,7 +641,7 @@ function renderTelemetryGauges(state, missionSeconds) {
   }
 
   const telemetryState = resolveTelemetryDisplayState(state, missionSeconds);
-  const telemetryEnabled = forceDashboardMode ? true : Boolean(telemetryState.enabled);
+  const telemetryEnabled = Boolean(telemetryState.enabled);
   setTelemetryDashboardVisibility(telemetryEnabled);
   telemetryGaugePanel.setProfile(state?.telemetry_profile || null);
   if (!telemetryEnabled) {

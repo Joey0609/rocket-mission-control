@@ -455,7 +455,6 @@ function buildTelemetryProfile(model, rootDir) {
 
   // ---- 检查是否从 CSV 文件加载遥测数据 ----
   const dataSrc = model?.telemetry_editor?.data_src;
-  console.log(`[INFO] Telemetry data source: ${dataSrc || "N/A"}`);
   if (typeof dataSrc === "string" && dataSrc && rootDir) {
     const csvPath = path.resolve(rootDir, dataSrc);
     console.log(`[INFO] Attempting to load telemetry data from CSV: ${csvPath}`);
@@ -611,6 +610,61 @@ function buildAllDashboardOptionKeys(stageCount = 1) {
     }
   }
   return keys;
+}
+
+function normalizeTelemetryControlMode(rawValue) {
+  return String(rawValue || "").trim().toLowerCase() === "manual" ? "manual" : "auto";
+}
+
+function resolveTelemetryControlState({ dashboardEditor, missionTime, manualEnabled, controlMode }) {
+  const normalizedMode = normalizeTelemetryControlMode(controlMode);
+  const sourceNodes = Array.isArray(dashboardEditor?.nodes) ? dashboardEditor.nodes : [];
+  const autoNodes = sourceNodes
+    .map((node, index) => ({
+      id: String(node?.id || `dashboard_node_${index + 1}`),
+      time: normalizeMissionTime(node?.time, 0),
+      telemetry_auto: String(node?.telemetry_auto || "").trim().toLowerCase(),
+    }))
+    .filter((node) => node.telemetry_auto === "on" || node.telemetry_auto === "off")
+    .sort((a, b) => a.time - b.time || a.id.localeCompare(b.id, "zh-CN"));
+
+  if (autoNodes.length <= 0) {
+    return {
+      control_mode: normalizedMode,
+      enabled: Boolean(manualEnabled),
+      auto_controlled: false,
+      toggle_disabled: normalizedMode !== "manual",
+      active_node: null,
+    };
+  }
+
+  const effectiveMissionTime = normalizeMissionTime(missionTime, 0);
+  let activeNode = null;
+  for (const node of autoNodes) {
+    if (node.time <= effectiveMissionTime) {
+      activeNode = node;
+      continue;
+    }
+    break;
+  }
+
+  if (normalizedMode === "manual") {
+    return {
+      control_mode: normalizedMode,
+      enabled: Boolean(manualEnabled),
+      auto_controlled: false,
+      toggle_disabled: false,
+      active_node: null,
+    };
+  }
+
+  return {
+    control_mode: normalizedMode,
+    enabled: Boolean(activeNode ? activeNode.telemetry_auto === "on" : false),
+    auto_controlled: true,
+    toggle_disabled: true,
+    active_node: activeNode,
+  };
 }
 
 function normalizeDashboardEditor(raw, stageCount = 1) {
@@ -1246,12 +1300,16 @@ function normalizeAppSettings(raw) {
   const theme = String(raw?.default_theme || "lavender-mist").trim() || "lavender-mist";
   const selectedModel = String(raw?.selected_model || "").trim();
   const launchAt = String(raw?.launch_at || "").trim();
+  const telemetryControlMode = String(raw?.telemetry_control_mode || "").trim().toLowerCase() === "manual"
+    ? "manual"
+    : "auto";
   return {
-    version: 3,
+    version: 4,
     default_theme: theme,
     selected_model: selectedModel,
     launch_at: launchAt,
     auto_hold_at_ignition: Boolean(raw?.auto_hold_at_ignition),
+    telemetry_control_mode: telemetryControlMode,
   };
 }
 
@@ -1407,11 +1465,13 @@ class AppSettingsStore {
   }
 
   update(partial) {
-    const allowed = new Set(["default_theme", "selected_model", "launch_at", "auto_hold_at_ignition"]);
+    const allowed = new Set(["default_theme", "selected_model", "launch_at", "auto_hold_at_ignition", "telemetry_control_mode"]);
     for (const [key, value] of Object.entries(partial || {})) {
       if (allowed.has(key)) {
         if (key === "auto_hold_at_ignition") {
           this.settings[key] = Boolean(value);
+        } else if (key === "telemetry_control_mode") {
+          this.settings[key] = String(value || "").trim().toLowerCase() === "manual" ? "manual" : "auto";
         } else {
           this.settings[key] = String(value ?? "").trim();
         }
@@ -1476,6 +1536,7 @@ class MissionEngine {
     this.holdAccumulatedMs = 0;
     this.autoHoldAtIgnitionLatched = false;
     this.telemetryEnabled = true;
+    this.telemetryControlMode = "auto";
     this.telemetryPaused = false;
     this.telemetryPauseMissionMs = 0;
   }
@@ -1553,6 +1614,9 @@ class MissionEngine {
   }
 
   setTelemetryEnabled(nextEnabled) {
+    if (this.telemetryControlMode !== "manual") {
+      return [false, "自动遥测模式下不可手动切换"];
+    }
     const target = Boolean(nextEnabled);
     if (target === this.telemetryEnabled) {
       return [true, target ? "仪表盘已显示" : "仪表盘已隐藏"];
@@ -1567,10 +1631,46 @@ class MissionEngine {
     return this.setTelemetryEnabled(!this.telemetryEnabled);
   }
 
+  getTelemetryResolvedState(now = Date.now()) {
+    const model = this.model;
+    const missionTime = this.missionTimeSec(now);
+    const stageCount = Math.max(1, toInt(model?.rocket_meta?.stage_count, 1));
+    const dashboardEditor = normalizeDashboardEditor(model?.dashboard_editor || {}, stageCount);
+    return resolveTelemetryControlState({
+      dashboardEditor,
+      missionTime,
+      manualEnabled: this.telemetryEnabled,
+      controlMode: this.telemetryControlMode,
+    });
+  }
+
+  setTelemetryControlMode(nextMode) {
+    const targetMode = normalizeTelemetryControlMode(nextMode);
+    if (targetMode === this.telemetryControlMode) {
+      return [true, targetMode === "manual" ? "已切换为手动遥测" : "已切换为自动遥测"];
+    }
+
+    if (targetMode === "manual") {
+      const resolved = this.getTelemetryResolvedState(Date.now());
+      this.telemetryEnabled = Boolean(resolved.enabled);
+    }
+
+    this.telemetryControlMode = targetMode;
+    this.markDirty();
+    return [true, targetMode === "manual" ? "已切换为手动遥测" : "已切换为自动遥测"];
+  }
+
   setTelemetryPaused(nextPaused) {
     const target = Boolean(nextPaused);
     if (target === this.telemetryPaused) {
       return [true, target ? "遥测已中断" : "遥测已恢复"];
+    }
+
+    if (target) {
+      const resolved = this.getTelemetryResolvedState(Date.now());
+      if (!resolved.enabled) {
+        return [false, "当前遥测未开启"];
+      }
     }
 
     this.telemetryPaused = target;
@@ -1859,6 +1959,7 @@ class MissionEngine {
     const timeline = this.timelineSummary(missionTime);
 
     const telemetryProfile = buildTelemetryProfile(model, this.rootDir);
+    const telemetryResolvedState = this.getTelemetryResolvedState(now);
     const dashboardGaugeSpecs = resolveDashboardGaugeSpecs(model, missionTime);
     const unifiedFormatted = this.running
       ? (missionTime >= 0 ? this.fmtPlus(missionTime) : this.fmtMinus(Math.abs(missionTime)))
@@ -1874,6 +1975,11 @@ class MissionEngine {
       is_flying: Boolean(this.ignitionEpoch),
       is_hold: this.holdActive,
       telemetry_enabled: this.telemetryEnabled,
+      telemetry_control_mode: this.telemetryControlMode,
+      telemetry_effective_enabled: Boolean(telemetryResolvedState.enabled),
+      telemetry_auto_controlled: Boolean(telemetryResolvedState.auto_controlled),
+      telemetry_toggle_disabled: Boolean(telemetryResolvedState.toggle_disabled),
+      telemetry_active_node: telemetryResolvedState.active_node || null,
       telemetry_paused: this.telemetryPaused,
       telemetry_pause_mission_ms: this.telemetryPaused
         ? this.telemetryPauseMissionMs
@@ -1939,6 +2045,7 @@ function startServer(options = {}) {
 
   // 从 app-settings.json 读取初始型号
   const settings = appSettings.get();
+  engine.telemetryControlMode = normalizeTelemetryControlMode(settings.telemetry_control_mode);
   let initialModel = settings.selected_model || modelNames[0] || "";
   if (initialModel && store.get(initialModel)) {
     engine.selectModel(initialModel);
@@ -2347,10 +2454,38 @@ function startServer(options = {}) {
       return;
     }
     broadcastState();
+    const resolved = engine.getTelemetryResolvedState(Date.now());
     res.json({
       success: true,
       message,
       telemetry_enabled: engine.telemetryEnabled,
+      telemetry_control_mode: engine.telemetryControlMode,
+      telemetry_effective_enabled: Boolean(resolved.enabled),
+      telemetry_auto_controlled: Boolean(resolved.auto_controlled),
+      telemetry_paused: engine.telemetryPaused,
+      telemetry_pause_mission_ms: engine.telemetryPaused
+        ? engine.telemetryPauseMissionMs
+        : 0,
+    });
+  });
+
+  app.post("/api/telemetry/control_mode", requireAdminApi, (req, res) => {
+    const payloadMode = req.body?.mode;
+    const [ok, message] = engine.setTelemetryControlMode(payloadMode);
+    if (!ok) {
+      res.status(400).json({ success: false, message });
+      return;
+    }
+    appSettings.update({ telemetry_control_mode: engine.telemetryControlMode });
+    broadcastState();
+    const resolved = engine.getTelemetryResolvedState(Date.now());
+    res.json({
+      success: true,
+      message,
+      telemetry_enabled: engine.telemetryEnabled,
+      telemetry_control_mode: engine.telemetryControlMode,
+      telemetry_effective_enabled: Boolean(resolved.enabled),
+      telemetry_auto_controlled: Boolean(resolved.auto_controlled),
       telemetry_paused: engine.telemetryPaused,
       telemetry_pause_mission_ms: engine.telemetryPaused
         ? engine.telemetryPauseMissionMs
@@ -2368,10 +2503,14 @@ function startServer(options = {}) {
       return;
     }
     broadcastState();
+    const resolved = engine.getTelemetryResolvedState(Date.now());
     res.json({
       success: true,
       message,
       telemetry_enabled: engine.telemetryEnabled,
+      telemetry_control_mode: engine.telemetryControlMode,
+      telemetry_effective_enabled: Boolean(resolved.enabled),
+      telemetry_auto_controlled: Boolean(resolved.auto_controlled),
       telemetry_paused: engine.telemetryPaused,
       telemetry_pause_mission_ms: engine.telemetryPaused
         ? engine.telemetryPauseMissionMs

@@ -268,7 +268,16 @@ body {
 }
 
 .launch-main-row #launchAt {
-  grid-column: 1 / 5;
+  grid-column: 1 / 4;
+  min-width: 0;
+}
+
+#telemetryControlModeBtn {
+  grid-column: 4;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  padding-inline: 0;
 }
 
 #telemetryToggleBtn,
@@ -293,6 +302,12 @@ body {
   border-color: color-mix(in srgb, #79d6ad 55%, var(--line));
 }
 
+#telemetryToggleBtn:disabled,
+#telemetryControlModeBtn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 #telemetryPauseBtn.active {
   background: linear-gradient(135deg, #f1c98a, #d79a41);
   border-color: color-mix(in srgb, #f3d39d 58%, var(--line));
@@ -306,7 +321,6 @@ body {
 
 #holdBtn {
   grid-column: 7;
-  justify-self: end;
 }
 
 #holdBtn.warning {

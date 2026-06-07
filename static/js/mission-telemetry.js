@@ -13,8 +13,13 @@
     return String(rawValue || "").trim().toLowerCase();
   }
 
+  function normalizeTelemetryControlMode(rawValue) {
+    return String(rawValue || "").trim().toLowerCase() === "manual" ? "manual" : "auto";
+  }
+
   function resolveTelemetryAutoState(state, missionSeconds) {
     const manualEnabled = Boolean(state?.telemetry_enabled);
+    const controlMode = normalizeTelemetryControlMode(state?.telemetry_control_mode);
     const dashboardEditor = state?.dashboard_editor && typeof state.dashboard_editor === "object"
       ? state.dashboard_editor
       : null;
@@ -32,6 +37,8 @@
       return {
         enabled: manualEnabled,
         autoControlled: false,
+        controlMode,
+        toggleDisabled: controlMode !== "manual",
         activeNode: null,
       };
     }
@@ -48,9 +55,22 @@
       break;
     }
 
+    const autoEnabled = activeNode ? activeNode.telemetryAuto === "on" : false;
+    if (controlMode === "manual") {
+      return {
+        enabled: manualEnabled,
+        autoControlled: false,
+        controlMode,
+        toggleDisabled: false,
+        activeNode: null,
+      };
+    }
+
     return {
-      enabled: activeNode ? activeNode.telemetryAuto === "on" : false,
+      enabled: autoEnabled,
       autoControlled: true,
+      controlMode,
+      toggleDisabled: true,
       activeNode,
     };
   }
