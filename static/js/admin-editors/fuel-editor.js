@@ -55,7 +55,7 @@ function interpolate(points, time) {
 }
 
 function resolveChannelPoints(draft, channelId) {
-  const nodeTimes = Array.from(new Set(fuelNodes.map((node) => toInt(node.time, 0)))).sort((a, b) => a - b);
+  const nodeTimes = Array.from(new Set(fuelNodes.map((node) => normalizeMissionTime(node.time, 0)))).sort((a, b) => a - b);
   if (nodeTimes.length === 0) {
     return [{ time: 0, value: 100 }, { time: 60, value: 100 }];
   }
@@ -855,7 +855,7 @@ function normalizeTelemetryCurveArray(rawPoints, fallback = 0) {
   }
   return rawPoints
     .map((point) => ({
-      time: toInt(point?.time, 0),
+      time: normalizeMissionTime(point?.time, 0),
       value: toFloat(point?.value, fallback),
     }))
     .sort((a, b) => a.time - b.time);
@@ -876,7 +876,7 @@ function buildTelemetryNodes(draft) {
     .map((event) => ({
       key: `event:${event.id}`,
       id: String(event.id || ""),
-      time: toInt(event.time, 0),
+      time: normalizeMissionTime(event.time, 0),
       name: String(event.name || "未命名事件"),
     }))
     .filter((event) => event.time >= 0)

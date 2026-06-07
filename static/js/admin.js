@@ -198,6 +198,11 @@ function toInt(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function normalizeMissionTime(value, fallback = 0) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : fallback;
+}
+
 function clampPercent(value, fallback = -1) {
   const parsed = toInt(value, fallback);
   if (parsed < 0) {
@@ -281,7 +286,7 @@ function formatSignedClock(msValue) {
 
 function formatMissionTimeTag(seconds) {
   const sign = seconds < 0 ? "-" : "+";
-  const absSeconds = Math.abs(Math.round(seconds));
+  const absSeconds = Math.abs(Math.round(normalizeMissionTime(seconds, 0)));
   const hours = Math.floor(absSeconds / 3600);
   const minutes = Math.floor((absSeconds % 3600) / 60);
   const secs = absSeconds % 60;
@@ -815,7 +820,7 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
           const telemetryAuto = String(node?.telemetry_auto || "").trim().toLowerCase();
           return {
             id: String(node?.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
-            time: toInt(node?.time, 0),
+            time: normalizeMissionTime(node?.time, 0),
             name: String(node?.name || "自定义").trim() || "自定义",
             selected: (() => {
               const slots = normalizeSelectionSlots(node?.selected);
@@ -874,8 +879,8 @@ function normalizeDraft(payload, selectedModelName) {
     ? payload.stages.map((item) => ({
       id: String(item.id || "").trim() || `stg_${Date.now()}`,
       name: String(item.name || ""),
-      start_time: toInt(item.start_time, 0),
-      end_time: toInt(item.end_time, toInt(item.start_time, 0)),
+      start_time: normalizeMissionTime(item.start_time, 0),
+      end_time: normalizeMissionTime(item.end_time, item.start_time),
       description: String(item.description || ""),
     }))
     : [];
@@ -884,7 +889,7 @@ function normalizeDraft(payload, selectedModelName) {
     ? payload.events.map((item) => ({
       id: String(item.id || "").trim() || `evt_${Date.now()}`,
       name: String(item.name || ""),
-      time: toInt(item.time, 0),
+      time: normalizeMissionTime(item.time, 0),
       hidden: Boolean(item.hidden),
       observation: Boolean(item.observation),
       description: String(item.description || ""),
@@ -1081,7 +1086,7 @@ function renderObservationButtons(state) {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = point.name;
-    const t = toInt(point.time, 0);
+    const t = normalizeMissionTime(point.time, 0);
     btn.title = `${point.description || ""} / 对齐 T${t >= 0 ? "+" : ""}${t}`;
     btn.addEventListener("click", async () => {
       const res = await adminFetch("/api/observation", {

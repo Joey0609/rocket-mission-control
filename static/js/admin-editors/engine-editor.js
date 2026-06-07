@@ -16,7 +16,7 @@ function buildEngineListNodes(draft) {
     .map((event, index) => ({
       key: `event:${String(event?.id || `evt_${index + 1}`)}`,
       id: String(event?.id || `evt_${index + 1}`),
-      time: toInt(event?.time, 0),
+      time: normalizeMissionTime(event?.time, 0),
       name: String(event?.name || "未命名事件"),
     }))
     .sort((a, b) => (a.time - b.time) || a.name.localeCompare(b.name, "zh-CN"));

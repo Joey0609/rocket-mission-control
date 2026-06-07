@@ -127,6 +127,18 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  function normalizeMissionTime(value, fallback = 0) {
+    return Math.round(toNumber(value, fallback) * 100) / 100;
+  }
+
+  function missionTimesEqual(a, b) {
+    return Math.abs(normalizeMissionTime(a, 0) - normalizeMissionTime(b, 0)) < 0.005;
+  }
+
+  function formatMissionTimeInput(value) {
+    return `${normalizeMissionTime(value, 0)}`;
+  }
+
   function clampInt(value, min, max, fallback) {
     const parsed = toInt(value, fallback);
     return Math.max(min, Math.min(max, parsed));
@@ -191,7 +203,7 @@
       oldOrder.set(String(row?.id || `dashboard_node_${index + 1}`), index);
     });
 
-    rows.sort((a, b) => toInt(a?.time, 0) - toInt(b?.time, 0)
+    rows.sort((a, b) => normalizeMissionTime(a?.time, 0) - normalizeMissionTime(b?.time, 0)
       || String(a?.name || "").localeCompare(String(b?.name || ""), "zh-CN"));
 
     const moveMap = new Map();
@@ -248,7 +260,7 @@
   }
 
   function buildDashboardNodeLabel(time, events) {
-    const matchedEvent = (Array.isArray(events) ? events : []).find((event) => toInt(event?.time, Number.NaN) === toInt(time, 0));
+    const matchedEvent = (Array.isArray(events) ? events : []).find((event) => missionTimesEqual(event?.time, time));
     if (matchedEvent) {
       return String(matchedEvent.name || "未命名节点");
     }
@@ -258,7 +270,7 @@
 
   function normalizeDashboardNodeDraft(rawNode, index, allOptionKeys, events) {
     const source = rawNode && typeof rawNode === "object" ? rawNode : {};
-    const time = toInt(source.time, 0);
+    const time = normalizeMissionTime(source.time, 0);
     const selected = normalizeDashboardSelectionList(source.selected, allOptionKeys);
     const name = buildDashboardNodeLabel(time, events);
     const telemetryAuto = String(source.telemetry_auto || "").trim().toLowerCase();
@@ -328,7 +340,7 @@
         const matchedEvent = (Array.isArray(events) ? events : []).find((event) => String(event?.id || "") === eventId);
         nodes.push({
           id: String(nodeKey),
-          time: matchedEvent ? toInt(matchedEvent.time, 0) : toInt(config.time, 0),
+          time: matchedEvent ? normalizeMissionTime(matchedEvent.time, 0) : normalizeMissionTime(config.time, 0),
           name: matchedEvent ? String(matchedEvent.name || "未命名节点") : String(config.name || config.label || eventId || "自定义"),
           selected,
         });
@@ -357,7 +369,7 @@
         const telemetryAuto = String(node.telemetry_auto || "").trim().toLowerCase();
         return {
           id: String(node.id || "").trim(),
-          time: toInt(node.time, 0),
+          time: normalizeMissionTime(node.time, 0),
           name: String(node.name || "自定义").trim() || "自定义",
           selected: normalizeDashboardSelectionList(node.selected, allOptionKeys),
           telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
@@ -407,7 +419,7 @@
       .map((event, index) => ({
         id: String(event?.id || `evt_${index + 1}`),
         name: String(event?.name || "未命名事件"),
-        time: toInt(event?.time, 0),
+        time: normalizeMissionTime(event?.time, 0),
       }))
       .sort((a, b) => a.time - b.time);
 
@@ -439,7 +451,7 @@
       return selected.some(Boolean) ? selected : defaultSelection;
     };
 
-    const matchedEventByTime = (time) => events.find((event) => toInt(event.time, 0) === toInt(time, 0)) || null;
+    const matchedEventByTime = (time) => events.find((event) => missionTimesEqual(event.time, time)) || null;
     const matchedEventById = (eventId) => events.find((event) => String(event.id || "") === String(eventId || "")) || null;
 
     const updateRow = (rowIndex, patch) => {
@@ -458,7 +470,7 @@
     const addRow = () => {
       const nextRows = Array.isArray(editor.nodes) ? editor.nodes.slice() : [];
       const nextTime = nextRows.length > 0
-        ? Math.max(0, toInt(nextRows[nextRows.length - 1]?.time, 0) + 1)
+        ? normalizeMissionTime(Math.max(0, normalizeMissionTime(nextRows[nextRows.length - 1]?.time, 0) + 0.1), 0)
         : 0;
       nextRows.push({
         id: `dashboard_node_${Date.now()}`,
@@ -519,12 +531,12 @@
         select.appendChild(new Option(label, String(event.id || "")));
       });
 
-      const currentMatchedEvent = matchedEventByTime(toInt(row.time, 0));
+      const currentMatchedEvent = matchedEventByTime(normalizeMissionTime(row.time, 0));
       select.value = currentMatchedEvent ? String(currentMatchedEvent.id || "") : "";
 
       select.addEventListener("change", () => {
         const pickedEvent = matchedEventById(select.value);
-        const nextTime = pickedEvent ? toInt(pickedEvent.time, 0) : toInt(timeInput.value, 0);
+        const nextTime = pickedEvent ? normalizeMissionTime(pickedEvent.time, 0) : normalizeMissionTime(timeInput.value, 0);
         const nextName = pickedEvent ? String(pickedEvent.name || "未命名事件") : "自定义";
 
         timeInput.value = String(nextTime);
@@ -589,11 +601,12 @@
       const timeInput = document.createElement("input");
       timeInput.type = "number";
       timeInput.className = "dashboard-time-input";
-      timeInput.value = String(toInt(row.time, 0));
+      timeInput.step = "0.1";
+      timeInput.value = formatMissionTimeInput(row.time);
       const nodeSelect = renderNodeSelect(row, rowIndex, timeInput);
       tdNode.appendChild(nodeSelect);
       timeInput.addEventListener("input", () => {
-        const nextTime = toInt(timeInput.value, 0);
+        const nextTime = normalizeMissionTime(timeInput.value, 0);
         const nextMatchedEvent = matchedEventByTime(nextTime);
         const nextName = nextMatchedEvent ? nextMatchedEvent.name : "自定义";
         updateRow(rowIndex, {

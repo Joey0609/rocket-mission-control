@@ -14,7 +14,7 @@ function resolveTelemetrySplitMode(draft) {
   const sortedEvents = (draft?.events || [])
     .map((event) => ({
       name: String(event.name || ""),
-      time: toInt(event.time, 0),
+      time: normalizeMissionTime(event.time, 0),
     }))
     .sort((a, b) => a.time - b.time);
 
@@ -37,7 +37,7 @@ function resolveTelemetrySplitMode(draft) {
 }
 
 function shouldSplitTelemetryAtTime(time) {
-  return telemetrySplitMode.enabled && toInt(time, 0) > telemetrySplitMode.separationTime;
+  return telemetrySplitMode.enabled && normalizeMissionTime(time, 0) > telemetrySplitMode.separationTime;
 }
 
 function normalizeEulerAngles(rawValue, fallback = 0) {

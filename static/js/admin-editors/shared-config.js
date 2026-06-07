@@ -78,8 +78,28 @@ function formatSignedTime(value) {
   if (!Number.isFinite(time)) {
     return "T+0";
   }
-  const rounded = Math.round(time * 100) / 100;
+  const rounded = normalizeMissionTime(time, 0);
   return `T${rounded >= 0 ? "+" : ""}${formatFloat(rounded)}`;
+}
+
+function normalizeMissionTime(value, fallback = 0) {
+  return Math.round(toFloat(value, fallback) * 100) / 100;
+}
+
+function missionTimesEqual(a, b) {
+  return Math.abs(normalizeMissionTime(a, 0) - normalizeMissionTime(b, 0)) < 0.005;
+}
+
+function formatMissionTimeInput(value) {
+  return formatFloat(normalizeMissionTime(value, 0));
+}
+
+function parseObservationTime(observation) {
+  const fallbackCountdown = Math.max(0, normalizeMissionTime(observation?.new_countdown, 0));
+  if (Object.prototype.hasOwnProperty.call(observation || {}, "time")) {
+    return normalizeMissionTime(observation?.time, -fallbackCountdown);
+  }
+  return normalizeMissionTime(-fallbackCountdown, 0);
 }
 
 function shortenLabel(label, maxLength = 12) {
@@ -259,9 +279,9 @@ function validateRawDraft() {
 
 function getRowSortTime(row) {
   if (row.kind === "stage") {
-    return toInt(row.start_time, 0);
+    return normalizeMissionTime(row.start_time, 0);
   }
-  return toInt(row.time, 0);
+  return normalizeMissionTime(row.time, 0);
 }
 
 function sortVisualRows() {
@@ -358,7 +378,7 @@ function buildVisualEventRow(seed = {}, fallbackIndex = 0) {
     name: String(seed?.name || ""),
     start_time: 0,
     end_time: 0,
-    time: toInt(seed?.time, 0),
+    time: normalizeMissionTime(seed?.time, 0),
     description: String(seed?.description || ""),
     isObservation: Boolean(seed?.observation),
     hidden: Boolean(seed?.hidden),
@@ -381,7 +401,7 @@ function mergeObservationRowsIntoEvents(rows, observations = []) {
     }
 
     if (!matched && obsName) {
-      matched = eventRows.find((row) => String(row?.name || "").trim() === obsName && toInt(row?.time, 0) === obsTime) || null;
+      matched = eventRows.find((row) => String(row?.name || "").trim() === obsName && missionTimesEqual(row?.time, obsTime)) || null;
     }
 
     if (matched) {
@@ -402,8 +422,8 @@ function draftToVisualRows(draft) {
       kind: "stage",
       id: stg.id,
       name: stg.name,
-      start_time: toInt(stg.start_time, 0),
-      end_time: toInt(stg.end_time, toInt(stg.start_time, 0)),
+      start_time: normalizeMissionTime(stg.start_time, 0),
+      end_time: normalizeMissionTime(stg.end_time, stg.start_time),
       time: 0,
       description: stg.description || "",
       isObservation: false,
@@ -438,8 +458,8 @@ function visualRowsToDraft() {
     normalizeVisualEventFlags(row);
 
     if (row.kind === "stage") {
-      const start = toInt(row.start_time, 0);
-      const end = Math.max(start, toInt(row.end_time, start));
+      const start = normalizeMissionTime(row.start_time, 0);
+      const end = Math.max(start, normalizeMissionTime(row.end_time, start));
       draft.stages.push({
         id: String(row.id || "").trim() || `stg_${Date.now()}`,
         name: String(row.name || "未命名阶段"),
@@ -454,7 +474,7 @@ function visualRowsToDraft() {
       continue;
     }
 
-    const time = toInt(row.time, 0);
+    const time = normalizeMissionTime(row.time, 0);
     const isHidden = Boolean(row.isHidden);
     const eventId = String(row.id || "").trim() || `evt_${Date.now()}`;
     const eventName = String(row.name || "未命名事件");
@@ -656,7 +676,8 @@ function renderVisualRow(row, index, moveMap = null) {
     const startInput = document.createElement("input");
     startInput.type = "number";
     startInput.className = "row-time";
-    startInput.value = String(toInt(row.start_time, 0));
+    startInput.step = "0.1";
+    startInput.value = formatMissionTimeInput(row.start_time);
     startInput.placeholder = "开始";
     startInput.addEventListener("focus", () => {
       pushVisualUndo();
@@ -664,8 +685,8 @@ function renderVisualRow(row, index, moveMap = null) {
     });
     startInput.addEventListener("blur", registerVisualInputBlur);
     startInput.addEventListener("input", () => {
-      row.start_time = toInt(startInput.value, 0);
-      if (toInt(row.end_time, row.start_time) < row.start_time) {
+      row.start_time = normalizeMissionTime(startInput.value, 0);
+      if (normalizeMissionTime(row.end_time, row.start_time) < row.start_time) {
         row.end_time = row.start_time;
       }
       syncRawFromVisual();
@@ -675,7 +696,8 @@ function renderVisualRow(row, index, moveMap = null) {
     const endInput = document.createElement("input");
     endInput.type = "number";
     endInput.className = "row-time";
-    endInput.value = String(toInt(row.end_time, toInt(row.start_time, 0)));
+    endInput.step = "0.1";
+    endInput.value = formatMissionTimeInput(normalizeMissionTime(row.end_time, row.start_time));
     endInput.placeholder = "结束";
     endInput.addEventListener("focus", () => {
       pushVisualUndo();
@@ -683,7 +705,7 @@ function renderVisualRow(row, index, moveMap = null) {
     });
     endInput.addEventListener("blur", registerVisualInputBlur);
     endInput.addEventListener("input", () => {
-      row.end_time = toInt(endInput.value, toInt(row.start_time, 0));
+      row.end_time = normalizeMissionTime(endInput.value, row.start_time);
       syncRawFromVisual();
     });
 
@@ -693,7 +715,8 @@ function renderVisualRow(row, index, moveMap = null) {
     const timeInput = document.createElement("input");
     timeInput.type = "number";
     timeInput.className = "row-time";
-    timeInput.value = String(toInt(row.time, 0));
+    timeInput.step = "0.1";
+    timeInput.value = formatMissionTimeInput(row.time);
     timeInput.placeholder = "时间";
     timeInput.addEventListener("focus", () => {
       pushVisualUndo();
@@ -701,7 +724,7 @@ function renderVisualRow(row, index, moveMap = null) {
     });
     timeInput.addEventListener("blur", registerVisualInputBlur);
     timeInput.addEventListener("input", () => {
-      row.time = toInt(timeInput.value, 0);
+      row.time = normalizeMissionTime(timeInput.value, 0);
       syncRawFromVisual();
       scheduleVisualSortRerender();
     });
@@ -1247,7 +1270,7 @@ function buildFuelNodes(draft) {
     const stageName = String(stage?.name || `第${index + 1}级`);
     nodes.push({
       key: `stage:${stageId}:start`,
-      time: toInt(stage?.start_time, toInt(stage?.time, 0)),
+      time: normalizeMissionTime(stage?.start_time, stage?.time),
       name: `${stageName} 开始`,
     });
   });
@@ -1257,7 +1280,7 @@ function buildFuelNodes(draft) {
     const eventId = String(event?.id || `evt_${index + 1}`);
     nodes.push({
       key: `event:${eventId}`,
-      time: toInt(event?.time, 0),
+      time: normalizeMissionTime(event?.time, 0),
       name: String(event?.name || "未命名事件"),
     });
   });
@@ -1267,7 +1290,7 @@ function buildFuelNodes(draft) {
     const obsId = String(observation?.id || "");
     nodes.push({
       key: `observation:${obsId}`,
-      time: toInt(observation?.time, 0),
+      time: normalizeMissionTime(observation?.time, 0),
       name: String(observation?.name || "未命名观察点"),
     });
   });
@@ -1276,7 +1299,7 @@ function buildFuelNodes(draft) {
 
   if (nodes.length === 0) {
     nodes.push({ key: "event:__fuel_t0__", time: 0, name: "T0" });
-  } else if (!nodes.some((node) => node.time === 0)) {
+  } else if (!nodes.some((node) => missionTimesEqual(node.time, 0))) {
     nodes.push({ key: "event:__fuel_t0__", time: 0, name: "T0" });
     nodes.sort((a, b) => (a.time - b.time) || a.name.localeCompare(b.name, "zh-CN"));
   }

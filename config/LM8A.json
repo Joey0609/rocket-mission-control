@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "model_id": "LM8A",
   "name": "长征八号甲",
   "stages": [
@@ -51,18 +51,23 @@
       "id": "evt_l8_start_fill",
       "name": "开始加注",
       "time": -18000,
+      "hidden": false,
+      "observation": false,
       "description": "推进剂加注开始"
     },
     {
       "id": "evt_l8_stop_fill",
       "name": "停止补加",
       "time": -160,
+      "hidden": false,
+      "observation": false,
       "description": "进入发射前末段"
     },
     {
       "id": "obs_l8_pressurize",
       "name": "停止增压",
       "time": -80,
+      "hidden": false,
       "observation": true,
       "description": "卸压阀关闭，停止冒出白气"
     },
@@ -70,6 +75,7 @@
       "id": "obs_l8_disconnect",
       "name": "补加口脱离",
       "time": -60,
+      "hidden": false,
       "observation": true,
       "description": "地面补加口脱离"
     },
@@ -77,6 +83,7 @@
       "id": "obs_l8_arm",
       "name": "摆杆摆开",
       "time": -20,
+      "hidden": false,
       "observation": true,
       "description": "摆杆摆开确认"
     },
@@ -84,18 +91,32 @@
       "id": "evt_l8_ignition",
       "name": "点火",
       "time": 0,
+      "hidden": false,
+      "observation": false,
       "description": "发动机点火"
+    },
+    {
+      "id": "item_1780733589963",
+      "name": "点火2",
+      "time": 0.3,
+      "hidden": true,
+      "observation": false,
+      "description": "点火2"
     },
     {
       "id": "evt_l8_pitch",
       "name": "程序转弯",
       "time": 10,
+      "hidden": false,
+      "observation": false,
       "description": "轨迹修正"
     },
     {
       "id": "evt_l8_sep",
       "name": "助推器分离",
       "time": 80,
+      "hidden": false,
+      "observation": false,
       "description": "助推器分离完成"
     }
   ],
@@ -146,6 +167,7 @@
   },
   "telemetry_editor": {
     "version": 1,
+    "data_src": null,
     "node_values": {},
     "curves": {
       "altitude_km": {
@@ -163,18 +185,664 @@
       "angular_velocity_dps": {
         "stage1": [],
         "upper": []
+      },
+      "euler_roll_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_pitch_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_yaw_deg": {
+        "stage1": [],
+        "upper": []
       }
     }
   },
   "engine_layout": {
-    "version": 2,
-    "presets": [
-      {
-        "id": "preset_default",
-        "name": "默认预设",
-        "engine_count": 4
+    "version": 4,
+    "node_configs": {
+      "event:obs_l8_arm": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l8_ignition": {
+        "preset_id": "cz7a_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7a_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1780733589963": {
+        "preset_id": "cz7a_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          },
+          {
+            "id": 4,
+            "enabled": true
+          },
+          {
+            "id": 5,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7a_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              },
+              {
+                "id": 4,
+                "enabled": true
+              },
+              {
+                "id": 5,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l8_pitch": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l8_sep": {
+        "preset_id": "falcon9_stage1",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          },
+          {
+            "id": 4,
+            "enabled": false
+          },
+          {
+            "id": 5,
+            "enabled": false
+          },
+          {
+            "id": 6,
+            "enabled": false
+          },
+          {
+            "id": 7,
+            "enabled": false
+          },
+          {
+            "id": 8,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "falcon9_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              },
+              {
+                "id": 4,
+                "enabled": false
+              },
+              {
+                "id": 5,
+                "enabled": false
+              },
+              {
+                "id": 6,
+                "enabled": false
+              },
+              {
+                "id": 7,
+                "enabled": false
+              },
+              {
+                "id": 8,
+                "enabled": false
+              }
+            ]
+          }
+        ]
       }
-    ],
-    "node_configs": {}
+    }
+  },
+  "dashboard_editor": {
+    "version": 2,
+    "nodes": [
+      {
+        "id": "dashboard_node_1780733643530",
+        "time": -18000,
+        "name": "开始加注",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": ""
+      },
+      {
+        "id": "dashboard_node_1780733648321",
+        "time": 0,
+        "name": "点火",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "off"
+      },
+      {
+        "id": "dashboard_node_1780816878840",
+        "time": 1,
+        "name": "自定义",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "on"
+      },
+      {
+        "id": "dashboard_node_1780816879514",
+        "time": 800,
+        "name": "自定义",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "on"
+      }
+    ]
   }
 }

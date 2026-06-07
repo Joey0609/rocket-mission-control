@@ -23,6 +23,14 @@ function toFixed2(value, fallback = 0) {
   return Math.round(parsed * 100) / 100;
 }
 
+function normalizeMissionTime(value, fallback = 0) {
+  return toFixed2(value, fallback);
+}
+
+function missionTimesEqual(a, b) {
+  return Math.abs(normalizeMissionTime(a, 0) - normalizeMissionTime(b, 0)) < 0.005;
+}
+
 function newId(prefix) {
   return `${prefix}_${Math.random().toString(16).slice(2, 10)}`;
 }
@@ -224,7 +232,7 @@ function normalizeFuelEditor(raw) {
       continue;
     }
     curves[channelId] = points.map((p) => ({
-      time: toInt(p?.time, 0),
+      time: normalizeMissionTime(p?.time, 0),
       value: Math.max(0, Math.min(100, toInt(p?.value, 0))),
     })).sort((a, b) => a.time - b.time);
   }
@@ -347,7 +355,7 @@ function resolveTelemetrySplitMode(model) {
     ? model.events
       .map((event) => ({
         name: String(event?.name || ""),
-        time: toInt(event?.time, 0),
+        time: normalizeMissionTime(event?.time, 0),
       }))
       .sort((a, b) => a.time - b.time)
     : [];
@@ -746,7 +754,7 @@ function resolveDashboardGaugeSpecs(model, missionTime) {
   }
 
   let selectedRaw = [];
-  let seedKey = `time:${Math.max(0, toInt(missionTime, 0))}`;
+  let seedKey = `time:${normalizeMissionTime(missionTime, 0).toFixed(2)}`;
   if (Array.isArray(dashboardEditor.nodes) && dashboardEditor.nodes.length > 0) {
     const activeNode = dashboardEditor.nodes
       .slice()
@@ -1600,7 +1608,7 @@ class MissionEngine {
 
   launchIn(seconds) {
     const now = Date.now();
-    this.launchEpoch = now + Math.max(0, toInt(seconds, 0)) * 1000;
+    this.launchEpoch = now + Math.max(0, normalizeMissionTime(seconds, 0)) * 1000;
     this.ignitionEpoch = null;
     this.running = true;
     this.runtimeCountdowns = [];
@@ -1726,10 +1734,7 @@ class MissionEngine {
 
   missionTimeSec(now) {
     const ms = this.missionTimeMs(now);
-    if (ms >= 0) {
-      return Math.floor(ms / 1000);
-    }
-    return Math.ceil(ms / 1000);
+    return normalizeMissionTime(ms / 1000, 0);
   }
 
   missionTimeMs(now) {
@@ -1915,7 +1920,7 @@ class MissionEngine {
 function startServer(options = {}) {
   const rootDir = options.rootDir || path.resolve(__dirname, "..");
   const host = options.host || "0.0.0.0";
-  const port = options.port || 5000;
+  const port = options.port || 7012;
   const sessionCookieName = "mc_admin_session";
   const sessionSecret = String(options.sessionSecret || process.env.SESSION_SECRET || "mission-control-secret");
   const adminUsername = String(options.adminUsername || process.env.ADMIN_USERNAME || "admin");
@@ -2212,7 +2217,7 @@ function startServer(options = {}) {
 
   // 调试：设置发射时间
   app.get("/api/debug/launch", (req, res) => {
-    const seconds = Math.max(0, toInt(req.query.seconds, 10));
+    const seconds = Math.max(0, normalizeMissionTime(req.query.seconds, 10));
     engine.launchIn(seconds);
     broadcastState();
     res.json({ success: true, message: `发射时间设为 ${seconds} 秒后`, launch_in_seconds: seconds });
@@ -2220,7 +2225,7 @@ function startServer(options = {}) {
 
   // 调试：观察 T=1 时的仪表盘规格
   app.get("/api/debug/dashboard_at", (req, res) => {
-    const t = toInt(req.query.t, 1);
+    const t = normalizeMissionTime(req.query.t, 1);
     const model = engine.model;
     const specs = model ? resolveDashboardGaugeSpecs(model, t) : [];
     const summary = specs.map((s) => `${s.id}: stage=${s.stage_index} ${s.type} ${s.label}`);
@@ -2299,7 +2304,7 @@ function startServer(options = {}) {
     const launchAt = req.body?.launch_at;
 
     if (launchIn !== undefined) {
-      engine.launchIn(toInt(launchIn, 0));
+      engine.launchIn(normalizeMissionTime(launchIn, 0));
       broadcastState();
       res.json({ success: true });
       return;

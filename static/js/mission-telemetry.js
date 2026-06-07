@@ -4,6 +4,11 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  function normalizeMissionTime(value, fallback = 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : fallback;
+  }
+
   function normalizeTelemetryAuto(rawValue) {
     return String(rawValue || "").trim().toLowerCase();
   }
@@ -17,7 +22,7 @@
     const autoNodes = rawNodes
       .map((node, index) => ({
         id: String(node?.id || `dashboard_node_${index + 1}`),
-        time: toInt(node?.time, 0),
+        time: normalizeMissionTime(node?.time, 0),
         telemetryAuto: normalizeTelemetryAuto(node?.telemetry_auto),
       }))
       .filter((node) => node.telemetryAuto === "on" || node.telemetryAuto === "off")
