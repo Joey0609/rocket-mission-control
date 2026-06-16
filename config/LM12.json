@@ -1,0 +1,1193 @@
+{
+  "version": 3,
+  "model_id": "LM12",
+  "name": "长征十二号",
+  "stages": [
+    {
+      "id": "stg_l12_fuel",
+      "name": "加注中",
+      "start_time": -18000,
+      "end_time": -430,
+      "description": "正在给火箭加注燃料"
+    },
+    {
+      "id": "stg_l12_stop_fill",
+      "name": "发射前准备",
+      "start_time": -430,
+      "end_time": 0,
+      "description": "推进剂补加结束"
+    },
+    {
+      "id": "stg_l12_liftoff",
+      "name": "一级飞行段",
+      "start_time": 0,
+      "end_time": 198,
+      "description": "发动机点火并离架"
+    },
+    {
+      "id": "item_1781620501467",
+      "name": "二级飞行段",
+      "start_time": 198,
+      "end_time": 450,
+      "description": "二级飞行段"
+    },
+    {
+      "id": "item_1781620514737",
+      "name": "卫星独立运行段",
+      "start_time": 450,
+      "end_time": 9999,
+      "description": "卫星独立运行段"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt_l12_start_fill",
+      "name": "开始加注",
+      "time": -18000,
+      "hidden": false,
+      "observation": false,
+      "description": "推进剂加注开始"
+    },
+    {
+      "id": "obs_l12_pressurize",
+      "name": "关闭泄压阀",
+      "time": -430,
+      "hidden": false,
+      "observation": true,
+      "description": "卸压阀关闭，停止冒出白气"
+    },
+    {
+      "id": "evt_l12_ignition",
+      "name": "点火",
+      "time": 0,
+      "hidden": false,
+      "observation": true,
+      "description": "发动机点火"
+    },
+    {
+      "id": "item_1781620806627",
+      "name": "起飞",
+      "time": 3,
+      "hidden": false,
+      "observation": false,
+      "description": "起飞"
+    },
+    {
+      "id": "stg_l12_pitch",
+      "name": "程序转弯",
+      "time": 10,
+      "hidden": false,
+      "observation": false,
+      "description": "进入程序转弯姿态"
+    },
+    {
+      "id": "item_1781620544704",
+      "name": "MAXQ",
+      "time": 65,
+      "hidden": false,
+      "observation": false,
+      "description": "火箭穿过最大动压点"
+    },
+    {
+      "id": "item_1781620739243",
+      "name": "一级关机",
+      "time": 196,
+      "hidden": true,
+      "observation": false,
+      "description": "一级关机"
+    },
+    {
+      "id": "evt_l12_sep",
+      "name": "一二级分离",
+      "time": 198,
+      "hidden": false,
+      "observation": false,
+      "description": "一二级分离完成"
+    },
+    {
+      "id": "item_1781620758817",
+      "name": "二级开机",
+      "time": 202,
+      "hidden": true,
+      "observation": false,
+      "description": "二极开机"
+    },
+    {
+      "id": "item_1781620413132",
+      "name": "抛整流罩",
+      "time": 205,
+      "hidden": false,
+      "observation": false,
+      "description": "抛整流罩"
+    },
+    {
+      "id": "item_1781620817463",
+      "name": "二级关机",
+      "time": 448,
+      "hidden": true,
+      "observation": false,
+      "description": "二级关机"
+    },
+    {
+      "id": "item_1781620435629",
+      "name": "星箭分离",
+      "time": 450,
+      "hidden": false,
+      "observation": false,
+      "description": "星箭分离"
+    }
+  ],
+  "rocket_meta": {
+    "mission_name": "",
+    "payload": "未知载荷",
+    "recovery_capable": false,
+    "recovery_enabled": false,
+    "stage_count": 2,
+    "stages": [
+      {
+        "stage_index": 1,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      },
+      {
+        "stage_index": 2,
+        "fuels": [
+          {
+            "phase": "液体",
+            "oxidizer": "液氧",
+            "fuel": "煤油"
+          }
+        ]
+      }
+    ],
+    "boosters": {
+      "enabled": false,
+      "count": 0,
+      "fuels": []
+    }
+  },
+  "fuel_editor": {
+    "version": 1,
+    "node_values": {
+      "stage:stg_l12_fuel:start": {
+        "stage1_0": 0,
+        "stage2_0": 0
+      },
+      "event:evt_l12_start_fill": {
+        "stage1_0": 0,
+        "stage2_0": 0
+      },
+      "stage:stg_l12_stop_fill:start": {
+        "stage1_0": 98,
+        "stage2_0": 98
+      },
+      "event:obs_l12_pressurize": {
+        "stage1_0": 98,
+        "stage2_0": 98
+      },
+      "observation:obs_l12_pressurize": {
+        "stage1_0": 98,
+        "stage2_0": 98
+      },
+      "event:evt_l12_ignition": {
+        "stage1_0": 98,
+        "stage2_0": 98
+      },
+      "stage:stg_l12_liftoff:start": {
+        "stage1_0": 98,
+        "stage2_0": 98
+      },
+      "event:evt_l12_pitch": {
+        "stage1_0": -1,
+        "stage2_0": 98
+      },
+      "stage:stg_l12_pitch:start": {
+        "stage1_0": -1,
+        "stage2_0": 98
+      },
+      "stage:stg_l12_stage1:start": {
+        "stage1_0": -1,
+        "stage2_0": 98
+      },
+      "stage:stg_l12_sep:start": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      },
+      "event:evt_l12_sep": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      },
+      "event:stg_l12_pitch": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      },
+      "event:item_1781620544704": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      },
+      "stage:item_1781620501467:start": {
+        "stage1_0": 1,
+        "stage2_0": 98
+      },
+      "event:item_1781620413132": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      },
+      "stage:item_1781620514737:start": {
+        "stage1_0": -1,
+        "stage2_0": 1
+      },
+      "event:item_1781620435629": {
+        "stage1_0": -1,
+        "stage2_0": -1
+      }
+    },
+    "curves": {
+      "stage1_0": [
+        {
+          "time": -18000,
+          "value": 0
+        },
+        {
+          "time": -430,
+          "value": 98
+        },
+        {
+          "time": 0,
+          "value": 98
+        },
+        {
+          "time": 10,
+          "value": 93
+        },
+        {
+          "time": 65,
+          "value": 66
+        },
+        {
+          "time": 198,
+          "value": 1
+        },
+        {
+          "time": 205,
+          "value": 1
+        },
+        {
+          "time": 450,
+          "value": 1
+        }
+      ],
+      "stage2_0": [
+        {
+          "time": -18000,
+          "value": 0
+        },
+        {
+          "time": -430,
+          "value": 98
+        },
+        {
+          "time": 0,
+          "value": 98
+        },
+        {
+          "time": 10,
+          "value": 98
+        },
+        {
+          "time": 65,
+          "value": 98
+        },
+        {
+          "time": 198,
+          "value": 98
+        },
+        {
+          "time": 205,
+          "value": 95
+        },
+        {
+          "time": 450,
+          "value": 1
+        }
+      ]
+    }
+  },
+  "telemetry_editor": {
+    "version": 1,
+    "data_src": "config/CZ12.csv",
+    "node_values": {},
+    "curves": {
+      "altitude_km": {
+        "stage1": [],
+        "upper": []
+      },
+      "speed_mps": {
+        "stage1": [],
+        "upper": []
+      },
+      "accel_g": {
+        "stage1": [],
+        "upper": []
+      },
+      "angular_velocity_dps": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_roll_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_pitch_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_yaw_deg": {
+        "stage1": [],
+        "upper": []
+      }
+    }
+  },
+  "engine_layout": {
+    "version": 4,
+    "node_configs": {
+      "event:obs_l12_arm": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l12_ignition": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1780733589963": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l12_pitch": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:evt_l12_sep": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:stg_l12_pitch": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620544704": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620413132": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620435629": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7_stage1",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620806627": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": true
+          },
+          {
+            "id": 1,
+            "enabled": true
+          },
+          {
+            "id": 2,
+            "enabled": true
+          },
+          {
+            "id": 3,
+            "enabled": true
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              },
+              {
+                "id": 2,
+                "enabled": true
+              },
+              {
+                "id": 3,
+                "enabled": true
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620739243": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620758817": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": true
+              },
+              {
+                "id": 1,
+                "enabled": true
+              }
+            ]
+          }
+        ]
+      },
+      "event:item_1781620817463": {
+        "preset_id": "cz7_stage2",
+        "engine_states": [
+          {
+            "id": 0,
+            "enabled": false
+          },
+          {
+            "id": 1,
+            "enabled": false
+          },
+          {
+            "id": 2,
+            "enabled": false
+          },
+          {
+            "id": 3,
+            "enabled": false
+          }
+        ],
+        "stage_configs": [
+          {
+            "stage_index": 1,
+            "preset_id": "cz7_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              },
+              {
+                "id": 2,
+                "enabled": false
+              },
+              {
+                "id": 3,
+                "enabled": false
+              }
+            ]
+          },
+          {
+            "stage_index": 2,
+            "preset_id": "cz7a_stage2",
+            "engine_states": [
+              {
+                "id": 0,
+                "enabled": false
+              },
+              {
+                "id": 1,
+                "enabled": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "dashboard_editor": {
+    "version": 2,
+    "nodes": [
+      {
+        "id": "dashboard_node_1780733643530",
+        "time": -18000,
+        "name": "开始加注",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "off"
+      },
+      {
+        "id": "dashboard_node_1780733648321",
+        "time": 0,
+        "name": "点火",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "off"
+      },
+      {
+        "id": "dashboard_node_1780816878840",
+        "time": 3,
+        "name": "起飞",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "on"
+      },
+      {
+        "id": "dashboard_node_1780816879514",
+        "time": 198,
+        "name": "一二级分离",
+        "selected": [
+          "stage2:altitude",
+          "stage2:speed",
+          "stage1:accel",
+          "stage2:engine"
+        ],
+        "telemetry_auto": "on"
+      },
+      {
+        "id": "dashboard_node_1781622177536",
+        "time": 450,
+        "name": "星箭分离",
+        "selected": [
+          "stage1:altitude",
+          "stage1:speed",
+          "stage1:accel",
+          "stage1:engine"
+        ],
+        "telemetry_auto": "off"
+      }
+    ]
+  }
+}

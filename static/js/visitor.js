@@ -107,9 +107,9 @@ function resolveTelemetryDisplayState(state, missionSeconds) {
   }
 
   return {
-    enabled: Boolean(state?.telemetry_enabled),
-    autoControlled: false,
-    activeNode: null,
+    enabled: Boolean(state?.telemetry_effective_enabled ?? state?.telemetry_enabled),
+    autoControlled: Boolean(state?.telemetry_auto_controlled),
+    activeNode: state?.telemetry_active_node || null,
   };
 }
 
