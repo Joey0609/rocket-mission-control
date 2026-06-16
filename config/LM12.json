@@ -27,14 +27,14 @@
     {
       "id": "item_1781620501467",
       "name": "二级飞行段",
-      "start_time": 198,
-      "end_time": 450,
+      "start_time": 197,
+      "end_time": 608.2,
       "description": "二级飞行段"
     },
     {
       "id": "item_1781620514737",
       "name": "卫星独立运行段",
-      "start_time": 450,
+      "start_time": 608.2,
       "end_time": 9999,
       "description": "卫星独立运行段"
     }
@@ -91,7 +91,7 @@
     {
       "id": "item_1781620739243",
       "name": "一级关机",
-      "time": 196,
+      "time": 195.4,
       "hidden": true,
       "observation": false,
       "description": "一级关机"
@@ -99,7 +99,7 @@
     {
       "id": "evt_l12_sep",
       "name": "一二级分离",
-      "time": 198,
+      "time": 197,
       "hidden": false,
       "observation": false,
       "description": "一二级分离完成"
@@ -107,7 +107,7 @@
     {
       "id": "item_1781620758817",
       "name": "二级开机",
-      "time": 202,
+      "time": 198.7,
       "hidden": true,
       "observation": false,
       "description": "二极开机"
@@ -115,7 +115,7 @@
     {
       "id": "item_1781620413132",
       "name": "抛整流罩",
-      "time": 205,
+      "time": 201.2,
       "hidden": false,
       "observation": false,
       "description": "抛整流罩"
@@ -123,7 +123,7 @@
     {
       "id": "item_1781620817463",
       "name": "二级关机",
-      "time": 448,
+      "time": 608.2,
       "hidden": true,
       "observation": false,
       "description": "二级关机"
@@ -131,7 +131,7 @@
     {
       "id": "item_1781620435629",
       "name": "星箭分离",
-      "time": 450,
+      "time": 612,
       "hidden": false,
       "observation": false,
       "description": "星箭分离"
@@ -1166,7 +1166,7 @@
       },
       {
         "id": "dashboard_node_1780816879514",
-        "time": 198,
+        "time": 197,
         "name": "一二级分离",
         "selected": [
           "stage2:altitude",
@@ -1178,7 +1178,7 @@
       },
       {
         "id": "dashboard_node_1781622177536",
-        "time": 450,
+        "time": 612,
         "name": "星箭分离",
         "selected": [
           "stage1:altitude",
