@@ -809,7 +809,7 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
     const slots = [];
     for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
       const text = String(source[slotIndex] || "").trim().toLowerCase();
-      slots.push(allOptionKeys.includes(text) ? text : "");
+      slots.push(allOptionKeys.includes(text) ? text : allOptionKeys[0] || "");
     }
     return slots;
   };
@@ -828,7 +828,7 @@ function normalizeDashboardEditorDraft(rawDashboardEditor, stageCount = 1) {
               const slots = normalizeSelectionSlots(node?.selected);
               return slots.some(Boolean) ? slots : allOptionKeys.slice(0, 4);
             })(),
-            telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+            telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "off",
           };
         })
         .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN")),

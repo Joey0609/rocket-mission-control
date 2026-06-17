@@ -690,7 +690,8 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
     const source = Array.isArray(selectedRaw) ? selectedRaw : [];
     const slots = [];
     for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
-      slots.push(normalizeDashboardOptionKey(source[slotIndex], normalizedStageCount));
+      const parsed = normalizeDashboardOptionKey(source[slotIndex], normalizedStageCount);
+      slots.push(parsed || allOptionKeys[0] || "");
     }
     return slots;
   };
@@ -705,7 +706,7 @@ function normalizeDashboardEditor(raw, stageCount = 1) {
           time: toFixed2(node?.time, 0),
           name: String(node?.name || "自定义").trim() || "自定义",
           selected: selected.some(Boolean) ? selected : allOptionKeys.slice(0, 4),
-          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "off",
         };
       })
       .sort((a, b) => a.time - b.time || a.name.localeCompare(b.name, "zh-CN"));
@@ -763,11 +764,7 @@ function ensureDashboardSelection(selectedRaw, allOptions, seedText) {
   const slots = [];
   for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
     const normalized = String(source[slotIndex] || "").trim().toLowerCase();
-    slots.push(all.includes(normalized) ? normalized : "");
-  }
-
-  if (!slots.some(Boolean) && all.length > 0) {
-    return all.slice(0, 4);
+    slots.push(all.includes(normalized) ? normalized : all[0] || "");
   }
 
   return slots;

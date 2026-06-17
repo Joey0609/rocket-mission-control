@@ -180,7 +180,9 @@
     }
     const stageIndex = Math.max(1, toInt(matched[1], 1));
     const typeKey = matched[2];
-    return `stage${stageIndex}:${typeKey}`;
+    const stageText = DASHBOARD_STAGE_TEXT[stageIndex] || String(stageIndex);
+    const labelMap = Object.fromEntries(DASHBOARD_OPTION_DEFS.map((d) => [d.key, d.label]));
+    return `${stageText}级·${labelMap[typeKey] || typeKey}`;
   }
 
   function clearDashboardSortTimer() {
@@ -251,10 +253,11 @@
   function normalizeDashboardSelectionList(rawSelected, allOptionKeys) {
     const all = Array.isArray(allOptionKeys) ? allOptionKeys : [];
     const source = Array.isArray(rawSelected) ? rawSelected : [];
+    const defaultVal = all[0] || "";
     const slots = [];
     for (let index = 0; index < 4; index += 1) {
       const normalized = String(source[index] || "").trim().toLowerCase();
-      slots.push(all.includes(normalized) ? normalized : "");
+      slots.push(all.includes(normalized) ? normalized : defaultVal);
     }
     return slots;
   }
@@ -272,16 +275,19 @@
     const source = rawNode && typeof rawNode === "object" ? rawNode : {};
     const time = normalizeMissionTime(source.time, 0);
     const selected = normalizeDashboardSelectionList(source.selected, allOptionKeys);
-    const name = buildDashboardNodeLabel(time, events);
+    const eventLabel = buildDashboardNodeLabel(time, events);
+    const savedName = String(source.name || "").trim();
     const telemetryAuto = String(source.telemetry_auto || "").trim().toLowerCase();
     const hasSelection = selected.some(Boolean);
+    // 仅当未保存自定义名称时，才用事件名填充；否则保留用户自定义名称
+    const name = savedName && savedName !== "自定义" ? savedName : eventLabel;
 
     return {
       id: String(source.id || `dashboard_node_${index + 1}`).trim() || `dashboard_node_${index + 1}`,
       time,
       name,
       selected: hasSelection ? selected : allOptionKeys.slice(0, 4),
-      telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+      telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "off",
     };
   }
 
@@ -372,7 +378,7 @@
           time: normalizeMissionTime(node.time, 0),
           name: String(node.name || "自定义").trim() || "自定义",
           selected: normalizeDashboardSelectionList(node.selected, allOptionKeys),
-          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "",
+          telemetry_auto: ["on", "off"].includes(telemetryAuto) ? telemetryAuto : "off",
         };
       }).filter((node) => node.id)
       : [];
@@ -448,7 +454,7 @@
     const defaultSelection = allOptionKeys.slice(0, 4);
     const getRowSelection = (row) => {
       const selected = normalizeDashboardSelectionList(row?.selected, allOptionKeys);
-      return selected.some(Boolean) ? selected : defaultSelection;
+      return selected.some(Boolean) ? selected : defaultSelection.slice();
     };
 
     const matchedEventByTime = (time) => events.find((event) => missionTimesEqual(event.time, time)) || null;
@@ -504,7 +510,6 @@
       const select = document.createElement("select");
       select.className = "dashboard-option-select";
       const currentSelection = getRowSelection(row);
-      select.appendChild(new Option("未选择", ""));
       allOptionKeys.forEach((optionKey) => {
         select.appendChild(new Option(formatDashboardOptionText(optionKey), optionKey));
       });
@@ -1226,7 +1231,6 @@
         payload = normalizeDraft(payload, modelName);
       }
       payload.name = modelName;
-      payload.dashboard_editor = finalizeDashboardEditorForSave(payload.dashboard_editor, stageCount);
       state.dashboard.draftModel.dashboard_editor = payload.dashboard_editor;
 
       const response = await adminFetchJson("/api/models", {

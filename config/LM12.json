@@ -83,7 +83,7 @@
     {
       "id": "item_1781620544704",
       "name": "MAXQ",
-      "time": 65,
+      "time": 81.6,
       "hidden": false,
       "observation": false,
       "description": "火箭穿过最大动压点"
@@ -1181,10 +1181,10 @@
         "time": 612,
         "name": "星箭分离",
         "selected": [
-          "stage1:altitude",
+          "",
           "stage1:speed",
-          "stage1:accel",
-          "stage1:engine"
+          "stage2:accel",
+          "stage2:altitude"
         ],
         "telemetry_auto": "off"
       }
