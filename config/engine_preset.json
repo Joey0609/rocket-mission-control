@@ -342,6 +342,75 @@
           "r": 50
         }
       ]
+    },
+    {
+      "id": "cz8_stage1",
+      "name": "CZ-8 Stage 1 (822)",
+      "engine_count": 4,
+      "background_circles": [
+        {
+          "id": "main_fill",
+          "x": 0,
+          "y": 0,
+          "r": 230,
+          "fill": "rgba(35,44,65,0.35)",
+          "stroke": "none",
+          "stroke_width": 0
+        },
+        {
+          "id": "core_outline",
+          "x": 0,
+          "y": 0,
+          "r": 100,
+          "fill": "none",
+          "stroke": "rgba(256,256,256,0.5)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_0",
+          "x": 168,
+          "y": 0,
+          "r": 67,
+          "fill": "none",
+          "stroke": "rgba(256,256,256,0.5)",
+          "stroke_width": 3
+        },
+        {
+          "id": "booster_outline_1",
+          "x": -168,
+          "y": 0,
+          "r": 67,
+          "fill": "none",
+          "stroke": "rgba(256,256,256,0.5)",
+          "stroke_width": 3
+        }
+      ],
+      "engines": [
+        {
+          "id": 0,
+          "x": -50,
+          "y": 0,
+          "r": 40
+        },
+        {
+          "id": 1,
+          "x": 50,
+          "y": 0,
+          "r": 40
+        },
+        {
+          "id": 2,
+          "x": 168,
+          "y": 0,
+          "r": 40
+        },
+        {
+          "id": 3,
+          "x": -168,
+          "y": 0,
+          "r": 40
+        }
+      ]
     }
   ]
 }

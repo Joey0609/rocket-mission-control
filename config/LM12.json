@@ -357,25 +357,6 @@
     "version": 4,
     "node_configs": {
       "event:obs_l12_arm": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -416,25 +397,6 @@
         ]
       },
       "event:evt_l12_ignition": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -475,25 +437,6 @@
         ]
       },
       "event:item_1780733589963": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -534,25 +477,6 @@
         ]
       },
       "event:evt_l12_pitch": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -593,25 +517,6 @@
         ]
       },
       "event:evt_l12_sep": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -652,25 +557,6 @@
         ]
       },
       "event:stg_l12_pitch": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -711,25 +597,6 @@
         ]
       },
       "event:item_1781620544704": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -770,25 +637,6 @@
         ]
       },
       "event:item_1781620413132": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -829,25 +677,6 @@
         ]
       },
       "event:item_1781620435629": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -888,25 +717,6 @@
         ]
       },
       "event:item_1781620806627": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -947,25 +757,6 @@
         ]
       },
       "event:item_1781620739243": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -1006,25 +797,6 @@
         ]
       },
       "event:item_1781620758817": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -1065,25 +837,6 @@
         ]
       },
       "event:item_1781620817463": {
-        "preset_id": "cz7_stage2",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,

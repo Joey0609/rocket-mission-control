@@ -1176,11 +1176,8 @@ function normalizeEngineNodeConfig(raw, defaultPresetId) {
 
   const sortedStageConfigs = Array.from(stageConfigsMap.values())
     .sort((a, b) => a.stage_index - b.stage_index);
-  const primary = sortedStageConfigs[0] || normalizeStageConfig(source, 1);
 
   return {
-    preset_id: primary.preset_id,
-    engine_states: primary.engine_states,
     stage_configs: sortedStageConfigs,
   };
 }
@@ -1204,20 +1201,20 @@ function normalizeEngineLayout(raw, modelName, stageCount = 1) {
       const stageIndex = Math.max(1, toInt(item?.stage_index, 1));
       stageConfigMap.set(stageIndex, {
         stage_index: stageIndex,
-        preset_id: String(item?.preset_id || normalized.preset_id || defaultPresetId)
+        preset_id: String(item?.preset_id || defaultPresetId)
           .trim()
           .toLowerCase()
           .replace(/[^a-z0-9_-]+/g, ""),
         engine_states: Array.isArray(item?.engine_states)
           ? item.engine_states.map((state, index) => normalizeEngineState(state, index))
-          : normalized.engine_states,
+          : [],
       });
     });
 
     const fallbackStage = stageConfigMap.get(1) || {
       stage_index: 1,
-      preset_id: normalized.preset_id || defaultPresetId,
-      engine_states: normalized.engine_states,
+      preset_id: defaultPresetId,
+      engine_states: [],
     };
 
     const stageConfigs = [];
@@ -1225,19 +1222,17 @@ function normalizeEngineLayout(raw, modelName, stageCount = 1) {
       const picked = stageConfigMap.get(stageIndex) || fallbackStage;
       stageConfigs.push({
         stage_index: stageIndex,
-        preset_id: String(picked.preset_id || fallbackStage.preset_id || defaultPresetId)
+        preset_id: String(picked.preset_id || defaultPresetId)
           .trim()
           .toLowerCase()
           .replace(/[^a-z0-9_-]+/g, ""),
         engine_states: Array.isArray(picked.engine_states)
           ? picked.engine_states.map((state, index) => normalizeEngineState(state, index))
-          : fallbackStage.engine_states,
+          : [],
       });
     }
 
     nodeConfigs[nodeKey] = {
-      preset_id: stageConfigs[0]?.preset_id || defaultPresetId,
-      engine_states: stageConfigs[0]?.engine_states || [],
       stage_configs: stageConfigs,
     };
   }

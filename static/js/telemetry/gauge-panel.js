@@ -300,36 +300,35 @@
         : [];
       const normalizedStageConfigs = rawStageConfigs
         .map((item, index) => {
-          const preset = getPresetById(presetLibrary, item?.preset_id || config?.preset_id) || fallbackPreset;
+          const preset = getPresetById(presetLibrary, item?.preset_id) || fallbackPreset;
           if (!preset) {
             return null;
           }
           return {
             stage_index: Math.max(1, toInt(item?.stage_index, index + 1)),
             preset_id: preset.id,
-            engine_states: mergeEngineStatesWithPreset(preset, item?.engine_states || config?.engine_states),
+            engine_states: mergeEngineStatesWithPreset(preset, item?.engine_states),
           };
         })
         .filter(Boolean)
         .sort((a, b) => a.stage_index - b.stage_index);
 
       const primaryStage = normalizedStageConfigs[0] || null;
-      const preset = getPresetById(presetLibrary, primaryStage?.preset_id || config?.preset_id) || fallbackPreset;
+      const preset = getPresetById(presetLibrary, primaryStage?.preset_id) || fallbackPreset;
       if (!preset) {
         continue;
       }
 
-      nodeConfigs[nodeKey] = {
-        preset_id: preset.id,
-        engine_states: primaryStage ? primaryStage.engine_states : mergeEngineStatesWithPreset(preset, []),
-        stage_configs: normalizedStageConfigs,
-      };
+      nodeConfigs[nodeKey] = { stage_configs: normalizedStageConfigs };
     }
 
     if (Object.keys(nodeConfigs).length === 0 && fallbackPreset) {
       nodeConfigs["event:__engine_t0__"] = {
-        preset_id: fallbackPreset.id,
-        engine_states: buildDefaultEngineStates(fallbackPreset),
+        stage_configs: [{
+          stage_index: 1,
+          preset_id: fallbackPreset.id,
+          engine_states: buildDefaultEngineStates(fallbackPreset),
+        }],
       };
     }
 
@@ -362,12 +361,12 @@
           || stageConfigs[0]
           || null;
 
-        const preset = getPresetById(presetLibrary, pickedStage?.preset_id || config?.preset_id);
+        const preset = getPresetById(presetLibrary, pickedStage?.preset_id);
         if (!preset) {
           return null;
         }
 
-        const states = mergeEngineStatesWithPreset(preset, pickedStage?.engine_states || config?.engine_states);
+        const states = mergeEngineStatesWithPreset(preset, pickedStage?.engine_states);
         const stateMap = new Map(states.map((item) => [item.id, Boolean(item.enabled)]));
 
         return {
@@ -422,10 +421,11 @@
       .sort((a, b) => a.localeCompare(b, "zh-CN"))
       .map((key) => {
         const config = nodeConfigs[key] || {};
-        const statesSig = (Array.isArray(config.engine_states) ? config.engine_states : [])
+        const firstStage = Array.isArray(config.stage_configs) ? config.stage_configs[0] : null;
+        const statesSig = (Array.isArray(firstStage?.engine_states) ? firstStage.engine_states : [])
           .map((state) => `${state.id}:${state.enabled ? 1 : 0}`)
           .join(",");
-        return `${key}|${config.preset_id || ""}|${statesSig}`;
+        return `${key}|${firstStage?.preset_id || ""}|${statesSig}`;
       })
       .join(";");
   }

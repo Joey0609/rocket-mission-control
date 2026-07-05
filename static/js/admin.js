@@ -774,13 +774,7 @@ function normalizeEngineLayoutDraft(rawEngineLayout, stageCount = 1) {
       });
     }
 
-    const primary = finalizedStageConfigs[0];
-
-    nodeConfigs[nodeKey] = {
-      preset_id: primary.preset_id,
-      engine_states: primary.engine_states,
-      stage_configs: finalizedStageConfigs,
-    };
+    nodeConfigs[nodeKey] = { stage_configs: finalizedStageConfigs };
   }
 
   return {

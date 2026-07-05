@@ -1,8 +1,8 @@
 {
   "version": 4,
   "default_theme": "peach-soda",
-  "selected_model": "长征十二号",
-  "launch_at": "2026-06-17T00:50:30",
+  "selected_model": "长征八号甲",
+  "launch_at": "2026-07-05T21:43",
   "auto_hold_at_ignition": false,
   "telemetry_control_mode": "auto"
 }

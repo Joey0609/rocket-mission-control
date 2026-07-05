@@ -225,21 +225,6 @@ function pickRawStageConfig(existingConfig, stageIndex) {
   return null;
 }
 
-function syncNodeLegacyConfig(nodeConfig) {
-  const firstStage = Array.isArray(nodeConfig?.stage_configs) && nodeConfig.stage_configs.length > 0
-    ? nodeConfig.stage_configs[0]
-    : null;
-  if (!firstStage) {
-    nodeConfig.preset_id = "";
-    nodeConfig.engine_states = [];
-    return nodeConfig;
-  }
-
-  nodeConfig.preset_id = String(firstStage.preset_id || "");
-  nodeConfig.engine_states = normalizeEngineStateList(firstStage.engine_states);
-  return nodeConfig;
-}
-
 function normalizeEngineNodeConfig(existingConfig, stageCount, fallbackPreset) {
   const source = existingConfig && typeof existingConfig === "object" ? existingConfig : {};
   const baseConfig = normalizeSingleEngineStageConfig(source, fallbackPreset);
@@ -255,9 +240,7 @@ function normalizeEngineNodeConfig(existingConfig, stageCount, fallbackPreset) {
     });
   }
 
-  return syncNodeLegacyConfig({
-    stage_configs: stageConfigs,
-  });
+  return { stage_configs: stageConfigs };
 }
 
 function ensureEngineLayoutStructure(draft) {
@@ -670,7 +653,6 @@ function saveEngineNodeConfig() {
 
   stageConfigs[stageConfigIndex] = nextStageConfig;
   nodeConfig.stage_configs = stageConfigs;
-  syncNodeLegacyConfig(nodeConfig);
   engineEditDraft.engine_layout.node_configs[engineSelectedNodeKey] = nodeConfig;
 
   if (stableSerialize(prevStageConfig) !== stableSerialize(nextStageConfig)) {
