@@ -17,10 +17,10 @@
       { time: -3600, scale: 1 },
       { time: -120, scale: 3},
       { time: -30, scale: 5 },
-      { time: 50, scale: 4 },
-      { time: 240, scale: 2 },
+      { time: 50, scale: 5 },
+      { time: 240, scale: 5 },
       { time: 530, scale: 5 },
-      { time: 630, scale: 3 },
+      { time: 630, scale: 5},
     ],
 
     GEOMETRY_TRANSITION_START_TIME: 0,

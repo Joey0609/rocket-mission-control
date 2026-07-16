@@ -399,12 +399,12 @@ function resolveTelemetryMetricCurves(model, metricKey, fallback = 0) {
 }
 
 function loadCSVTelemetryData(csvPath) {
-  // CSV 列名映射（大小写不敏感）
-  const COLUMN_MAP = {
-    real_time: "time",
-    altitude_true: "altitude_m",
-    speed_surface: "speed_mps",
-    acceleration: "accel_mps2",
+  // CSV 列名映射（大小写不敏感）：每个 internalKey 对应多个可能的 CSV 列名
+  const COLUMN_ALIASES = {
+    time: ["real_time", "time", "t"],
+    altitude_m: ["altitude_m", "altitude_true", "altitude_asl", "altitude"],
+    speed_mps: ["speed_mps", "speed_surface", "speed_orbital", "speed", "velocity"],
+    accel_mps2: ["accel_mps2", "acceleration", "accel_g", "accel"],
   };
 
   const raw = fs.readFileSync(csvPath, "utf8").trim();
@@ -416,9 +416,14 @@ function loadCSVTelemetryData(csvPath) {
   // 解析表头
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
   const colIdx = {};
-  for (const [csvCol, mappedKey] of Object.entries(COLUMN_MAP)) {
-    const idx = headers.indexOf(csvCol);
-    if (idx >= 0) colIdx[mappedKey] = idx;
+  for (const [internalKey, aliases] of Object.entries(COLUMN_ALIASES)) {
+    for (const alias of aliases) {
+      const idx = headers.indexOf(alias);
+      if (idx >= 0) {
+        colIdx[internalKey] = idx;
+        break;
+      }
+    }
   }
 
   if (colIdx.time === undefined) return null;
