@@ -404,7 +404,7 @@ function loadCSVTelemetryData(csvPath) {
     time: ["real_time", "time", "t"],
     altitude_m: ["altitude_m", "altitude_km", "height_m", "height_km"],
     speed_mps: ["speed_mps", "speed_kmph", "velocity_mps", "velocity_kmph"],
-    accel_mps2: ["accel_g", "acceleration_mps2", "acceleration_g"],
+    accel_mps2: ["accel_mps2", "accel_g", "acceleration_mps2", "acceleration_g"],
   };
   const STANDARD_GRAVITY_MPS2 = 9.80665;
 
@@ -449,7 +449,7 @@ function loadCSVTelemetryData(csvPath) {
       speed_kmh: ["speed_kmph", "velocity_kmph"].includes(colAlias.speed_mps)
         ? speedValue
         : speedValue * 3.6,
-      accel_g: colAlias.accel_mps2 === "acceleration_mps2"
+      accel_g: ["accel_mps2", "acceleration_mps2"].includes(colAlias.accel_mps2)
         ? accelValue / STANDARD_GRAVITY_MPS2
         : accelValue,
     });
