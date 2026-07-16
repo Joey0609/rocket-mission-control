@@ -402,10 +402,11 @@ function loadCSVTelemetryData(csvPath) {
   // CSV 列名映射（大小写不敏感）：每个 internalKey 对应多个可能的 CSV 列名
   const COLUMN_ALIASES = {
     time: ["real_time", "time", "t"],
-    altitude_m: ["altitude_m", "altitude_true", "altitude_asl", "altitude"],
-    speed_mps: ["speed_mps", "speed_surface", "speed_orbital", "speed", "velocity"],
-    accel_mps2: ["accel_mps2", "acceleration", "accel_g", "accel"],
+    altitude_m: ["altitude_m", "altitude_km", "height_m", "height_km"],
+    speed_mps: ["speed_mps", "speed_kmph", "velocity_mps", "velocity_kmph"],
+    accel_mps2: ["accel_g", "acceleration_mps2", "acceleration_g"],
   };
+  const STANDARD_GRAVITY_MPS2 = 9.80665;
 
   const raw = fs.readFileSync(csvPath, "utf8").trim();
   const lines = raw.split(/\r?\n/).filter(Boolean);
@@ -416,11 +417,13 @@ function loadCSVTelemetryData(csvPath) {
   // 解析表头
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
   const colIdx = {};
+  const colAlias = {};
   for (const [internalKey, aliases] of Object.entries(COLUMN_ALIASES)) {
     for (const alias of aliases) {
       const idx = headers.indexOf(alias);
       if (idx >= 0) {
         colIdx[internalKey] = idx;
+        colAlias[internalKey] = alias;
         break;
       }
     }
@@ -434,11 +437,21 @@ function loadCSVTelemetryData(csvPath) {
     const vals = lines[i].split(",");
     const time = toNumber(vals[colIdx.time]);
     if (!Number.isFinite(time)) continue;
+    const altitudeValue = colIdx.altitude_m !== undefined ? toNumber(vals[colIdx.altitude_m], 0) : 0;
+    const speedValue = colIdx.speed_mps !== undefined ? toNumber(vals[colIdx.speed_mps], 0) : 0;
+    const accelValue = colIdx.accel_mps2 !== undefined ? toNumber(vals[colIdx.accel_mps2], 0) : 0;
     rows.push({
       time,
-      alt_m: colIdx.altitude_m !== undefined ? toNumber(vals[colIdx.altitude_m], 0) : 0,
-      speed: colIdx.speed_mps !== undefined ? toNumber(vals[colIdx.speed_mps], 0) * 3.6 : 0,
-      accel: colIdx.accel_mps2 !== undefined ? toNumber(vals[colIdx.accel_mps2], 0) : 0,
+      // 仪表盘统一显示 km、km/h、g；根据实际列名在读取 CSV 时换算。
+      altitude_km: ["altitude_km", "height_km"].includes(colAlias.altitude_m)
+        ? altitudeValue
+        : altitudeValue / 1000,
+      speed_kmh: ["speed_kmph", "velocity_kmph"].includes(colAlias.speed_mps)
+        ? speedValue
+        : speedValue * 3.6,
+      accel_g: colAlias.accel_mps2 === "acceleration_mps2"
+        ? accelValue / STANDARD_GRAVITY_MPS2
+        : accelValue,
     });
   }
 
@@ -446,9 +459,9 @@ function loadCSVTelemetryData(csvPath) {
 
   // 构建 telemetry 曲线
   const curves = {
-    altitude_km: rows.map((r) => ({ time: r.time, value: r.alt_m / 1000 })),
-    speed_mps: rows.map((r) => ({ time: r.time, value: r.speed })),
-    accel_g: rows.map((r) => ({ time: r.time, value: Math.max(0, r.accel) })),
+    altitude_km: rows.map((r) => ({ time: r.time, value: r.altitude_km })),
+    speed_mps: rows.map((r) => ({ time: r.time, value: r.speed_kmh })),
+    accel_g: rows.map((r) => ({ time: r.time, value: Math.max(0, r.accel_g) })),
   };
 
   return curves;
@@ -2591,4 +2604,4 @@ function startServer(options = {}) {
   };
 }
 
-module.exports = { startServer };
+module.exports = { startServer, loadCSVTelemetryData };
