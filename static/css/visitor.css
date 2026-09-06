@@ -509,6 +509,8 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   height: 100%;
   color: rgba(255, 255, 255, 0.98);
   opacity: 1;
+  transform: scale(1);
+  transform-origin: center;
 }
 
 .engine-layout-gauge .telemetry-gauge-text-root {
@@ -661,6 +663,15 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   opacity: 0;
 }
 
+.telemetry-gauge-widget.telemetry-gauge-hidden {
+  transform: scale(0.01);
+}
+
+.telemetry-gauge-widget.telemetry-gauge-enter {
+  /* 入场先快后慢，并将减速阶段拉长。 */
+  animation: telemetryGaugeScaleIn 400ms cubic-bezier(0.08, 0.95, 0.22, 1) forwards;
+}
+
 .telemetry-gauge-widget.telemetry-gauge-enter .telemetry-gauge-circle {
   animation: telemetryGaugeBgIn 320ms ease 500ms forwards;
 }
@@ -677,8 +688,32 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   animation: telemetryGaugeTextIn 260ms ease 500ms forwards;
 }
 
-.telemetry-gauge-widget.telemetry-gauge-exit {
-  animation: telemetryGaugeFadeOut 260ms ease forwards;
+/* 退场总时长为 0.6s；容器在 0.2–0.6s 进行缩放和淡出。 */
+.telemetry-gauge-widget.telemetry-gauge-exit,
+.telemetry-gauge-widget.telemetry-gauge-reverse-exit {
+  /* 先慢后快，并将慢速阶段拉长。 */
+  animation: telemetryGaugeFadeScaleOut 400ms cubic-bezier(0.55, 0, 0.9, 0.35) 200ms both;
+}
+
+/* 按入场视觉顺序倒放：文字 → 圆弧、数值弧线与刻度 → 整体容器。 */
+.telemetry-gauge-widget.telemetry-gauge-exit .telemetry-gauge-circle,
+.telemetry-gauge-widget.telemetry-gauge-reverse-exit .telemetry-gauge-circle {
+  animation: telemetryGaugeBgOut 160ms ease 180ms both;
+}
+
+.telemetry-gauge-widget.telemetry-gauge-exit .telemetry-gauge-anim-path,
+.telemetry-gauge-widget.telemetry-gauge-reverse-exit .telemetry-gauge-anim-path {
+  animation: telemetryGaugeLineOut 260ms cubic-bezier(0.55, 0, 0.9, 0.35) 180ms both;
+}
+
+.telemetry-gauge-widget.telemetry-gauge-exit .telemetry-gauge-text-root,
+.telemetry-gauge-widget.telemetry-gauge-reverse-exit .telemetry-gauge-text-root {
+  animation: telemetryGaugeTextOut 180ms ease both;
+}
+
+.telemetry-gauge-widget.telemetry-gauge-exit .telemetry-engine-overlay,
+.telemetry-gauge-widget.telemetry-gauge-reverse-exit .telemetry-engine-overlay {
+  animation: telemetryGaugeTextOut 180ms ease both;
 }
 
 .telemetry-gauge-svg {
@@ -797,6 +832,39 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   }
   to {
     opacity: 0;
+  }
+}
+
+@keyframes telemetryGaugeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.01);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes telemetryGaugeScaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.01);
+  }
+}
+
+@keyframes telemetryGaugeFadeScaleOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.01);
   }
 }
 

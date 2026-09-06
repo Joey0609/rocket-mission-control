@@ -11,7 +11,8 @@
   const TICK_STROKE_WIDTH = 2.5;
   const DEFAULT_GAUGE_SCALE = 0.78;
   const GAUGE_SHOW_TOTAL_MS = 1300;
-  const GAUGE_HIDE_TOTAL_MS = 260;
+  const GAUGE_HIDE_TOTAL_MS = 600;
+  const GAUGE_REVERSE_EXIT_TOTAL_MS = 600;
   const GAUGE_TEXT_SWITCH_MS = 500;
 
   let gaugeSequence = 0;
@@ -426,6 +427,7 @@
           "telemetry-gauge-visible",
           "telemetry-gauge-enter",
           "telemetry-gauge-exit",
+          "telemetry-gauge-reverse-exit",
         );
       };
 
@@ -454,6 +456,27 @@
           this.visibilityState = "visible";
           this.visibilityTimer = null;
         }, GAUGE_SHOW_TOTAL_MS);
+        return;
+      }
+
+      if (Boolean(options.reverse)) {
+        if (this.visibilityState === "hidden" || this.visibilityState === "reverse-exiting") {
+          return;
+        }
+
+        clearStateClasses();
+        void this.rootEl.offsetWidth;
+        this.rootEl.classList.add("telemetry-gauge-reverse-exit");
+        this.visibilityState = "reverse-exiting";
+        this.visibilityTimer = setTimeout(() => {
+          if (!this.rootEl) {
+            return;
+          }
+          clearStateClasses();
+          this.rootEl.classList.add("telemetry-gauge-hidden");
+          this.visibilityState = "hidden";
+          this.visibilityTimer = null;
+        }, GAUGE_REVERSE_EXIT_TOTAL_MS);
         return;
       }
 

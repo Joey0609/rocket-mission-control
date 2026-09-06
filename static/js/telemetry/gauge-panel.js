@@ -107,9 +107,7 @@
     ],
   };
 
-  const GAUGE_SPEC_SWITCH_HIDE_MS = 500;
-  const GAUGE_SLOT_TYPE_SWITCH_MS = 500;
-  const GAUGE_CONTENT_SWITCH_ANIMATE_MS = 500;
+  const GAUGE_SLOT_REVERSE_EXIT_MS = 600;
 
   function toNumber(value, fallback = 0) {
     const parsed = Number.parseFloat(value);
@@ -540,6 +538,10 @@
       .join(";");
   }
 
+  function buildGaugeSpecSignature(spec) {
+    return buildGaugeSpecsSignature([spec]);
+  }
+
   class EngineLayoutWidget {
     constructor(options = {}) {
       this.mountEl = options.mountEl || null;
@@ -946,11 +948,7 @@
       this.separationTime = Number.POSITIVE_INFINITY;
       this.visible = false;
       this.gaugeCtor = null;
-      this.gaugeSpecSwitchTimer = null;
-      this.gaugeSpecSwitchToken = 0;
-      this.pendingUpdatePayload = null;
       this.latestUpdatePayload = null;
-      this.metricSwitchAnimations = new Map();
 
       this.mount();
       this.setVisible(false, { immediate: true });
@@ -976,6 +974,7 @@
           isSwitching: false,
           switchTimer: null,
           switchToken: 0,
+          specSignature: buildGaugeSpecSignature(spec),
         };
       }
 
@@ -994,6 +993,7 @@
         isSwitching: false,
         switchTimer: null,
         switchToken: 0,
+        specSignature: buildGaugeSpecSignature(spec),
       };
     }
 
@@ -1008,16 +1008,6 @@
       this.clearEntryTimer(entry);
       if (entry?.widget && typeof entry.widget.destroy === "function") {
         entry.widget.destroy();
-      }
-    }
-
-    setContentFaded(faded) {
-      const isFaded = Boolean(faded);
-      for (const mount of [this.leftMountEl, this.rightMountEl]) {
-        if (!mount) {
-          continue;
-        }
-        mount.classList.toggle("telemetry-gauges-faded", isFaded);
       }
     }
 
@@ -1039,70 +1029,106 @@
       });
     }
 
-    switchEntryWidget(index, nextSpec, options = {}) {
-      const entry = this.entries[index];
-      if (!entry || !entry.slot) {
+    getSideMount(spec) {
+      return spec?.side === "right" ? this.rightMountEl : this.leftMountEl;
+    }
+
+    insertSlotForSpec(slot, spec) {
+      const mount = this.getSideMount(spec);
+      if (!mount || !slot) {
         return;
       }
 
-      const animate = Boolean(options.animate) && this.visible;
-      const previousType = entry.type;
-      entry.spec = nextSpec;
+      slot.dataset.gaugeId = spec.id;
+      const targetIndex = this.gaugeSpecs.findIndex((item) => item.id === spec.id);
+      const nextSlot = Array.from(mount.children).find((child) => {
+        const childIndex = this.gaugeSpecs.findIndex((item) => item.id === child.dataset.gaugeId);
+        return childIndex > targetIndex;
+      });
+      mount.insertBefore(slot, nextSlot || null);
+    }
+
+    createAndShowEntry(spec) {
+      const mount = this.getSideMount(spec);
+      if (!mount) {
+        return null;
+      }
+
+      const slot = document.createElement("div");
+      slot.className = "telemetry-gauge-slot";
+      this.insertSlotForSpec(slot, spec);
+      const entry = this.createEntry(spec, slot);
+      if (!entry) {
+        slot.remove();
+        return null;
+      }
+
+      const metrics = this.profile?.metrics && typeof this.profile.metrics === "object"
+        ? this.profile.metrics
+        : {};
+      this.applyMetricConfig(entry, metrics);
+      if (entry.widget && typeof entry.widget.setVisible === "function") {
+        entry.widget.setVisible(this.visible, { immediate: !this.visible });
+      }
+      this.entries.push(entry);
+      return entry;
+    }
+
+    removeEntry(entry) {
+      const entryIndex = this.entries.indexOf(entry);
+      if (entryIndex >= 0) {
+        this.entries.splice(entryIndex, 1);
+      }
+      this.destroyEntry(entry);
+      entry?.slot?.remove();
+    }
+
+    cancelEntrySwitch(entry) {
+      if (!entry?.isSwitching) {
+        return;
+      }
+      entry.switchToken += 1;
+      entry.isSwitching = false;
+      this.clearEntryTimer(entry);
+      if (entry.widget && typeof entry.widget.setVisible === "function") {
+        entry.widget.setVisible(true, { immediate: true });
+      }
+    }
+
+    reverseExitEntry(entry, replacementSpec = null) {
+      if (!entry) {
+        return;
+      }
+      entry.isSwitching = true;
+      entry.pendingSpec = replacementSpec;
       entry.switchToken += 1;
       const token = entry.switchToken;
       this.clearEntryTimer(entry);
 
-      const finalizeSwitch = () => {
-        if (!this.entries[index] || this.entries[index].switchToken !== token) {
-          return;
+      if (!this.visible) {
+        this.removeEntry(entry);
+        if (replacementSpec) {
+          this.createAndShowEntry(replacementSpec);
         }
-
-        this.destroyEntry(entry);
-        const nextEntry = this.createEntry(nextSpec, entry.slot);
-        if (!nextEntry) {
-          return;
-        }
-        this.entries[index] = nextEntry;
-
-        const metrics = this.profile?.metrics && typeof this.profile.metrics === "object"
-          ? this.profile.metrics
-          : {};
-        this.applyMetricConfig(nextEntry, metrics, { fadeText: true });
-
-        if (this.visible && typeof nextEntry.widget?.setVisible === "function") {
-          nextEntry.widget.setVisible(true, { immediate: !animate });
-        } else if (typeof nextEntry.widget?.setVisible === "function") {
-          nextEntry.widget.setVisible(false, { immediate: true });
-        }
-
-        if (this.latestUpdatePayload) {
-          this.update(this.latestUpdatePayload);
-        }
-      };
-
-      if (!animate) {
-        finalizeSwitch();
         return;
       }
 
-      entry.isSwitching = true;
-      if (entry.type === "metric" && nextSpec.type === "engine_layout") {
-        this.applyMetricConfig(entry, this.profile?.metrics && typeof this.profile.metrics === "object"
-          ? this.profile.metrics
-          : {}, {
-          fadeText: true,
-        });
-      }
-
       if (entry.widget && typeof entry.widget.setVisible === "function") {
-        entry.widget.setVisible(false, { immediate: false });
+        entry.widget.setVisible(false, { reverse: true });
       }
-
       entry.switchTimer = setTimeout(() => {
-        entry.isSwitching = false;
-        entry.switchTimer = null;
-        finalizeSwitch();
-      }, GAUGE_SLOT_TYPE_SWITCH_MS);
+        if (!this.entries.includes(entry) || entry.switchToken !== token) {
+          return;
+        }
+        const nextSpec = entry.pendingSpec;
+        this.removeEntry(entry);
+        if (nextSpec) {
+          this.createAndShowEntry(nextSpec);
+        }
+        if (this.latestUpdatePayload) {
+          this.update(this.latestUpdatePayload);
+        }
+      }, GAUGE_SLOT_REVERSE_EXIT_MS);
     }
 
     mount() {
@@ -1120,18 +1146,7 @@
 
       this.entries = [];
       for (const spec of this.gaugeSpecs) {
-        const sideMount = spec.side === "right" ? this.rightMountEl : this.leftMountEl;
-        if (!sideMount) {
-          continue;
-        }
-
-        const slot = document.createElement("div");
-        slot.className = "telemetry-gauge-slot";
-        sideMount.appendChild(slot);
-        const entry = this.createEntry(spec, slot);
-        if (entry) {
-          this.entries.push(entry);
-        }
+        this.createAndShowEntry(spec);
       }
     }
 
@@ -1142,52 +1157,36 @@
         return;
       }
 
-      console.log(`[DEBUG-gauge-switch] BEFORE: signature="${this.gaugeSpecsSignature}", specs=[${(this.gaugeSpecs || []).map((s) => `${s.id}: stage=${s.stageIndex ?? s.stage_index} ${s.type}`).join(" | ")}]`);
-      console.log(`[DEBUG-gauge-switch] AFTER:  signature="${nextSignature}", specs=[${normalized.map((s) => `${s.id}: stage=${s.stageIndex ?? s.stage_index} ${s.type}`).join(" | ")}]`);
       this.gaugeSpecs = normalized;
       this.gaugeSpecsSignature = nextSignature;
 
-      if (this.gaugeSpecSwitchTimer) {
-        clearTimeout(this.gaugeSpecSwitchTimer);
-        this.gaugeSpecSwitchTimer = null;
+      const nextById = new Map(normalized.map((spec) => [spec.id, spec]));
+      for (const entry of [...this.entries]) {
+        const nextSpec = nextById.get(entry.spec.id) || null;
+        const nextEntrySignature = nextSpec ? buildGaugeSpecSignature(nextSpec) : "";
+
+        if (entry.isSwitching) {
+          if (nextSpec && nextEntrySignature === entry.specSignature) {
+            this.cancelEntrySwitch(entry);
+          } else {
+            entry.pendingSpec = nextSpec;
+          }
+          nextById.delete(entry.spec.id);
+          continue;
+        }
+
+        if (nextSpec && nextEntrySignature === entry.specSignature) {
+          nextById.delete(entry.spec.id);
+          continue;
+        }
+
+        this.reverseExitEntry(entry, nextSpec);
+        nextById.delete(entry.spec.id);
       }
 
-      const currentToken = this.gaugeSpecSwitchToken + 1;
-      this.gaugeSpecSwitchToken = currentToken;
-      this.setContentFaded(true);
-
-      const remountWithLatestSpecs = () => {
-        if (this.gaugeSpecSwitchToken !== currentToken) {
-          return;
-        }
-
-        for (const entry of this.entries) {
-          this.destroyEntry(entry);
-        }
-        this.entries = [];
-
-        this.mount();
-        this.setProfile(this.profile, { force: true });
-        this.setVisible(this.visible, { immediate: true });
-        this.setContentFaded(false);
-        this.gaugeSpecSwitchTimer = setTimeout(() => {
-          if (this.gaugeSpecSwitchToken !== currentToken) {
-            return;
-          }
-          this.gaugeSpecSwitchTimer = null;
-          if (this.pendingUpdatePayload) {
-            const pendingPayload = this.pendingUpdatePayload;
-            this.pendingUpdatePayload = null;
-            this.update({
-              ...pendingPayload,
-              contentSwitchAnimateMs: GAUGE_CONTENT_SWITCH_ANIMATE_MS,
-            });
-          }
-        }, GAUGE_SPEC_SWITCH_HIDE_MS);
-      };
-
-      this.pendingUpdatePayload = null;
-      this.gaugeSpecSwitchTimer = setTimeout(remountWithLatestSpecs, GAUGE_SPEC_SWITCH_HIDE_MS);
+      for (const spec of nextById.values()) {
+        this.createAndShowEntry(spec);
+      }
     }
 
     setProfile(profile, options = {}) {
@@ -1233,10 +1232,15 @@
     }
 
     update(payload = {}) {
+      this.latestUpdatePayload = payload;
+
+      if (Array.isArray(payload.dashboardGaugeSpecs)) {
+        this.setGaugeSpecs(payload.dashboardGaugeSpecs);
+      }
+
       if (this.entries.length === 0) {
         return;
       }
-      this.latestUpdatePayload = payload;
 
       const telemetryEnabled = Boolean(payload.telemetryEnabled);
       const telemetryPaused = telemetryEnabled && Boolean(payload.telemetryPaused);
@@ -1245,17 +1249,6 @@
       const pauseMissionSeconds = hasPauseMissionSeconds
         ? toNumber(payload.telemetryPauseMissionSeconds, missionSeconds)
         : missionSeconds;
-      const contentSwitchAnimateMs = Math.max(0, toInt(payload.contentSwitchAnimateMs, 0));
-
-      if (Array.isArray(payload.dashboardGaugeSpecs)) {
-        this.setGaugeSpecs(payload.dashboardGaugeSpecs);
-      }
-
-      if (this.gaugeSpecSwitchTimer) {
-        this.pendingUpdatePayload = payload;
-        return;
-      }
-
       if (!telemetryEnabled) {
         return;
       }
@@ -1269,13 +1262,7 @@
           if (entry.type === "metric") {
             const value = this.resolveMetricValue(entry.spec.metricKey, pauseMissionSeconds, entry.spec.stageIndex || 0);
             resolvedValues[entry.spec.id] = value;
-            const animateMs = contentSwitchAnimateMs > 0
-              ? contentSwitchAnimateMs
-              : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 60);
-            entry.widget.setValue(value, {
-              animateMs,
-            });
-            this.metricSwitchAnimations.delete(entry.spec.id);
+            entry.widget.setValue(value);
           } else {
             entry.widget.update({
               missionSeconds,
@@ -1288,7 +1275,7 @@
               timelineNodes: payload.timelineNodes,
               modelName: payload.modelName,
               dashboardStageIndex: entry.spec.stageIndex || 1,
-              contentSwitchAnimateMs,
+              contentSwitchAnimateMs: 0,
             });
           }
         }
@@ -1304,13 +1291,7 @@
         if (entry.type === "metric") {
           const value = this.resolveMetricValue(entry.spec.metricKey, missionSeconds, entry.spec.stageIndex || 0);
           resolvedValues[entry.spec.id] = value;
-          const animateMs = contentSwitchAnimateMs > 0
-            ? contentSwitchAnimateMs
-            : (this.metricSwitchAnimations.get(entry.spec.id) ? 1000 : 60);
-          entry.widget.setValue(value, {
-            animateMs,
-          });
-          this.metricSwitchAnimations.delete(entry.spec.id);
+          entry.widget.setValue(value);
         } else {
           entry.widget.update({
             missionSeconds,
@@ -1323,7 +1304,7 @@
             timelineNodes: payload.timelineNodes,
             modelName: payload.modelName,
             dashboardStageIndex: entry.spec.stageIndex || 1,
-            contentSwitchAnimateMs,
+            contentSwitchAnimateMs: 0,
           });
         }
       }
@@ -1348,17 +1329,11 @@
     }
 
     destroy() {
-      if (this.gaugeSpecSwitchTimer) {
-        clearTimeout(this.gaugeSpecSwitchTimer);
-        this.gaugeSpecSwitchTimer = null;
-      }
-      this.setContentFaded(false);
       for (const entry of this.entries) {
         this.destroyEntry(entry);
       }
       this.entries = [];
       this.lastValues = {};
-      this.pendingUpdatePayload = null;
       this.latestUpdatePayload = null;
     }
   }

@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "model_id": "",
+  "model_id": "LM8A",
   "name": "长征八号甲",
   "stages": [
     {
@@ -477,33 +477,6 @@
     "version": 4,
     "node_configs": {
       "event:obs_l8_arm": {
-        "preset_id": "cz7a_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          },
-          {
-            "id": 4,
-            "enabled": false
-          },
-          {
-            "id": 5,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -552,25 +525,6 @@
         ]
       },
       "event:evt_l8_ignition": {
-        "preset_id": "cz8_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": false
-          },
-          {
-            "id": 3,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -611,25 +565,6 @@
         ]
       },
       "event:item_1780733589963": {
-        "preset_id": "cz8_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -670,25 +605,6 @@
         ]
       },
       "event:evt_l8_pitch": {
-        "preset_id": "cz8_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          },
-          {
-            "id": 2,
-            "enabled": true
-          },
-          {
-            "id": 3,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -729,17 +645,6 @@
         ]
       },
       "event:evt_l8_sep": {
-        "preset_id": "cz7_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": true
-          },
-          {
-            "id": 1,
-            "enabled": true
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -772,17 +677,6 @@
         ]
       },
       "event:item_1783257221558": {
-        "preset_id": "cz7_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -815,17 +709,6 @@
         ]
       },
       "event:item_1783257348109": {
-        "preset_id": "cz7_stage1",
-        "engine_states": [
-          {
-            "id": 0,
-            "enabled": false
-          },
-          {
-            "id": 1,
-            "enabled": false
-          }
-        ],
         "stage_configs": [
           {
             "stage_index": 1,
@@ -872,7 +755,7 @@
           "stage1:accel",
           "stage1:engine"
         ],
-        "telemetry_auto": ""
+        "telemetry_auto": "off"
       },
       {
         "id": "dashboard_node_1780733648321",
@@ -904,8 +787,8 @@
         "name": "一二级分离",
         "selected": [
           "stage1:altitude",
-          "stage1:speed",
-          "stage1:accel",
+          "stage2:speed",
+          "stage2:accel",
           "stage2:engine"
         ],
         "telemetry_auto": "on"

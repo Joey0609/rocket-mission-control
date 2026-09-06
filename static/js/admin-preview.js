@@ -515,7 +515,8 @@
       });
       select.value = currentSelection[slotIndex] || "";
       select.addEventListener("change", () => {
-        const nextSelection = getRowSelection(row);
+        const currentRow = Array.isArray(editor.nodes) ? editor.nodes[rowIndex] : null;
+        const nextSelection = getRowSelection(currentRow);
         nextSelection[slotIndex] = select.value;
         updateRow(rowIndex, {
           selected: normalizeDashboardSelectionList(nextSelection, allOptionKeys),

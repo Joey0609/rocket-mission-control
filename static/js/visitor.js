@@ -558,7 +558,7 @@ function ensureTimelineRenderer() {
   });
 }
 
-function ensureTelemetryGaugePanel() {
+function ensureTelemetryGaugePanel(initialGaugeSpecs) {
   if (telemetryGaugePanel) {
     return;
   }
@@ -571,6 +571,7 @@ function ensureTelemetryGaugePanel() {
   telemetryGaugePanel = createPanel({
     leftMountEl: nodes.telemetryGaugesLeft,
     rightMountEl: nodes.telemetryGaugesRight,
+    gaugeSpecs: initialGaugeSpecs,
   });
 }
 
@@ -635,20 +636,25 @@ function renderTimeline(state, missionSeconds) {
 }
 
 function renderTelemetryGauges(state, missionSeconds) {
-  ensureTelemetryGaugePanel();
+  const telemetryState = resolveTelemetryDisplayState(state, missionSeconds);
+  const telemetryEnabled = Boolean(telemetryState.enabled);
+  // 首次挂载时直接使用当前节点的真实规格，避免默认仪表盘先入场、再整批退场替换。
+  const localDashboardSpecs = telemetryEnabled
+    ? resolveDashboardGaugeSpecsByEditor(state, missionSeconds)
+    : null;
+  if (telemetryEnabled) {
+    ensureTelemetryGaugePanel(localDashboardSpecs);
+  }
+
+  setTelemetryDashboardVisibility(telemetryEnabled);
   if (!telemetryGaugePanel) {
     return;
   }
 
-  const telemetryState = resolveTelemetryDisplayState(state, missionSeconds);
-  const telemetryEnabled = Boolean(telemetryState.enabled);
-  setTelemetryDashboardVisibility(telemetryEnabled);
   telemetryGaugePanel.setProfile(state?.telemetry_profile || null);
   if (!telemetryEnabled) {
     return;
   }
-
-  const localDashboardSpecs = resolveDashboardGaugeSpecsByEditor(state, missionSeconds);
 
   telemetryGaugePanel.update({
     missionSeconds,
@@ -669,6 +675,7 @@ function renderTelemetryGauges(state, missionSeconds) {
 }
 
 function renderState(state) {
+  const isInitialState = lastState === null;
   lastState = state;
   const model = state.current_model || "等待选择型号";
   const payload = String(state?.rocket_meta?.payload || "").trim();
@@ -688,7 +695,12 @@ function renderState(state) {
   };
 
   const nextTargetMs = currentServerMissionMs(nowPerf);
-  maybeStartSmoothShift(previousDisplayMs, nextTargetMs, nowPerf);
+  if (isInitialState) {
+    // 页面刷新后的首包状态应直接对齐服务器时间，不能从 T+0 平滑追赶。
+    displaySmooth.active = false;
+  } else {
+    maybeStartSmoothShift(previousDisplayMs, nextTargetMs, nowPerf);
+  }
 
   const missionMs = getDisplayMissionMs(nowPerf);
   setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
@@ -822,7 +834,6 @@ async function init() {
   await loadDefaultTheme();
   bindThemeModal();
   ensureTimelineRenderer();
-  ensureTelemetryGaugePanel();
   ensureTelemetryCoverLayers();
 
   try {
