@@ -77,9 +77,13 @@
         <h2>发射控制</h2>
         <div class="row launch-main-row">
           <input type="datetime-local" id="launchAt" step="1">
-          <button class="btn" id="telemetryControlModeBtn">自动遥测</button>
-          <button class="btn" id="telemetryToggleBtn">开启遥测</button>
-          <button class="btn" id="telemetryPauseBtn">中断遥测</button>
+          <div class="telemetry-mode-switch" id="telemetryModeSwitch" role="group" aria-label="仪表盘控制模式">
+            <span class="telemetry-mode-thumb" aria-hidden="true"></span>
+            <button type="button" class="telemetry-mode-option active" id="telemetryAutoModeBtn" aria-pressed="true">自动仪表盘</button>
+            <button type="button" class="telemetry-mode-option" id="telemetryControlModeBtn" aria-pressed="false">手动仪表盘</button>
+          </div>
+          <button class="btn" id="telemetryToggleBtn">开启仪表盘</button>
+          <button class="btn" id="telemetryPauseBtn">中断数据</button>
           <button class="btn" id="holdBtn">HOLD</button>
         </div>
         <div class="row compact wrap launch-adjust-row">
@@ -103,7 +107,7 @@
       </section>
 
       <section class="panel">
-        <h2>快捷控制</h2>
+        <h2>快捷控制（倒计时）</h2>
         <div class="row compact wrap quick-launch-row">
           <button class="btn" data-quick-launch="0">点火</button>
           <button class="btn" data-quick-launch="30">30秒</button>

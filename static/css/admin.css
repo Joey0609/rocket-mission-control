@@ -268,16 +268,79 @@ body {
 }
 
 .launch-main-row #launchAt {
-  grid-column: 1 / 4;
+  grid-column: span 2;
   min-width: 0;
 }
 
-#telemetryControlModeBtn {
-  grid-column: 4;
+.telemetry-mode-switch {
+  grid-column: span 2;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: 100%;
+  min-height: 40px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-input);
+  touch-action: pan-y;
+  user-select: none;
+  cursor: grab;
+}
+
+.telemetry-mode-switch.dragging {
+  cursor: grabbing;
+}
+
+.telemetry-mode-switch:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.telemetry-mode-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 2);
+  border-radius: 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 72%, #1f6f5d), color-mix(in srgb, var(--accent) 86%, #2a866f));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+
+.telemetry-mode-switch.manual .telemetry-mode-thumb {
+  transform: translateX(100%);
+}
+
+.telemetry-mode-switch.dragging .telemetry-mode-thumb {
+  transition: none;
+}
+
+.telemetry-mode-option {
+  position: relative;
+  z-index: 1;
   min-width: 0;
-  max-width: none;
-  width: 100%;
-  padding-inline: 0;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 600 12px/1.25 var(--font-saira);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.telemetry-mode-option.active {
+  color: #f9fbfd;
+}
+
+.telemetry-mode-option:disabled {
+  cursor: default;
+}
+
+.telemetry-mode-switch:has(.telemetry-mode-option:disabled) {
+  cursor: default;
 }
 
 #telemetryToggleBtn,
@@ -302,8 +365,7 @@ body {
   border-color: color-mix(in srgb, #79d6ad 55%, var(--line));
 }
 
-#telemetryToggleBtn:disabled,
-#telemetryControlModeBtn:disabled {
+#telemetryToggleBtn:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }

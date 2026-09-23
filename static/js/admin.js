@@ -12,6 +12,8 @@ const dom = {
   openEngineLayoutBtn: document.getElementById("openEngineLayoutBtn"),
   openDashboardEditorBtn: document.getElementById("openDashboardEditorBtn"),
   launchAt: document.getElementById("launchAt"),
+  telemetryModeSwitch: document.getElementById("telemetryModeSwitch"),
+  telemetryAutoModeBtn: document.getElementById("telemetryAutoModeBtn"),
   telemetryControlModeBtn: document.getElementById("telemetryControlModeBtn"),
   telemetryToggleBtn: document.getElementById("telemetryToggleBtn"),
   telemetryPauseBtn: document.getElementById("telemetryPauseBtn"),
@@ -1192,20 +1194,24 @@ function renderTelemetryButtons(state, missionSeconds = Number(state?.unified_co
   const controlMode = telemetryState.controlMode || "auto";
   const toggleDisabled = Boolean(telemetryState.toggleDisabled);
 
-  if (dom.telemetryControlModeBtn) {
-    dom.telemetryControlModeBtn.textContent = controlMode === "manual" ? "手动遥测" : "自动遥测";
-    dom.telemetryControlModeBtn.classList.toggle("active", controlMode === "manual");
-    dom.telemetryControlModeBtn.disabled = telemetryUiBusy;
+  if (dom.telemetryModeSwitch) {
+    dom.telemetryModeSwitch.classList.toggle("manual", controlMode === "manual");
+  }
+  for (const [button, mode] of [[dom.telemetryAutoModeBtn, "auto"], [dom.telemetryControlModeBtn, "manual"]]) {
+    if (!button) continue;
+    button.classList.toggle("active", controlMode === mode);
+    button.setAttribute("aria-pressed", String(controlMode === mode));
+    button.disabled = telemetryUiBusy;
   }
 
   if (dom.telemetryToggleBtn) {
-    dom.telemetryToggleBtn.textContent = telemetryEnabled ? "关闭遥测" : "开启遥测";
+    dom.telemetryToggleBtn.textContent = telemetryEnabled ? "关闭仪表盘" : "开启仪表盘";
     dom.telemetryToggleBtn.classList.toggle("active", telemetryEnabled && !toggleDisabled);
     dom.telemetryToggleBtn.disabled = telemetryUiBusy || toggleDisabled;
   }
 
   if (dom.telemetryPauseBtn) {
-    dom.telemetryPauseBtn.textContent = telemetryPaused ? "恢复遥测" : "中断遥测";
+    dom.telemetryPauseBtn.textContent = telemetryPaused ? "恢复数据" : "中断数据";
     dom.telemetryPauseBtn.classList.toggle("active", telemetryPaused);
     dom.telemetryPauseBtn.disabled = telemetryUiBusy || !telemetryEnabled;
   }
@@ -1301,16 +1307,37 @@ function adjustLaunchTime(deltaSeconds) {
   scheduleApplyLaunch();
 }
 
-function quickLaunch(seconds) {
-  // 快捷控制：先取消 HOLD，再立即调整发射时间
-  adminFetch("/api/hold", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ hold: false }),
-  }).catch(() => {});
-  const next = new Date(Date.now() + Number(seconds) * 1000);
-  dom.launchAt.value = dateToInputValue(next);
-  scheduleApplyLaunch();
+async function quickLaunch(seconds) {
+  const launchInSeconds = Number(seconds);
+  if (!Number.isFinite(launchInSeconds)) {
+    toast("快捷发射时间无效", "error");
+    return;
+  }
+
+  try {
+    const holdRes = await adminFetch("/api/hold", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hold: false }),
+    });
+    const holdData = await holdRes.json();
+    if (!holdData.success && !String(holdData.message || "").includes("不可 HOLD")) {
+      throw new Error(holdData.message || "解除 HOLD 失败");
+    }
+
+    const launchRes = await adminFetch("/api/launch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ launch_in_seconds: launchInSeconds }),
+    });
+    const launchData = await launchRes.json();
+    if (!launchData.success) {
+      throw new Error(launchData.message || "快捷发射时间设置失败");
+    }
+    toast(`已设置 ${launchInSeconds} 秒后发射`, "success");
+  } catch (error) {
+    toast(error.message || "快捷控制失败", "error");
+  }
 }
 
 // 编辑器逻辑已拆分到 static/js/admin-editors/*.js，并在 admin.html 中按顺序加载
@@ -1549,31 +1576,80 @@ function bindEvents() {
     toast(data.message || (nextHold ? "已进入 HOLD" : "已恢复倒计时"), "success");
   });
 
-  if (dom.telemetryControlModeBtn) {
-    dom.telemetryControlModeBtn.addEventListener("click", async () => {
-      const currentMode = String(lastState?.telemetry_control_mode || "auto").trim().toLowerCase() === "manual" ? "manual" : "auto";
-      const nextMode = currentMode === "manual" ? "auto" : "manual";
-      telemetryUiBusy = true;
-      renderTelemetryButtons(lastState || {});
-      try {
-        const res = await adminFetch("/api/telemetry/control_mode", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: nextMode }),
-        });
-        const data = await res.json();
-        if (!data.success) {
-          renderTelemetryButtons(lastState || {});
-          toast(data.message || "遥测控制模式切换失败", "error");
-          return;
-        }
-        mergeTelemetryState(data);
-        toast(data.message || (nextMode === "manual" ? "已切换为手动遥测" : "已切换为自动遥测"), "success");
-      } finally {
-        telemetryUiBusy = false;
-        renderTelemetryButtons(lastState || {});
+  async function setTelemetryControlMode(nextMode) {
+    if (telemetryUiBusy || nextMode === String(lastState?.telemetry_control_mode || "auto").trim().toLowerCase()) return;
+    telemetryUiBusy = true;
+    renderTelemetryButtons(lastState || {});
+    dom.telemetryModeSwitch?.classList.toggle("manual", nextMode === "manual");
+    try {
+      const res = await adminFetch("/api/telemetry/control_mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: nextMode }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast(data.message || "仪表盘控制模式切换失败", "error");
+        return;
       }
+      mergeTelemetryState(data);
+      toast(data.message || (nextMode === "manual" ? "已切换为手动仪表盘" : "已切换为自动仪表盘"), "success");
+    } catch {
+      toast("仪表盘控制模式切换失败", "error");
+    } finally {
+      telemetryUiBusy = false;
+      renderTelemetryButtons(lastState || {});
+    }
+  }
+
+  dom.telemetryAutoModeBtn?.addEventListener("click", () => setTelemetryControlMode("auto"));
+  dom.telemetryControlModeBtn?.addEventListener("click", () => setTelemetryControlMode("manual"));
+
+  if (dom.telemetryModeSwitch) {
+    const track = dom.telemetryModeSwitch;
+    const thumb = track.querySelector(".telemetry-mode-thumb");
+    let drag = null;
+    let suppressClick = false;
+    track.addEventListener("pointerdown", (event) => {
+      if (telemetryUiBusy || event.button !== 0) return;
+      drag = { id: event.pointerId, startX: event.clientX,
+        manual: String(lastState?.telemetry_control_mode || "auto").toLowerCase() === "manual", moved: false };
     });
+    track.addEventListener("pointermove", (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const delta = event.clientX - drag.startX;
+      if (Math.abs(delta) > 5 && !drag.moved) {
+        drag.moved = true;
+        track.setPointerCapture(event.pointerId);
+      }
+      if (!drag.moved) return;
+      const travel = (track.clientWidth - 4) / 2;
+      const offset = Math.max(0, Math.min(travel, (drag.manual ? travel : 0) + delta));
+      track.classList.add("dragging");
+      thumb.style.transform = `translateX(${offset}px)`;
+    });
+    const finishDrag = (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const current = drag;
+      drag = null;
+      if (current.moved) {
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 0);
+        const travel = (track.clientWidth - 4) / 2;
+        const offset = Math.max(0, Math.min(travel, (current.manual ? travel : 0) + event.clientX - current.startX));
+        thumb.style.transform = "";
+        track.classList.remove("dragging");
+        if (event.type !== "pointercancel") setTelemetryControlMode(offset >= travel / 2 ? "manual" : "auto");
+      }
+    };
+    track.addEventListener("pointerup", finishDrag);
+    track.addEventListener("pointercancel", finishDrag);
+    track.addEventListener("click", (event) => {
+      if (!suppressClick) return;
+      event.preventDefault();
+      event.stopPropagation();
+      suppressClick = false;
+    }, true);
   }
 
   if (dom.telemetryToggleBtn) {

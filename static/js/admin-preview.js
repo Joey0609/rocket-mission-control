@@ -570,7 +570,7 @@
     headRow.appendChild(headNode);
     
     const headTelemetry = document.createElement("th");
-    headTelemetry.textContent = "遥测";
+    headTelemetry.textContent = "仪表盘开关";
     headTelemetry.className = "dashboard-telemetry-col";
     headRow.appendChild(headTelemetry);
     
