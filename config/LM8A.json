@@ -786,7 +786,7 @@
         "time": 208,
         "name": "一二级分离",
         "selected": [
-          "stage1:altitude",
+          "stage2:altitude",
           "stage2:speed",
           "stage2:accel",
           "stage2:engine"

@@ -924,7 +924,7 @@
         "selected": [
           "stage2:altitude",
           "stage2:speed",
-          "stage1:accel",
+          "stage2:accel",
           "stage2:engine"
         ],
         "telemetry_auto": "on"
@@ -934,7 +934,7 @@
         "time": 612,
         "name": "星箭分离",
         "selected": [
-          "",
+          "stage1:altitude",
           "stage1:speed",
           "stage2:accel",
           "stage2:altitude"
