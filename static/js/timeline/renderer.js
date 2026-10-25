@@ -190,6 +190,7 @@
         return;
       }
       const width = this.getSvgWidth();
+      this.svgHeight = Math.max(1, Math.round(Number(this.mountEl?.clientHeight) || this.svgHeight));
       this.svg.setAttribute("width", String(width));
       this.svg.setAttribute("height", String(this.svgHeight));
       this.fillRect.setAttribute("width", String(width));
@@ -228,13 +229,17 @@
         const startAngle = -Math.PI / 2 - angleSpan / 2;
         const endAngle = -Math.PI / 2 + angleSpan / 2;
         const blurOffset = 20;
+        // 遮罩固定为最终弧形，时间线仍按任务时间改变弧度。
+        const coverRadius = geometry.width / 2;
+        const coverCenterY = geometry.height + coverRadius * Math.cos(constants.EXPOSED_ARC_ANGLE_DEG * Math.PI / 360);
+        const blurRadius = coverRadius - innerArcOffset + blurOffset;
 
-        const x1Blur = geometry.circleCenterX + (borderArcRadius + blurOffset) * Math.cos(startAngle);
-        const y1Blur = geometry.circleCenterY + (borderArcRadius + blurOffset) * Math.sin(startAngle);
-        const x2Blur = geometry.circleCenterX + (borderArcRadius + blurOffset) * Math.cos(endAngle);
-        const y2Blur = geometry.circleCenterY + (borderArcRadius + blurOffset) * Math.sin(endAngle);
+        const x1Blur = geometry.circleCenterX + blurRadius * Math.cos(startAngle);
+        const y1Blur = coverCenterY + blurRadius * Math.sin(startAngle);
+        const x2Blur = geometry.circleCenterX + blurRadius * Math.cos(endAngle);
+        const y2Blur = coverCenterY + blurRadius * Math.sin(endAngle);
         drawing.drawPath(blurredGroup, {
-          d: `M ${x1Blur} ${y1Blur} A ${borderArcRadius + blurOffset} ${borderArcRadius + blurOffset} 0 0 1 ${x2Blur} ${y2Blur} Z`,
+          d: `M ${x1Blur} ${y1Blur} A ${blurRadius} ${blurRadius} 0 0 1 ${x2Blur} ${y2Blur} Z`,
           fill: constants.COLOR_INNER_ARC_STR,
         });
 
