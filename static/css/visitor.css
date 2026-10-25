@@ -629,6 +629,8 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
 
 .telemetry-gauge-widget .telemetry-gauge-circle {
   opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .telemetry-gauge-widget .telemetry-gauge-anim-path {
@@ -685,7 +687,8 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
 }
 
 .telemetry-gauge-widget.telemetry-gauge-enter .telemetry-gauge-circle {
-  animation: telemetryGaugeBgIn 320ms ease 500ms forwards;
+  animation: telemetryGaugeBgIn 500ms linear 300ms forwards,
+    telemetryGaugeBgScaleIn 500ms ease 300ms forwards;
 }
 
 .telemetry-gauge-widget.telemetry-gauge-enter .telemetry-gauge-anim-path {
@@ -772,8 +775,20 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   from {
     opacity: 0;
   }
+  50% {
+    opacity: 0.2;
+  }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes telemetryGaugeBgScaleIn {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
   }
 }
 

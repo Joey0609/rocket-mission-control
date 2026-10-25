@@ -1091,7 +1091,7 @@
       entry.isSwitching = false;
       this.clearEntryTimer(entry);
       if (entry.widget && typeof entry.widget.setVisible === "function") {
-        entry.widget.setVisible(true, { immediate: true });
+        entry.widget.setVisible(this.visible, { immediate: true });
       }
     }
 

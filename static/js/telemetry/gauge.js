@@ -416,6 +416,15 @@
       const visible = Boolean(nextVisible);
       const immediate = Boolean(options.immediate);
 
+      // 相同目标的重复请求应保留正在运行的动画及其收尾计时器。
+      if (!immediate && (
+        (visible && (this.visibilityState === "visible" || this.visibilityState === "entering"))
+        || (!visible && (this.visibilityState === "hidden"
+          || this.visibilityState === "exiting" || this.visibilityState === "reverse-exiting"))
+      )) {
+        return;
+      }
+
       if (this.visibilityTimer) {
         clearTimeout(this.visibilityTimer);
         this.visibilityTimer = null;
@@ -439,10 +448,6 @@
       }
 
       if (visible) {
-        if (this.visibilityState === "visible" || this.visibilityState === "entering") {
-          return;
-        }
-
         clearStateClasses();
         void this.rootEl.offsetWidth;
         this.rootEl.classList.add("telemetry-gauge-enter");
@@ -460,10 +465,6 @@
       }
 
       if (Boolean(options.reverse)) {
-        if (this.visibilityState === "hidden" || this.visibilityState === "reverse-exiting") {
-          return;
-        }
-
         clearStateClasses();
         void this.rootEl.offsetWidth;
         this.rootEl.classList.add("telemetry-gauge-reverse-exit");
@@ -477,10 +478,6 @@
           this.visibilityState = "hidden";
           this.visibilityTimer = null;
         }, GAUGE_REVERSE_EXIT_TOTAL_MS);
-        return;
-      }
-
-      if (this.visibilityState === "hidden" || this.visibilityState === "exiting") {
         return;
       }
 
