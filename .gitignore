@@ -4,6 +4,7 @@ node/
 .DS_Store
 .vscode/
 .idea/
+.deepseek/
 logs/
 dist/
 coverage/

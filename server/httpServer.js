@@ -4,6 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
 const QRCode = require("qrcode");
+const AUTO_WAIT_BEFORE_LAUNCH_MS = 300;
 
 function toInt(value, fallback = 0) {
   const parsed = Number.parseInt(value, 10);
@@ -1544,7 +1545,8 @@ class MissionEngine {
     this.holdActive = false;
     this.holdStartedAt = null;
     this.holdAccumulatedMs = 0;
-    this.autoHoldAtIgnitionLatched = false;
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = false;
     this.telemetryEnabled = true;
     this.telemetryControlMode = "auto";
     this.telemetryPaused = false;
@@ -1593,6 +1595,17 @@ class MissionEngine {
     }
 
     const target = Boolean(nextHold);
+    if (this.waitingForLaunch && !target) {
+      this.waitingForLaunch = false;
+      this.launchEpoch = Date.now() + AUTO_WAIT_BEFORE_LAUNCH_MS;
+      this.autoWaitArmed = false;
+      this.markDirty();
+      return [true, "已解除等待点火"];
+    }
+    if (this.waitingForLaunch && target) {
+      this.waitingForLaunch = false;
+      this.launchEpoch = Date.now() + AUTO_WAIT_BEFORE_LAUNCH_MS;
+    }
     if (target === this.holdActive) {
       return [true, target ? "已处于 HOLD" : "已恢复计时"];
     }
@@ -1701,6 +1714,8 @@ class MissionEngine {
     // 切换型号时保留当前的发射时间
     const savedLaunchEpoch = this.launchEpoch;
     const savedRunning = this.running;
+    const savedWaitingForLaunch = this.waitingForLaunch;
+    const savedAutoWaitArmed = this.autoWaitArmed;
 
     this.currentModelName = name;
     this.reset();
@@ -1710,6 +1725,8 @@ class MissionEngine {
     if (savedLaunchEpoch) {
       this.launchEpoch = savedLaunchEpoch;
       this.running = savedRunning;
+      this.waitingForLaunch = savedWaitingForLaunch;
+      this.autoWaitArmed = savedAutoWaitArmed;
     }
 
     this.markDirty();
@@ -1724,7 +1741,8 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.clearHold();
-    this.autoHoldAtIgnitionLatched = false;
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = this.launchEpoch > Date.now();
     this.markDirty();
   }
 
@@ -1739,9 +1757,9 @@ class MissionEngine {
     this.running = true;
     this.runtimeCountdowns = [];
     this.observationLog = [];
-    // 调整发射时间时不取消 HOLD
-    // this.clearHold();
-    // this.autoHoldAtIgnitionLatched = false;
+    // 调整发射时间时保留手动 HOLD，解除等待点火。
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = ts > Date.now();
     this.markDirty();
     return true;
   }
@@ -1753,7 +1771,8 @@ class MissionEngine {
     this.runtimeCountdowns = [];
     this.observationLog = [];
     this.clearHold();
-    this.autoHoldAtIgnitionLatched = false;
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = this.launchEpoch > Date.now();
     this.markDirty();
   }
 
@@ -1763,7 +1782,8 @@ class MissionEngine {
     }
     this.ignitionEpoch = Date.now() - this.holdElapsedMs(Date.now());
     this.clearHold();
-    this.autoHoldAtIgnitionLatched = false;
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = this.launchEpoch > Date.now();
     this.observationLog.push({
       type: "ignition",
       timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
@@ -1803,7 +1823,8 @@ class MissionEngine {
       this.ignitionEpoch = null;
       this.launchEpoch = now - targetMissionTime * 1000;
     }
-    this.autoHoldAtIgnitionLatched = false;
+    this.waitingForLaunch = false;
+    this.autoWaitArmed = this.launchEpoch > Date.now();
 
     this.observationLog.push({
       type: "observation",
@@ -1848,6 +1869,7 @@ class MissionEngine {
   }
 
   missionTimeMs(now) {
+    if (this.waitingForLaunch) return -AUTO_WAIT_BEFORE_LAUNCH_MS;
     if (this.ignitionEpoch) {
       return now - this.ignitionEpoch;
     }
@@ -1955,6 +1977,8 @@ class MissionEngine {
       if (this.ignitionEpoch) {
         status = "flight";
         flightSec = Math.max(0, Math.floor((now - this.ignitionEpoch) / 1000));
+      } else if (this.waitingForLaunch) {
+        status = "waiting_launch";
       } else if (this.holdActive) {
         status = "hold";
         mainSec = Math.max(0, Math.round(-this.missionTimeMs(now) / 1000));
@@ -1984,6 +2008,7 @@ class MissionEngine {
       running: this.running,
       is_flying: Boolean(this.ignitionEpoch),
       is_hold: this.holdActive,
+      is_waiting_launch: this.waitingForLaunch,
       telemetry_enabled: this.telemetryEnabled,
       telemetry_control_mode: this.telemetryControlMode,
       telemetry_effective_enabled: Boolean(telemetryResolvedState.enabled),
@@ -2220,7 +2245,26 @@ function startServer(options = {}) {
     res.write(`event: ${eventName}\ndata: ${payloadStr}\n\n`);
   }
 
+  let autoWaitTimer = null;
+  function scheduleAutoWait() {
+    clearTimeout(autoWaitTimer);
+    autoWaitTimer = null;
+    if (!appSettings.get().auto_hold_at_ignition || !engine.autoWaitArmed ||
+        !engine.running || engine.holdActive || engine.waitingForLaunch || engine.ignitionEpoch) return;
+    const waitEpoch = engine.launchEpoch - AUTO_WAIT_BEFORE_LAUNCH_MS;
+    const delay = Math.max(0, waitEpoch - Date.now());
+    autoWaitTimer = setTimeout(() => {
+      if (Date.now() < waitEpoch) { scheduleAutoWait(); return; }
+      engine.waitingForLaunch = true;
+      engine.autoWaitArmed = false;
+      engine.markDirty();
+      broadcastState();
+    }, Math.min(delay, 2147483647));
+    autoWaitTimer.unref?.();
+  }
+
   function broadcastState(force = false) {
+    scheduleAutoWait();
     if (streamClients.size <= 0) {
       return;
     }
@@ -2585,12 +2629,14 @@ function startServer(options = {}) {
     res.json({ success: true });
   });
 
+  scheduleAutoWait();
   const server = app.listen(port, host);
 
   return {
     url: `http://${host}:${port}`,
     stop: () => new Promise((resolve) => {
       clearInterval(gcTimer);
+      clearTimeout(autoWaitTimer);
       for (const client of streamClients) {
         try {
           client.res.end();

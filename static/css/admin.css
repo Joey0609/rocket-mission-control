@@ -580,10 +580,19 @@ textarea {
   opacity: 0.45;
 }
 
+#ignitionAutoHoldSwitchWrap {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 .switch-wrap.slider input[type="checkbox"] {
   appearance: none;
   width: 44px;
   height: 24px;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--line) 55%, transparent);
@@ -1818,3 +1827,10 @@ textarea {
     white-space: normal;
   }
 }
+
+#missionClock.waiting-launch-text {
+  animation: waitingLaunchPulse 1.2s ease-in-out infinite;
+  font-family: var(--font-saira);
+  letter-spacing: 0.1em;
+}
+@keyframes waitingLaunchPulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }

@@ -53,8 +53,8 @@
                 <input type="text" id="payloadInput" placeholder="载荷">
               </div>
               <label class="switch-wrap slider" id="ignitionAutoHoldSwitchWrap">
+                <span id="ignitionAutoHoldText">倒计时归零自动暂停</span>
                 <input type="checkbox" id="ignitionAutoHoldToggle">
-                <span id="ignitionAutoHoldText">点火自动继续</span>
               </label>
             </div>
           </div>
@@ -110,12 +110,12 @@
         <h2>快捷控制（倒计时）</h2>
         <div class="row compact wrap quick-launch-row">
           <button class="btn" data-quick-launch="0">点火</button>
+          <button class="btn" data-quick-launch="5">5秒</button>
+          <button class="btn" data-quick-launch="10">10秒</button>
           <button class="btn" data-quick-launch="30">30秒</button>
           <button class="btn" data-quick-launch="60">1分钟</button>
           <button class="btn" data-quick-launch="180">3分钟</button>
           <button class="btn" data-quick-launch="300">5分钟</button>
-          <button class="btn" data-quick-launch="600">10分钟</button>
-          <button class="btn" data-quick-launch="900">15分钟</button>
         </div>
       </section>
 

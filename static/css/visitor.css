@@ -115,9 +115,9 @@ body.viewer-mode-video .viewer-layout-root .mission-overlay {
   width: 672px;
   transform: translateX(-50%);
   z-index: 52;
-  --overlay-prefix-width: 44px;
-  --overlay-prefix-font-size: 34px;
-  --overlay-time-font-size: 44px;
+  --overlay-prefix-width: 36px;
+  --overlay-prefix-font-size: 28px;
+  --overlay-time-font-size: 36px;
   --overlay-line-font-size: 16px;
 }
 
@@ -279,6 +279,12 @@ body.viewer-mode-video .theme-modal {
   line-height: 1;
   white-space: nowrap;
   font-family: var(--font-saira);
+}
+
+.clock-card #missionClock {
+  display: flex;
+  align-items: center;
+  min-height: clamp(48px, 8.5vw, 122px);
 }
 
 .pulse-card {
@@ -925,15 +931,16 @@ body.viewer-mode-video .viewer-layout-root .timeline-side-bg {
   text-align: center;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
   font-family: var(--font-saira);
-  --overlay-prefix-width: clamp(24px, calc(24px + (100vw - 1360px) * 0.0571428571), 44px);
-  --overlay-prefix-font-size: clamp(16px, calc(16px + (100vw - 1360px) * 0.0514285714), 34px);
-  --overlay-time-font-size: clamp(28px, calc(28px + (100vw - 1360px) * 0.0457142857), 44px);
+  --overlay-prefix-width: clamp(21px, calc(21px + (100vw - 1360px) * 0.0428571429), 36px);
+  --overlay-prefix-font-size: clamp(15px, calc(15px + (100vw - 1360px) * 0.0371428571), 28px);
+  --overlay-time-font-size: clamp(24px, calc(24px + (100vw - 1360px) * 0.0342857143), 36px);
   --overlay-line-font-size: clamp(12px, calc(12px + (100vw - 1360px) * 0.0114285714), 16px);
 }
 
 .mission-overlay-clock {
   display: inline-flex;
   align-items: center;
+  height: var(--overlay-time-font-size);
   gap: 10px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1348,4 +1355,29 @@ body.viewer-mode-video .viewer-layout-root .timeline-mount {
   .telemetry-gauge-value {
     font-size: 21px;
   }
+}
+
+.mission-overlay-clock.waiting-launch .mission-overlay-prefix,
+.mission-overlay-clock.waiting-launch .overlay-hold-indicator { display: none; }
+.mission-overlay-clock.waiting-launch .mission-overlay-time,
+.waiting-launch-text { animation: holdPulse 1.2s ease-in-out infinite; }
+
+.mission-overlay-clock.waiting-launch .mission-overlay-time,
+#missionClock.waiting-launch-text {
+  letter-spacing: 0.1em;
+}
+
+#missionClock,
+.mission-overlay-prefix,
+.mission-overlay-time {
+  font-family: var(--font-saira);
+  font-variant-numeric: tabular-nums;
+}
+
+#missionClock.waiting-launch-text {
+  font-size: clamp(32px, 4.5vw, 64px);
+}
+
+.mission-overlay-clock.waiting-launch .mission-overlay-time {
+  font-size: calc(var(--overlay-time-font-size) * 0.8);
 }

@@ -292,6 +292,45 @@ function formatMissionOverlayClock(msValue) {
   };
 }
 
+let displayedWaitingLaunch = null;
+let waitingTransitionToken = 0;
+let pendingWaitingLaunch = null;
+
+function updateWaitingLaunchDisplay(waiting) {
+  if (displayedWaitingLaunch === null) {
+    displayedWaitingLaunch = waiting;
+    return;
+  }
+  if (waiting === displayedWaitingLaunch) {
+    if (pendingWaitingLaunch !== null) waitingTransitionToken += 1;
+    pendingWaitingLaunch = null;
+    return;
+  }
+  if (pendingWaitingLaunch === waiting) return;
+  const token = ++waitingTransitionToken;
+  const elements = [nodes.missionClock, nodes.overlayClockTime?.parentElement].filter(Boolean);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !elements[0]?.animate) {
+    displayedWaitingLaunch = waiting;
+    return;
+  }
+  pendingWaitingLaunch = waiting;
+  const fades = elements.map((element) => element.animate([{ opacity: getComputedStyle(element).opacity }, { opacity: 0.3 }], { duration: 180, fill: "forwards" }));
+  Promise.all(fades.map((animation) => animation.finished.catch(() => {}))).then(() => {
+    if (token !== waitingTransitionToken) {
+      fades.forEach((animation) => animation.cancel());
+      return;
+    }
+    displayedWaitingLaunch = waiting;
+    pendingWaitingLaunch = null;
+    const missionMs = getDisplayMissionMs(performance.now());
+    setTextIfChanged(nodes.missionClock, waiting ? "等待点火" : formatSignedClock(missionMs));
+    nodes.missionClock.classList.toggle("waiting-launch-text", waiting);
+    renderMissionOverlay(lastState, missionMs);
+    elements.forEach((element) => element.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 180 }));
+    fades.forEach((animation) => animation.cancel());
+  });
+}
+
 function renderMissionOverlay(state, missionMs) {
   const model = String(state?.current_model || "").trim();
   const payload = String(state?.rocket_meta?.payload || "").trim();
@@ -301,9 +340,11 @@ function renderMissionOverlay(state, missionMs) {
   const hasVehicle = Boolean(vehicleName);
   const payloadText = payload;
 
+  const waiting = Boolean(displayedWaitingLaunch);
+  nodes.overlayClockTime?.parentElement?.classList.toggle("waiting-launch", waiting);
   const overlayClock = formatMissionOverlayClock(missionMs);
   setTextIfChanged(nodes.overlayClockSign, overlayClock.sign);
-  setTextIfChanged(nodes.overlayClockTime, overlayClock.timeString);
+  setTextIfChanged(nodes.overlayClockTime, waiting ? "等待点火" : overlayClock.timeString);
 
   setTextIfChanged(nodes.overlayMissionName, missionName);
   if (nodes.overlayVehicleChunk) {
@@ -677,6 +718,7 @@ function renderTelemetryGauges(state, missionSeconds) {
 function renderState(state) {
   const isInitialState = lastState === null;
   lastState = state;
+  updateWaitingLaunchDisplay(Boolean(state.is_waiting_launch));
   const model = state.current_model || "等待选择型号";
   const payload = String(state?.rocket_meta?.payload || "").trim();
   setTextIfChanged(nodes.modelName, model);
@@ -691,7 +733,7 @@ function renderState(state) {
   serverAnchor = {
     ms: Number(state.unified_countdown_ms ?? 0),
     anchorPerf: nowPerf,
-    running: Boolean(state.running) && !Boolean(state.is_hold),
+    running: Boolean(state.running) && !Boolean(state.is_hold) && !Boolean(state.is_waiting_launch),
   };
 
   const nextTargetMs = currentServerMissionMs(nowPerf);
@@ -703,7 +745,7 @@ function renderState(state) {
   }
 
   const missionMs = getDisplayMissionMs(nowPerf);
-  setTextIfChanged(nodes.missionClock, formatSignedClock(missionMs));
+  setTextIfChanged(nodes.missionClock, displayedWaitingLaunch ? "等待点火" : formatSignedClock(missionMs));
   renderMissionOverlay(state, missionMs);
   setTextIfChanged(nodes.currentStage, state.current_stage || "待命");
 
@@ -733,6 +775,7 @@ function renderState(state) {
     nodes.overlayHoldIndicator.classList.toggle("active", Boolean(state.is_hold));
   }
 
+  nodes.missionClock.classList.toggle("waiting-launch-text", Boolean(displayedWaitingLaunch));
   nodes.missionCard.classList.toggle("pulse-card", state.status === "countdown");
 
   renderTimeline(state, missionMs / 1000);
@@ -742,7 +785,7 @@ function renderState(state) {
 function tickClocks() {
   const nowPerf = performance.now();
   const missionMs = getDisplayMissionMs(nowPerf);
-  const formatted = formatSignedClock(missionMs);
+  const formatted = displayedWaitingLaunch ? "等待点火" : formatSignedClock(missionMs);
   setTextIfChanged(nodes.missionClock, formatted);
 
   if (lastState) {

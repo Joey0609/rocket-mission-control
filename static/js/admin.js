@@ -146,7 +146,6 @@ let pendingModelName = "";
 let selectingModel = false;
 let launchInputDirtyUntil = 0;
 let observationButtonsSig = "";
-let autoHoldLatched = false;
 let telemetryUiBusy = false;
 
 let currentThemeId = window.MissionThemes.defaultId;
@@ -315,44 +314,50 @@ function findNextTimelineEvent(state, missionTimeSeconds) {
   return null;
 }
 
+let displayedWaitingLaunch = null;
+let waitingTransitionToken = 0;
+let pendingWaitingLaunch = null;
+
+function updateWaitingLaunchDisplay(waiting) {
+  if (displayedWaitingLaunch === null) {
+    displayedWaitingLaunch = waiting;
+    return;
+  }
+  if (waiting === displayedWaitingLaunch) {
+    if (pendingWaitingLaunch !== null) waitingTransitionToken += 1;
+    pendingWaitingLaunch = null;
+    return;
+  }
+  if (pendingWaitingLaunch === waiting) return;
+  const token = ++waitingTransitionToken;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !dom.missionClock.animate) {
+    displayedWaitingLaunch = waiting;
+    return;
+  }
+  pendingWaitingLaunch = waiting;
+  const fade = dom.missionClock.animate([{ opacity: getComputedStyle(dom.missionClock).opacity }, { opacity: 0.3 }], { duration: 180, fill: "forwards" });
+  fade.finished.then(() => {
+    if (token !== waitingTransitionToken) {
+      fade.cancel();
+      return;
+    }
+    displayedWaitingLaunch = waiting;
+    pendingWaitingLaunch = null;
+    const missionMs = missionAnchor.running ? missionAnchor.ms + performance.now() - missionAnchor.anchorPerf : missionAnchor.ms;
+    setTextIfChanged(dom.missionClock, waiting ? "等待点火" : formatSignedClock(missionMs));
+    dom.missionClock.classList.toggle("waiting-launch-text", waiting);
+    dom.missionClock.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 180 });
+    fade.cancel();
+  }).catch(() => {});
+}
+
 function tickMissionClock() {
   const nowPerf = performance.now();
   const missionMs = missionAnchor.running ? missionAnchor.ms + (nowPerf - missionAnchor.anchorPerf) : missionAnchor.ms;
-  setTextIfChanged(dom.missionClock, formatSignedClock(missionMs));
+  setTextIfChanged(dom.missionClock, displayedWaitingLaunch ? "等待点火" : formatSignedClock(missionMs));
 
   if (lastState) {
     renderTelemetryButtons(lastState, missionMs / 1000);
-
-    // 点火自动 HOLD：客户端检查，与服务端 "打开遥测" 同逻辑
-    const missionSec = missionMs / 1000;
-    const autoHoldEnabled = Boolean(lastState?.auto_hold_at_ignition);
-
-    // 仅当引擎停止或切换型号时重置 latch，手动恢复 HOLD 不重置
-    if (!lastState?.running) {
-      autoHoldLatched = false;
-    }
-
-    if (autoHoldEnabled && !autoHoldLatched && lastState?.status === "countdown" && missionSec >= -30 && missionSec <= 0) {
-      const timelineNodes = Array.isArray(lastState?.timeline_nodes) ? lastState.timeline_nodes : [];
-      const launchEvents = timelineNodes
-        .filter((n) => {
-          const name = String(n?.name || "").trim().toLowerCase();
-          return name.includes("启动") || name.includes("点火");
-        })
-        .sort((a, b) => Number(a.time) - Number(b.time));
-
-      if (launchEvents.length > 0) {
-        const firstEvent = launchEvents[0];
-        if (missionSec >= Number(firstEvent.time)) {
-          autoHoldLatched = true;
-          adminFetch("/api/hold", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hold: true }),
-          }).catch(() => {});
-        }
-      }
-    }
   }
 }
 
@@ -425,7 +430,7 @@ function setRecoverToggleText(enabled) {
 
 function setIgnitionAutoHoldText(enabled) {
   if (dom.ignitionAutoHoldText) {
-    dom.ignitionAutoHoldText.textContent = enabled ? "点火自动HOLD" : "点火自动继续";
+    dom.ignitionAutoHoldText.textContent = "倒计时归零自动暂停";
   }
 }
 
@@ -1231,16 +1236,18 @@ function mergeTelemetryState(nextPartial = {}) {
 
 function renderState(state) {
   lastState = state;
+  updateWaitingLaunchDisplay(Boolean(state.is_waiting_launch));
 
   dom.currentModel.textContent = state.current_model || "-";
-  dom.currentStatus.textContent = state.status;
+  dom.currentStatus.textContent = state.is_waiting_launch ? "等待点火" : state.status;
+  dom.missionClock.classList.toggle("waiting-launch-text", Boolean(displayedWaitingLaunch));
 
   missionAnchor = {
     ms: Number(state.unified_countdown_ms ?? 0),
     anchorPerf: performance.now(),
-    running: Boolean(state.running) && !Boolean(state.is_hold),
+    running: Boolean(state.running) && !Boolean(state.is_hold) && !Boolean(state.is_waiting_launch),
   };
-  setTextIfChanged(dom.missionClock, formatSignedClock(missionAnchor.ms));
+  setTextIfChanged(dom.missionClock, displayedWaitingLaunch ? "等待点火" : formatSignedClock(missionAnchor.ms));
 
   const missionTimeSeconds = Number(state.unified_countdown_ms ?? 0) / 1000;
   const nextEvent = findNextTimelineEvent(state, missionTimeSeconds);
@@ -1315,16 +1322,6 @@ async function quickLaunch(seconds) {
   }
 
   try {
-    const holdRes = await adminFetch("/api/hold", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hold: false }),
-    });
-    const holdData = await holdRes.json();
-    if (!holdData.success && !String(holdData.message || "").includes("不可 HOLD")) {
-      throw new Error(holdData.message || "解除 HOLD 失败");
-    }
-
     const launchRes = await adminFetch("/api/launch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1410,7 +1407,7 @@ async function updateIgnitionAutoHoldToggle(enabled) {
     });
     const data = await res.json();
     if (!data.success) {
-      throw new Error(data.message || "更新点火自动 HOLD 配置失败");
+      throw new Error(data.message || "更新自动等待点火配置失败");
     }
 
     if (lastState) {
@@ -1426,7 +1423,7 @@ async function updateIgnitionAutoHoldToggle(enabled) {
     }
     updatingIgnitionAutoHoldToggle = false;
     setIgnitionAutoHoldText(nextEnabled);
-    toast(nextEnabled ? "已开启点火自动 HOLD" : "已关闭点火自动 HOLD", "success");
+    toast(nextEnabled ? "已开启倒计时归零自动暂停" : "已关闭倒计时归零自动暂停", "success");
   } finally {
     ignitionAutoHoldToggleSaving = false;
     renderRocketConfigCard(lastState || {});
