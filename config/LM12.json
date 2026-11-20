@@ -139,7 +139,7 @@
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "未知载荷",
+    "payload": "低轨互联网星座",
     "recovery_capable": false,
     "recovery_enabled": false,
     "stage_count": 2,

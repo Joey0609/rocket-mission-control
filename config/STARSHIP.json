@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "model_id": "STARSHIP",
   "name": "Starship",
   "stages": [
@@ -30,56 +30,70 @@
       "id": "evt_ss_precool",
       "name": "引擎预冷",
       "time": -600,
+      "hidden": false,
+      "observation": false,
       "description": "Raptor发动机冷却"
-    },
-    {
-      "id": "evt_ss_countdown",
-      "name": "倒计时开始",
-      "time": -10,
-      "description": "倒计时启动"
-    },
-    {
-      "id": "evt_ss_launch",
-      "name": "发射",
-      "time": 0,
-      "description": "Starship起飞"
-    },
-    {
-      "id": "obs_ss_ignition",
-      "name": "点火确认",
-      "time": -5,
-      "observation": true,
-      "description": "观察到发动机已点火"
     },
     {
       "id": "obs_ss_arm",
       "name": "摆杆摆开",
       "time": -95,
+      "hidden": false,
       "observation": true,
       "description": "观察到摆杆已打开"
+    },
+    {
+      "id": "evt_ss_countdown",
+      "name": "倒计时开始",
+      "time": -10,
+      "hidden": false,
+      "observation": false,
+      "description": "倒计时启动"
+    },
+    {
+      "id": "obs_ss_ignition",
+      "name": "点火确认",
+      "time": -5,
+      "hidden": false,
+      "observation": true,
+      "description": "观察到发动机已点火"
+    },
+    {
+      "id": "evt_ss_launch",
+      "name": "发射",
+      "time": 0,
+      "hidden": false,
+      "observation": false,
+      "description": "Starship起飞"
     },
     {
       "id": "evt_ss_maxq",
       "name": "Max Q",
       "time": 50,
+      "hidden": false,
+      "observation": false,
       "description": "最大动压点"
     },
     {
       "id": "evt_ss_hot_stage",
       "name": "热分离",
       "time": 170,
+      "hidden": false,
+      "observation": false,
       "description": "Super Heavy助推器分离"
     },
     {
       "id": "evt_ss_orbit",
       "name": "进入轨道",
       "time": 600,
+      "hidden": false,
+      "observation": false,
       "description": "进入轨道高度"
     }
   ],
   "rocket_meta": {
     "mission_name": "",
-    "payload": "",
+    "payload": "Starlink 31-1",
     "recovery_capable": true,
     "recovery_enabled": false,
     "stage_count": 2,
@@ -118,6 +132,7 @@
   },
   "telemetry_editor": {
     "version": 1,
+    "data_src": null,
     "node_values": {},
     "curves": {
       "altitude_km": {
@@ -135,18 +150,27 @@
       "angular_velocity_dps": {
         "stage1": [],
         "upper": []
+      },
+      "euler_roll_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_pitch_deg": {
+        "stage1": [],
+        "upper": []
+      },
+      "euler_yaw_deg": {
+        "stage1": [],
+        "upper": []
       }
     }
   },
   "engine_layout": {
-    "version": 2,
-    "presets": [
-      {
-        "id": "preset_default",
-        "name": "默认预设",
-        "engine_count": 33
-      }
-    ],
+    "version": 4,
+    "node_configs": {}
+  },
+  "dashboard_editor": {
+    "version": 1,
     "node_configs": {}
   }
 }
